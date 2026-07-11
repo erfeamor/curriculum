@@ -38,7 +38,9 @@ services:
     volumes:
       - ./cv-database/sql:/flyway/sql:ro
     environment:
-      FLYWAY_URL: jdbc:mysql://mysql:3306/cv
+      # allowPublicKeyRetrieval: Flyway's bundled MariaDB driver connects
+      # without TLS and otherwise refuses MySQL 8's caching_sha2_password.
+      FLYWAY_URL: jdbc:mysql://mysql:3306/cv?allowPublicKeyRetrieval=true
       FLYWAY_USER: cv
       FLYWAY_PASSWORD: cv
       FLYWAY_LOCATIONS: filesystem:/flyway/sql/migrations,filesystem:/flyway/sql/dev-seeds
