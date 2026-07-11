@@ -1,0 +1,16 @@
+# OS / editor
+.DS_Store
+*.swp
+.vscode/
+.idea/
+.claude/
+
+# The sibling product repos are cloned locally by clone-all.sh but are not
+# part of this meta repo's own history.
+cv-database/
+cv-domain-service/
+cv-bff-node/
+cv-admin-react/
+cv-public-vanilla/
+cv-observability/
+cv-infra/

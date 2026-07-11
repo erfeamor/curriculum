@@ -1,0 +1,29 @@
+%% Render with the Mermaid CLI, VS Code Mermaid extension, or https://mermaid.live
+flowchart LR
+    subgraph Public
+        PV[cv-public-vanilla]
+    end
+
+    subgraph Admin
+        AR[cv-admin-react]
+    end
+
+    subgraph Backend
+        BFF[cv-bff-node]
+        DOM[cv-domain-service]
+        DB[(cv-database\nMySQL)]
+    end
+
+    subgraph Cross-cutting
+        AUTH[AWS Cognito]
+        OBS[cv-observability\nPrometheus/Grafana + Logs]
+    end
+
+    PV --> BFF --> DOM --> DB
+    AR --> DOM
+    AR -. auth .-> AUTH
+    DOM -. validates JWT .-> AUTH
+    BFF -. validates JWT .-> AUTH
+
+    DOM -. metrics/logs .-> OBS
+    BFF -. metrics/logs .-> OBS
