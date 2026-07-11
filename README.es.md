@@ -220,20 +220,39 @@ cv-infra/
 ./scripts/build-all.sh   # construye cada repo
 ```
 
+### Levantar todo el stack en local
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+curl http://localhost:3000/api/v1/people/1   # ruta del sitio público: BFF → servicio de dominio → MySQL
+```
+
+Levanta MySQL, las migraciones de Flyway (+seeds de desarrollo), el servicio Java de dominio, el BFF Node, Prometheus (:9090) y Grafana (:3001, admin/admin), con la autenticación desactivada vía `AUTH_ENABLED=false`. Los frontends se ejecutan aparte con `npm run dev` en sus repos.
+
 Cada repo de producto también incluye su propio `.devcontainer/devcontainer.json` para trabajar únicamente en ese stack. La configuración global en `devcontainers/full-stack/` levanta Java, Node, Docker, Terraform y la AWS CLI en un solo contenedor para trabajo cruzado entre repos — ver [devcontainers/README.md](devcontainers/README.md).
 
 ---
 
 ## 📌 Roadmap
 
-- [ ] Definir modelo de datos completo  
-- [ ] Crear migraciones iniciales  
-- [ ] Implementar API Java con TDD  
-- [ ] Integrar Cognito  
-- [ ] Crear BFF Node  
-- [ ] Crear React Admin  
-- [ ] Crear Vanilla Landing  
-- [ ] Configurar observabilidad  
-- [ ] Desplegar infraestructura AWS  
-- [ ] Configurar pipelines CI/CD  
-- [ ] Documentación final y diagrama de arquitectura  
+- [x] Definir modelo de datos inicial (person/experience/education/skill/project)
+- [x] Crear migraciones iniciales
+- [x] Implementar API Java con TDD (recurso person; resto de entidades pendiente)
+- [ ] Integrar Cognito (infra + validación JWT hechas; flujo real Hosted UI en React pendiente)
+- [x] Crear BFF Node
+- [x] Crear React Admin (CRUD de person)
+- [x] Crear Vanilla Landing
+- [x] Configurar observabilidad (métricas; pipeline de logging estructurado pendiente)
+- [ ] Desplegar infraestructura AWS (Terraform escrito y testeado con mocks; aún sin aplicar)
+- [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×3, DroneCI ×1)
+- [ ] Documentación final y diagrama de arquitectura
+
+### Backlog
+
+- Aprovisionamiento EC2 (user_data / automatización de deploy) y stages de deploy reales en los pipelines
+- Flujo Cognito Hosted UI en `cv-admin-react` (sustituir el stub de `src/auth/CognitoContext.jsx`)
+- Resto de entidades de dominio (experience, education, skill, project) en API/BFF/frontends
+- Logging JSON estructurado hacia MongoDB Atlas o CloudWatch (ver `cv-observability/docs/logging.md`)
+- Dashboard inicial de Grafana
+- Animaciones / Web Components del sitio público
+- Crear los repos de GitHub y hacer push (clone-all.sh asume `github.com/erfeamor/<repo>`)

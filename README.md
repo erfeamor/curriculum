@@ -220,20 +220,39 @@ cv-infra/
 ./scripts/build-all.sh   # build every repo
 ```
 
+### Run the whole stack locally
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+curl http://localhost:3000/api/v1/people/1   # vanilla-site path: BFF → domain service → MySQL
+```
+
+Brings up MySQL, Flyway migrations (+dev seeds), the Java domain service, the Node BFF, Prometheus (:9090), and Grafana (:3001, admin/admin), with auth disabled via `AUTH_ENABLED=false`. Frontends run separately with `npm run dev` in their repos.
+
 Each product repo also ships its own `.devcontainer/devcontainer.json` for working on that stack alone. The global config under `devcontainers/full-stack/` bootstraps Java, Node, Docker, Terraform, and the AWS CLI in one container for cross-repo work — see [devcontainers/README.md](devcontainers/README.md).
 
 ---
 
 ## 📌 Roadmap
 
-- [ ] Define the complete data model
-- [ ] Create initial migrations
-- [ ] Implement the Java API with TDD
-- [ ] Integrate Cognito
-- [ ] Create the Node BFF
-- [ ] Create React Admin
-- [ ] Create the Vanilla Landing page
-- [ ] Configure observability
-- [ ] Deploy AWS infrastructure
-- [ ] Configure CI/CD pipelines
+- [x] Define the initial data model (person/experience/education/skill/project)
+- [x] Create initial migrations
+- [x] Implement the Java API with TDD (person resource; remaining entities pending)
+- [ ] Integrate Cognito (infra + JWT validation done; real Hosted UI flow in React pending)
+- [x] Create the Node BFF
+- [x] Create React Admin (person CRUD)
+- [x] Create the Vanilla Landing page
+- [x] Configure observability (metrics; structured-logging pipeline pending)
+- [ ] Deploy AWS infrastructure (Terraform written and tested with mocks; not yet applied)
+- [x] Configure CI/CD pipelines (Jenkins ×2, GitHub Actions ×3, DroneCI ×1)
 - [ ] Final documentation and architecture diagram
+
+### Backlog
+
+- EC2 provisioning (user_data / deploy automation) and real deploy stages in the pipelines
+- Cognito Hosted UI flow in `cv-admin-react` (replace the stub in `src/auth/CognitoContext.jsx`)
+- Remaining domain entities (experience, education, skill, project) across API/BFF/frontends
+- Structured JSON logging to MongoDB Atlas or CloudWatch (see `cv-observability/docs/logging.md`)
+- Grafana starter dashboard
+- Vanilla-site animations / Web Components
+- Create the GitHub repos and push (clone-all.sh assumes `github.com/erfeamor/<repo>`)
