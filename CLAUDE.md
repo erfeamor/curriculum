@@ -1,38 +1,52 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file guides Claude Code when working in the **cv-project meta repo**. Each sibling product repo has its own CLAUDE.md with stack-specific commands — read that one before working there.
 
-## Repository status
+## What this workspace is
 
-This repository currently contains only `README.md` — a Spanish-language architecture spec for a planned multi-repo project. No source code, build tooling, tests, or CI configuration exist yet. There is nothing to build, lint, or test at this time. When implementation work begins, update this file with the real commands and structure that emerge.
+"Currículum Interactivo": an interactive CV system built as a **multi-repo** demo (six product repos + infra), each with its own git history, CI system, and deploy pipeline — deliberately *not* a monorepo. This directory is the meta repo (orchestration only, no app code); the seven product repos are its sibling subdirectories on disk but are **independent git repositories**, not submodules — a `git` command here never sees their files.
 
-## Project concept
-
-"Currículum Interactivo" is a full-stack technology demo: an interactive CV/résumé system built to showcase multiple stacks, architectures, and CI/CD tools working together. It is designed as **six independent repositories**, each deployed via its own pipeline, not as a monorepo:
-
-| Repo | Layer | Stack | Pipeline |
+| Repo | Layer | Stack | CI |
 |---|---|---|---|
-| `cv-database` | Data | MySQL + Flyway/Liquibase migrations | Jenkins |
-| `cv-domain-service` | Core domain API | Java 17+, Spring Boot, JPA/Hibernate, OpenAPI, JUnit+Mockito | Jenkins |
-| `cv-bff-node` | Backend-for-Frontend | Node.js + Express, Jest | GitHub Actions |
-| `cv-admin-react` | Admin frontend (CRUD) | React + Hooks, React Router, Jest + RTL | DroneCI |
-| `cv-public-vanilla` | Public landing page | Vanilla HTML/CSS/JS, optional Web Components, Vitest/Jest | GitHub Actions |
-| `cv-observability` | Metrics + logs | Prometheus/Grafana (Micrometer, prom-client), MongoDB Atlas or CloudWatch for logs | Jenkins or Actions |
+| `cv-database` | Data | MySQL 8 + Flyway 10 | Jenkins |
+| `cv-domain-service` | Domain API (source of truth) | Java 17, Spring Boot 3 | Jenkins |
+| `cv-bff-node` | BFF for the public site | Node 20 + Express | GitHub Actions |
+| `cv-admin-react` | Admin CRUD UI | React 18 + Vite | DroneCI |
+| `cv-public-vanilla` | Public landing | Vanilla JS + Vite | GitHub Actions |
+| `cv-observability` | Metrics stack | Prometheus + Grafana | GitHub Actions |
+| `cv-infra` | IaC | Terraform, AWS Free Tier | — |
 
-A separate `cv-infra` repo holds infrastructure-as-code (Terraform or AWS CDK).
+Flow: public site → BFF → domain service → MySQL. Admin UI → domain service directly. Auth: AWS Cognito JWTs, with a shared `AUTH_ENABLED` toggle (Java defaults **on**, BFF defaults **off**) so local stacks run without a user pool.
 
-## Architecture flow
+## Git workflow — non-negotiable
 
-`cv-public-vanilla` (public site) → `cv-bff-node` (BFF: aggregates/normalizes) → `cv-domain-service` (Java REST API, source of truth) → `cv-database` (MySQL).
+**`master` is protected in every repo (including this one). Never commit to it. Never push it.** Every change: feature branch → push → PR → merge after CI. Branch names: `feat/…`, `fix/…`, `docs/…`, `chore/…`. GitHub org is `erfeamor`; use `gh` for PRs.
 
-`cv-admin-react` (admin CRUD UI) talks directly to `cv-domain-service`, bypassing the BFF.
+## Task board for agent teams
 
-Auth: **AWS Cognito** issues JWTs. `cv-admin-react` uses the Cognito Hosted UI/SDK to authenticate; `cv-domain-service` validates JWTs; `cv-bff-node` validates JWTs and propagates claims downstream.
+`.claude/tasks/` holds the shared task board — **read `.claude/tasks/README.md` before picking up any work**, claim tasks by editing their frontmatter, and honor `depends_on`. API work must match `docs/api-contract.md` exactly.
 
-Observability is deliberately split: metrics go to Prometheus/Grafana (via Micrometer in Java, prom-client in Node), while structured JSON logs go to MongoDB Atlas or CloudWatch — these are treated as two separate concerns, not a unified stack.
+## Commands (from this directory)
 
-## Conventions to carry into each new repo
+```bash
+./scripts/lint-all.sh              # lint every repo per its own stack
+./scripts/test-all.sh              # every repo's test suite
+./scripts/build-all.sh             # every repo's build
+docker compose -f docker-compose.dev.yml up --build   # full local stack
+curl localhost:3000/api/v1/people/1                    # E2E smoke: BFF → Java → MySQL
+```
 
-- TDD is the stated practice in every layer: JUnit+Mockito (Java), Jest (Node/React), Vitest or Jest (vanilla JS), Terraform Validate/CDK Assertions (infra).
-- Each repo intentionally uses a different CI system (Jenkins, GitHub Actions, DroneCI) — this is a deliberate demo goal, not an inconsistency to fix.
-- Target infra is AWS Free Tier throughout (EC2 t2/t3.micro, RDS MySQL Free Tier, S3+CloudFront, Cognito, CloudWatch, SSM Parameter Store) — keep resource choices within free-tier limits.
+Dev stack ports: BFF :3000, domain API :8080 (Swagger at `/swagger-ui.html`), MySQL :3306, Prometheus :9090, Grafana :3001 (admin/admin). Frontends run separately: `npm run dev` in their repos (:5173 admin, :4173 public).
+
+## Environment gotchas (this machine)
+
+- Toolchains are user-space in `~/.local`: `mvn` is a wrapper pinning Temurin JDK 17 (system `java` is a bare JRE 25 — don't use it directly), Node 20 via nvm symlinks, Terraform 1.9.8.
+- Flyway 10 bundles the MariaDB driver: MySQL 8 JDBC URLs **must** carry `?allowPublicKeyRetrieval=true` or migrate hangs retrying silently.
+- Prometheus/anything in Docker reaching the host needs `extra_hosts: ["host.docker.internal:host-gateway"]` (Linux).
+
+## Conventions across repos
+
+- TDD everywhere; a PR without tests for its code path is incomplete.
+- Different CI per repo is a **feature** of the demo, not drift to fix.
+- AWS resources stay within Free Tier limits.
+- Dev seed data lives only in `cv-database/sql/dev-seeds/` (Flyway callback), never in versioned migrations.

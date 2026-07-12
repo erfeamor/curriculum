@@ -3,7 +3,10 @@
 *.swp
 .vscode/
 .idea/
-.claude/
+
+# Claude Code: personal settings stay local, the shared task board is tracked
+.claude/*
+!.claude/tasks/
 
 # The sibling product repos are cloned locally by clone-all.sh but are not
 # part of this meta repo's own history.
