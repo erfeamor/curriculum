@@ -258,22 +258,20 @@ Cada repo de producto también incluye su propio `.devcontainer/devcontainer.jso
 - [x] Definir modelo de datos inicial (person/experience/education/skill/project)
 - [x] Crear migraciones iniciales
 - [x] Implementar API Java con TDD (recurso person; resto de entidades pendiente)
-- [ ] Integrar Cognito (infra + validación JWT hechas; flujo real Hosted UI en React pendiente)
+- [x] Integrar Cognito (user pool + Hosted UI activos en eu-west-3; validación JWT en Java/BFF; flujo Hosted UI con PKCE implementado en el admin)
 - [x] Crear BFF Node
 - [x] Crear React Admin (CRUD de person)
 - [x] Crear Vanilla Landing
 - [x] Crear el sitio público optimizado con Next.js (vista de persona; ISR desde el BFF)
 - [x] Configurar observabilidad (métricas; pipeline de logging estructurado pendiente)
-- [ ] Desplegar infraestructura AWS (Terraform escrito y testeado con mocks; aún sin aplicar)
+- [x] Desplegar infraestructura AWS — Terraform aplicado en eu-west-3 (EC2 servicio de dominio, RDS MySQL, frontends en S3+CloudFront, Cognito, ECR, servidor Drone CI)
 - [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×3, DroneCI ×1, Vercel ×1)
 - [ ] Documentación final y diagrama de arquitectura
 
 ### Backlog
 
-- Aprovisionamiento EC2 (user_data / automatización de deploy) y stages de deploy reales en los pipelines
-- Flujo Cognito Hosted UI en `cv-admin-react` (sustituir el stub de `src/auth/CognitoContext.jsx`)
+- Stages de deploy automatizado del backend en CI (EC2/RDS aprovisionados y activos; los frontends despliegan vía DroneCI, los servicios backend aún se despliegan manualmente)
 - Resto de entidades de dominio (experience, education, skill, project) en API/BFF/frontends
 - Logging JSON estructurado hacia MongoDB Atlas o CloudWatch (ver `cv-observability/docs/logging.md`)
 - Dashboard inicial de Grafana
 - Animaciones / Web Components del sitio público
-- Crear los repos de GitHub y hacer push (clone-all.sh asume `github.com/erfeamor/<repo>`)

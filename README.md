@@ -258,22 +258,20 @@ Each product repo also ships its own `.devcontainer/devcontainer.json` for worki
 - [x] Define the initial data model (person/experience/education/skill/project)
 - [x] Create initial migrations
 - [x] Implement the Java API with TDD (person resource; remaining entities pending)
-- [ ] Integrate Cognito (infra + JWT validation done; real Hosted UI flow in React pending)
+- [x] Integrate Cognito (user pool + Hosted UI live in eu-west-3; JWT validation in Java/BFF; admin PKCE Hosted UI flow implemented)
 - [x] Create the Node BFF
 - [x] Create React Admin (person CRUD)
 - [x] Create the Vanilla Landing page
 - [x] Create the Next.js optimized public site (person view; ISR from the BFF)
 - [x] Configure observability (metrics; structured-logging pipeline pending)
-- [ ] Deploy AWS infrastructure (Terraform written and tested with mocks; not yet applied)
+- [x] Deploy AWS infrastructure — Terraform applied in eu-west-3 (EC2 domain service, RDS MySQL, S3+CloudFront frontends, Cognito, ECR, Drone CI server)
 - [x] Configure CI/CD pipelines (Jenkins ×2, GitHub Actions ×3, DroneCI ×1, Vercel ×1)
 - [ ] Final documentation and architecture diagram
 
 ### Backlog
 
-- EC2 provisioning (user_data / deploy automation) and real deploy stages in the pipelines
-- Cognito Hosted UI flow in `cv-admin-react` (replace the stub in `src/auth/CognitoContext.jsx`)
+- Automated backend deploy stages in CI (EC2/RDS provisioned and live; frontends deploy via DroneCI, backend services still deployed manually)
 - Remaining domain entities (experience, education, skill, project) across API/BFF/frontends
 - Structured JSON logging to MongoDB Atlas or CloudWatch (see `cv-observability/docs/logging.md`)
 - Grafana starter dashboard
 - Vanilla-site animations / Web Components
-- Create the GitHub repos and push (clone-all.sh assumes `github.com/erfeamor/<repo>`)
