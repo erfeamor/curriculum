@@ -4,7 +4,7 @@ This file guides Claude Code when working in the **cv-project meta repo**. Each 
 
 ## What this workspace is
 
-"Currículum Interactivo": an interactive CV system built as a **multi-repo** demo (six product repos + infra), each with its own git history, CI system, and deploy pipeline — deliberately *not* a monorepo. This directory is the meta repo (orchestration only, no app code); the seven product repos are its sibling subdirectories on disk but are **independent git repositories**, not submodules — a `git` command here never sees their files.
+"Currículum Interactivo": an interactive CV system built as a **multi-repo** demo (seven product repos + infra), each with its own git history, CI system, and deploy pipeline — deliberately *not* a monorepo. This directory is the meta repo (orchestration only, no app code); its eight sibling repos (seven products + `cv-infra`) live as subdirectories on disk but are **independent git repositories**, not submodules — a `git` command here never sees their files.
 
 | Repo | Layer | Stack | CI |
 |---|---|---|---|
@@ -13,10 +13,11 @@ This file guides Claude Code when working in the **cv-project meta repo**. Each 
 | `cv-bff-node` | BFF for the public site | Node 20 + Express | GitHub Actions |
 | `cv-admin-react` | Admin CRUD UI | React 18 + Vite | DroneCI |
 | `cv-public-vanilla` | Public landing | Vanilla JS + Vite | GitHub Actions |
+| `cv-public-react` | Public site (optimized, ISR) | Next.js 14, React 18, TS | Vercel |
 | `cv-observability` | Metrics stack | Prometheus + Grafana | GitHub Actions |
 | `cv-infra` | IaC | Terraform, AWS Free Tier | — |
 
-Flow: public site → BFF → domain service → MySQL. Admin UI → domain service directly. Auth: AWS Cognito JWTs, with a shared `AUTH_ENABLED` toggle (Java defaults **on**, BFF defaults **off**) so local stacks run without a user pool.
+Flow: public sites (cv-public-vanilla, and cv-public-react via ISR) → BFF → domain service → MySQL. cv-public-react is runtime-decoupled from the domain service: it only fetches the BFF's aggregate endpoint server-side and revalidates in the background. Admin UI → domain service directly. Auth: AWS Cognito JWTs, with a shared `AUTH_ENABLED` toggle (Java defaults **on**, BFF defaults **off**) so local stacks run without a user pool.
 
 ## Git workflow — non-negotiable
 

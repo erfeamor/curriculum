@@ -11,7 +11,7 @@ File-based task board for agents (and humans) working on cv-project. Lives in th
   T-NNN-*.md    ← one file per task (frontmatter = state, body = spec)
 ```
 
-Task IDs are grouped by layer: `T-0xx` design/meta · `T-1xx` cv-domain-service · `T-15x` cv-database · `T-2xx` cv-bff-node · `T-3xx` cv-admin-react · `T-4xx` cv-public-vanilla · `T-5xx` cross-repo integration.
+Task IDs are grouped by layer: `T-0xx` design/meta · `T-1xx` cv-domain-service · `T-15x` cv-database · `T-2xx` cv-bff-node · `T-3xx` cv-admin-react · `T-4xx` public sites (cv-public-vanilla, cv-public-react) · `T-5xx` cross-repo integration.
 
 ## Task lifecycle
 
