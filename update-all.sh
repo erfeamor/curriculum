@@ -9,6 +9,7 @@ REPOS=(
   cv-bff-node
   cv-admin-react
   cv-public-vanilla
+  cv-public-react
   cv-observability
   cv-infra
 )

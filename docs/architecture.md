@@ -4,13 +4,14 @@ See [README.md](../README.md) / [README.es.md](../README.es.md) for the full spe
 
 ## Repo topology
 
-`cv-project` (this repo) is the **meta repo**: orchestration scripts, shared docs, diagrams, and the global devcontainer. It holds no application code and no submodules. The seven product repos are ordinary siblings on disk, cloned via [`../clone-all.sh`](../clone-all.sh):
+`cv-project` (this repo) is the **meta repo**: orchestration scripts, shared docs, diagrams, and the global devcontainer. It holds no application code and no submodules. The eight product repos are ordinary siblings on disk, cloned via [`../clone-all.sh`](../clone-all.sh):
 
 - `cv-database`
 - `cv-domain-service`
 - `cv-bff-node`
 - `cv-admin-react`
 - `cv-public-vanilla`
+- `cv-public-react`
 - `cv-observability`
 - `cv-infra`
 
@@ -20,10 +21,11 @@ Each has its own git history, CI pipeline, issue tracker, and release cadence.
 
 ```
 cv-public-vanilla → cv-bff-node → cv-domain-service → cv-database
+cv-public-react   → cv-bff-node → cv-domain-service → cv-database
 cv-admin-react ───────────────────────→ cv-domain-service
 ```
 
-`cv-admin-react` talks directly to `cv-domain-service`, bypassing the BFF, since the admin UI needs full CRUD rather than the aggregated/normalized shape the public site consumes.
+`cv-admin-react` talks directly to `cv-domain-service`, bypassing the BFF, since the admin UI needs full CRUD rather than the aggregated/normalized shape the public site consumes. `cv-public-react` consumes the same BFF aggregate as `cv-public-vanilla`; it renders via ISR, so at runtime it only ever calls the BFF and is otherwise decoupled from `cv-domain-service`.
 
 ## Cross-cutting concerns
 

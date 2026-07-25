@@ -96,7 +96,25 @@ Public résumé landing page, lightweight and dynamic.
 
 ---
 
-### 6. **Observability — Metrics + Logs**
+### 6. **Public Frontend (Optimized) — Next.js/React (SSR/ISR)**
+A second public résumé site, optimized for performance via server rendering.
+
+**Responsibilities:**
+- Fast, optimized rendering of the CV via **ISR (Incremental Static Regeneration)**.
+- Server-side fetch of the BFF aggregate (`GET /api/v1/people/:id/cv`), so pages are statically served and revalidated in the background.
+- Decoupled from `cv-domain-service` at runtime — it only talks to the BFF.
+
+**Technologies:**
+- Next.js 14 (App Router)
+- React 18
+- TypeScript
+- Jest + React Testing Library (TDD)
+
+**Repository:** `cv-public-react`
+
+---
+
+### 7. **Observability — Metrics + Logs**
 Explicit separation between metrics and logs.
 
 #### Metrics
@@ -150,8 +168,9 @@ Each repository uses a different pipeline to demonstrate mastery of multiple too
 | cv-bff-node | GitHub Actions |
 | cv-admin-react | DroneCI |
 | cv-public-vanilla | GitHub Actions |
+| cv-public-react | Vercel |
 | cv-database | Jenkins |
-| cv-observability | Jenkins or Actions |
+| cv-observability | GitHub Actions |
 
 The pipelines include:
 - Linter
@@ -190,7 +209,7 @@ Deployment is done on AWS, making the most of the free tier:
 
 ## 📂 Recommended Overall Project Structure
 
-This repository (`cv-project`) is the **meta repo**: it holds no application code, only orchestration. The seven product repos are ordinary git repos, cloned as its siblings:
+This repository (`cv-project`) is the **meta repo**: it holds no application code, only orchestration. The eight product repos are ordinary git repos, cloned as its siblings:
 
 ```
 cv-project/          ← this repo (meta repo, no submodules)
@@ -206,6 +225,7 @@ cv-domain-service/
 cv-bff-node/
 cv-admin-react/
 cv-public-vanilla/
+cv-public-react/
 cv-observability/
 cv-infra/
 ```
@@ -213,7 +233,7 @@ cv-infra/
 ### Getting started
 
 ```bash
-./clone-all.sh          # clone all 7 product repos as siblings (https by default; pass "ssh" to use SSH)
+./clone-all.sh          # clone all 8 product repos as siblings (https by default; pass "ssh" to use SSH)
 ./update-all.sh          # fast-forward pull every repo, including this one
 ./scripts/lint-all.sh    # lint every repo, per its own stack
 ./scripts/test-all.sh    # run every repo's test suite
@@ -238,21 +258,20 @@ Each product repo also ships its own `.devcontainer/devcontainer.json` for worki
 - [x] Define the initial data model (person/experience/education/skill/project)
 - [x] Create initial migrations
 - [x] Implement the Java API with TDD (person resource; remaining entities pending)
-- [ ] Integrate Cognito (infra + JWT validation done; real Hosted UI flow in React pending)
+- [x] Integrate Cognito (user pool + Hosted UI live in eu-west-3; JWT validation in Java/BFF; admin PKCE Hosted UI flow implemented)
 - [x] Create the Node BFF
 - [x] Create React Admin (person CRUD)
 - [x] Create the Vanilla Landing page
+- [x] Create the Next.js optimized public site (person view; ISR from the BFF)
 - [x] Configure observability (metrics; structured-logging pipeline pending)
-- [ ] Deploy AWS infrastructure (Terraform written and tested with mocks; not yet applied)
-- [x] Configure CI/CD pipelines (Jenkins ×2, GitHub Actions ×3, DroneCI ×1)
+- [x] Deploy AWS infrastructure — Terraform applied in eu-west-3 (EC2 domain service, RDS MySQL, S3+CloudFront frontends, Cognito, ECR, Drone CI server)
+- [x] Configure CI/CD pipelines (Jenkins ×2, GitHub Actions ×3, DroneCI ×1, Vercel ×1)
 - [ ] Final documentation and architecture diagram
 
 ### Backlog
 
-- EC2 provisioning (user_data / deploy automation) and real deploy stages in the pipelines
-- Cognito Hosted UI flow in `cv-admin-react` (replace the stub in `src/auth/CognitoContext.jsx`)
+- Automated backend deploy stages in CI (EC2/RDS provisioned and live; frontends deploy via DroneCI, backend services still deployed manually)
 - Remaining domain entities (experience, education, skill, project) across API/BFF/frontends
 - Structured JSON logging to MongoDB Atlas or CloudWatch (see `cv-observability/docs/logging.md`)
 - Grafana starter dashboard
 - Vanilla-site animations / Web Components
-- Create the GitHub repos and push (clone-all.sh assumes `github.com/erfeamor/<repo>`)
