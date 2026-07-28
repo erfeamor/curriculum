@@ -52,8 +52,8 @@ Capa intermedia optimizada para la experiencia del usuario final.
 - Exposición de métricas y logs.
 
 **Tecnologías:**
-- NodeJS + Express
-- Jest para TDD
+- NodeJS + Express + TypeScript
+- Jest + Supertest para TDD
 - OpenAPI opcional
 
 **Repositorio:** `cv-bff-node`
