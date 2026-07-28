@@ -18,7 +18,7 @@ Prove milestone M2 works as a system, not just as green unit tests, then close o
 1. Fresh stack: `docker compose -f docker-compose.dev.yml down -v && docker compose -f docker-compose.dev.yml up --build -d`.
 2. `curl http://localhost:3000/api/v1/people/1/cv` — assert all four sections present with seeded data, no `id`/`email` fields anywhere in the payload.
 3. Exercise one full CRUD cycle per section through the domain API (`:8080`) and confirm the change appears in the BFF payload.
-4. Run the frontends (`npm run dev`) and eyeball: admin edits a section → public page shows it after reload. Covers `cv-admin-react` and `cv-public-vanilla` (this milestone's public-site task, T-401); if `cv-public-react` is present, spot-check its ISR-rendered person view too, though its CV-sections work is tracked separately.
+4. Run the frontends (`npm run dev`) and eyeball: admin edits a section → public page shows it after reload. Covers `cv-admin-react` and `cv-public-vanilla` (this milestone's public-site task, T-401); also spot-check `cv-public-react`'s ISR-rendered person view. Note: `cv-public-react` renders only the person head today — extending it to the four CV sections is out of scope for M2 and not yet a board task (candidate follow-up once this milestone lands).
 5. Prometheus (`:9090/targets`) still shows both services up (regression check).
 
 ## Deliverables

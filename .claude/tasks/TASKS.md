@@ -22,3 +22,11 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 - **Wave 2:** T-201 and T-301 — both may *start* against the contract (mocked upstreams) during wave 1; their final verification needs wave 1 merged.
 - **Wave 3:** T-401 after T-201; T-501 strictly last.
 - T-103 is the highest-risk API task (composite key, upsert, 409) — assign it to the strongest agent or start it first.
+
+### Recent structural changes (context — no M2 work started yet)
+
+The four-section milestone is untouched (every task above is genuinely `todo`), but some repos changed since the board was written — read before claiming:
+
+- **cv-bff-node is now TypeScript** (strict, ts-jest/tsc). T-201's route and tests are `.ts`, type the aggregate payload, and `npm run typecheck` is a gate.
+- **cv-admin-react is hexagonal TypeScript** (`domain ← application ← composition → infrastructure`). T-301 follows the repo CLAUDE.md's "adding a section resource" recipe (entity/port → adapter → store factory → composition root → form/pages) — there is no flat `src/api/client.js`.
+- **cv-public-react** exists as a second public site (Next.js/ISR from the BFF), currently person-only. It is not an M2 task; extending it to the CV sections is a candidate post-M2 follow-up (see T-501 step 4).
