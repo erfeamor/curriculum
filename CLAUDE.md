@@ -10,7 +10,7 @@ This file guides Claude Code when working in the **cv-project meta repo**. Each 
 |---|---|---|---|
 | `cv-database` | Data | MySQL 8 + Flyway 10 | Jenkins |
 | `cv-domain-service` | Domain API (source of truth) | Java 17, Spring Boot 3 | Jenkins |
-| `cv-bff-node` | BFF for the public site | Node 20 + Express | GitHub Actions |
+| `cv-bff-node` | BFF for the public site | Node 20 + Express + TypeScript | GitHub Actions |
 | `cv-admin-react` | Admin CRUD UI | React 18 + Vite | DroneCI |
 | `cv-public-vanilla` | Public landing | Vanilla JS + Vite | GitHub Actions |
 | `cv-public-react` | Public site (optimized, ISR) | Next.js 14, React 18, TS | Vercel |

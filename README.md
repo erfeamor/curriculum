@@ -52,8 +52,8 @@ Intermediate layer optimized for the end-user experience.
 - Exposure of metrics and logs.
 
 **Technologies:**
-- NodeJS + Express
-- Jest for TDD
+- NodeJS + Express + TypeScript
+- Jest + Supertest for TDD
 - OpenAPI (optional)
 
 **Repository:** `cv-bff-node`
