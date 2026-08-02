@@ -188,8 +188,8 @@ Deployment is done on AWS, making the most of the free tier:
 ### Services used
 - **EC2 t2.micro/t3.micro**
   For Java, Node, and Prometheus/Grafana (if desired).
-- **RDS MySQL Free Tier**
-  Main database.
+- **Self-hosted MySQL 8.4 (container on the domain-service EC2)**
+  Main database — runs alongside the app instead of RDS, which avoids the RDS instance cost and the MySQL 8.0 Extended Support charge.
 - **S3 + CloudFront**
   Hosting for the React and Vanilla frontends.
 - **AWS Cognito**
@@ -264,13 +264,14 @@ Each product repo also ships its own `.devcontainer/devcontainer.json` for worki
 - [x] Create the Vanilla Landing page
 - [x] Create the Next.js optimized public site (person view; ISR from the BFF)
 - [x] Configure observability (metrics; structured-logging pipeline pending)
-- [x] Deploy AWS infrastructure — Terraform applied in eu-west-3 (EC2 domain service, RDS MySQL, S3+CloudFront frontends, Cognito, ECR, Drone CI server)
+- [x] Deploy AWS infrastructure — Terraform applied in eu-west-3 (EC2 domain service with a self-hosted MySQL 8.4 container, S3+CloudFront frontends, Cognito, ECR, Drone CI server)
 - [x] Configure CI/CD pipelines (Jenkins ×2, GitHub Actions ×3, DroneCI ×1, Vercel ×1)
 - [ ] Final documentation and architecture diagram
 
 ### Backlog
 
-- Automated backend deploy stages in CI (EC2/RDS provisioned and live; frontends deploy via DroneCI, backend services still deployed manually)
+- Automated backend deploy stages in CI (EC2 provisioned and live; frontends deploy via DroneCI, backend services still deployed manually)
+- Managed backups for the self-hosted MySQL (nightly `mysqldump` → S3, replacing RDS's automated backups)
 - Remaining domain entities (experience, education, skill, project) across API/BFF/frontends
 - Structured JSON logging to MongoDB Atlas or CloudWatch (see `cv-observability/docs/logging.md`)
 - Grafana starter dashboard
