@@ -31,6 +31,6 @@ cv-admin-react ─────────────────────�
 
 - **Auth**: AWS Cognito issues JWTs. `cv-domain-service` and `cv-bff-node` both validate tokens independently; `cv-admin-react` is the only client that authenticates interactively.
 - **Observability**: metrics (Prometheus/Grafana via Micrometer / prom-client) and logs (MongoDB Atlas or CloudWatch) are deliberately separate pipelines, not a unified stack. See `cv-observability`.
-- **Infra**: all AWS resource choices stay within Free Tier limits (EC2 t2/t3.micro, RDS MySQL Free Tier, S3+CloudFront, Cognito, CloudWatch, SSM Parameter Store). See `cv-infra`.
+- **Infra**: all AWS resource choices stay within Free Tier limits (EC2 t2/t3.micro running a self-hosted MySQL 8.4 container — no RDS, S3+CloudFront, Cognito, CloudWatch, SSM Parameter Store). See `cv-infra`.
 
 See [../diagrams/architecture.mmd](../diagrams/architecture.mmd) for a renderable diagram.

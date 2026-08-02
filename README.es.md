@@ -188,8 +188,8 @@ El despliegue se realiza en AWS aprovechando al máximo el free tier:
 ### Servicios utilizados
 - **EC2 t2.micro/t3.micro**  
   Para Java, Node y Prometheus/Grafana (si se desea).
-- **RDS MySQL Free Tier**  
-  Base de datos principal.
+- **MySQL 8.4 autoalojado (contenedor en la EC2 del servicio de dominio)**  
+  Base de datos principal — corre junto a la app en lugar de RDS, lo que evita el coste de la instancia RDS y el cargo de Extended Support de MySQL 8.0.
 - **S3 + CloudFront**  
   Hosting del frontend React y Vanilla.
 - **AWS Cognito**  
@@ -264,13 +264,14 @@ Cada repo de producto también incluye su propio `.devcontainer/devcontainer.jso
 - [x] Crear Vanilla Landing
 - [x] Crear el sitio público optimizado con Next.js (vista de persona; ISR desde el BFF)
 - [x] Configurar observabilidad (métricas; pipeline de logging estructurado pendiente)
-- [x] Desplegar infraestructura AWS — Terraform aplicado en eu-west-3 (EC2 servicio de dominio, RDS MySQL, frontends en S3+CloudFront, Cognito, ECR, servidor Drone CI)
+- [x] Desplegar infraestructura AWS — Terraform aplicado en eu-west-3 (EC2 servicio de dominio con un contenedor MySQL 8.4 autoalojado, frontends en S3+CloudFront, Cognito, ECR, servidor Drone CI)
 - [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×3, DroneCI ×1, Vercel ×1)
 - [ ] Documentación final y diagrama de arquitectura
 
 ### Backlog
 
-- Stages de deploy automatizado del backend en CI (EC2/RDS aprovisionados y activos; los frontends despliegan vía DroneCI, los servicios backend aún se despliegan manualmente)
+- Stages de deploy automatizado del backend en CI (EC2 aprovisionada y activa; los frontends despliegan vía DroneCI, los servicios backend aún se despliegan manualmente)
+- Backups gestionados para el MySQL autoalojado (`mysqldump` nocturno → S3, en sustitución de los backups automáticos de RDS)
 - Resto de entidades de dominio (experience, education, skill, project) en API/BFF/frontends
 - Logging JSON estructurado hacia MongoDB Atlas o CloudWatch (ver `cv-observability/docs/logging.md`)
 - Dashboard inicial de Grafana
