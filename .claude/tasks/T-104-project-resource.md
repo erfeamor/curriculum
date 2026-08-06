@@ -2,30 +2,117 @@
 id: T-104
 title: Project resource in the domain API
 repo: cv-domain-service
-status: todo
-owner:
+status: in_progress
+owner: backend-developer
 branch: feat/project-resource
 pr:
 depends_on: []
+risk: normal
+checkpoint:
+  stage: H1
+  repo: cv-domain-service
+  branch: feat/project-resource
+  worktree: /home/erfeamor/work/cvdl-worktrees/T-104
+  pr:
+  developer: backend-developer
+  reviewers: [code-review, quality-assurance]
+  risk: normal
+  security_review: false
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: 3
+  updated: 2026-08-04
 ---
 
 ## Goal
 
 Person-scoped CRUD for portfolio projects per [docs/api-contract.md](../../docs/api-contract.md) § Projects.
 
+Path `/api/v1/people/{personId}/projects`. **Required: `name` only** — `description`, `repoUrl`, `startDate`, `endDate` are all nullable. Payload: `id, name, description, repoUrl, startDate, endDate`.
+
 ## Pointers
 
-- Same pattern as T-101 (`project/` package mirroring `person/`).
-- The `project` table exists in V1: `name`, `description`, `repo_url` → `repoUrl`, `start_date`, `end_date`, FK `person_id`.
-- Only `name` is required; everything else nullable.
+- `project/` package mirroring `person/`. Structural twin of T-101 — **but see the required-field warning below; it is not a pure copy.**
+- The `project` table exists in V1: `name`, `description`, `repo_url`, `start_date`, `end_date`, FK `person_id` cascade. **No migration needed.**
+- **Do not touch `SecurityConfig`.**
+
+## Definition of Ready — scope decisions
+
+T-101's four ratified rulings apply **unchanged** (QA confirmed required-field count is orthogonal to identity/lookup semantics):
+
+1. DELETE of a nonexistent project id → **404** (not 204).
+2. PUT/DELETE of an id belonging to a different person → **404**, via a scoped `findByIdAndPersonId`.
+3. GET collection for an existing person with zero rows → **200 `[]`**.
+4. `personId` existence checked **before** the child lookup.
+
+Two resource-specific rulings, ratified against contract text:
+
+5. **`repoUrl` gets NO format validation.** § Projects states only "Required: `name`"; no format constraint appears anywhere in the contract, and § Non-goals doesn't reserve one. A `@URL`/`@Pattern` on `repoUrl` would silently narrow the contract — it is an unrequested-scope finding at review, not a nice-to-have. C15 makes this executable: an arbitrary non-URL string is accepted with 201.
+6. **POST with only `name` is a legitimate request shape.** Projects is the only one of the three resources where `startDate`/`endDate` are *also* nullable at the schema level, so this has no T-101/T-102 analogue. Covered by C5 and P2.
+
+Out of scope as with the twins: date-ordering validation, a separate DTO layer.
 
 ## Acceptance criteria
 
 - [ ] `GET/POST /api/v1/people/{personId}/projects`, `PUT/DELETE .../{id}` per contract.
-- [ ] Unknown person → 404; missing `name` → 400.
-- [ ] `@WebMvcTest` + `@DataJpaTest` coverage in the established styles.
+- [ ] Unknown person → 404 on every verb; missing `name` → 400 (Spring's default problem body).
+- [ ] **Only `name` is required** — no validation annotation on any other field.
+- [ ] Payload matches the contract shape exactly; `endDate: null` serializes as JSON `null`.
+- [ ] DoR rulings 1–6 each covered by a test.
+- [ ] `@WebMvcTest(addFilters = false)` + `@DataJpaTest` coverage, both required.
 - [ ] `mvn -B test` and `mvn -B checkstyle:check` pass.
+
+## Test plan (QA-authored at refinement; QA executes it verbatim at stage 4)
+
+### `@WebMvcTest(addFilters = false)` — mocked `ProjectRepository` + `PersonRepository`
+
+| # | Verb | Path | Precondition | Expected |
+|---|---|---|---|---|
+| C1 | GET | `/1/projects` | person 1 exists, repo returns 2 | 200, array size 2 |
+| C2 | GET | `/1/projects` | repo returns `[]` | 200, empty array |
+| C3 | POST | `/1/projects` | full valid body, `endDate: null` | 201, `$.id` present, `$.endDate` null |
+| C4 | POST | `/1/projects` | missing `name` | 400 |
+| C5 | POST | `/1/projects` | **only `name`** — other four omitted | 201, all four optionals serialize as `null` (DoR 6) |
+| C6 | PUT | `/1/projects/5` | project 5 belongs to person 1 | 200, `$.id == 5`, fields updated |
+| C7 | PUT | `/1/projects/5` | missing `name` | 400 |
+| C8 | DELETE | `/1/projects/5` | project 5 belongs to person 1 | 204, empty body |
+| C9–C12 | GET/POST/PUT/DELETE | `/999/projects[/5]` | person 999 absent | 404 |
+| C13 | DELETE | `/1/projects/9999` | person exists, project absent | 404 (DoR 1) |
+| C14 | PUT/DELETE | `/1/projects/5` | project 5 belongs to person **2** | 404, person 2's row untouched (DoR 2) |
+| C15 | POST | `/1/projects` | `repoUrl: "not-a-url"` | **201** — confirms no format validation (DoR 5) |
+| C16 | any | — | full response object | matches contract shape exactly |
+
+### `@DataJpaTest`
+
+| # | Case | Assertion |
+|---|---|---|
+| P1 | Save all fields, reload | round-trips; **`repoUrl` maps to `repo_url`** |
+| P2 | Save with only `name` | other four reload as null; confirms `start_date`/`end_date` really are nullable here (unlike Experience/Education) |
+| P3 | FK populated | `person_id` matches the persisted `Person` |
+| P4 | Cascade delete | delete the person → project rows gone |
+| P5 | Scoped lookup | `findByPersonId` returns only the requested person's rows |
+| P6 | Required columns | null `name` rejected; **null `startDate` is NOT rejected** (contrast with T-101/T-102) |
+
+### Exploratory QA at stage 4 — live MySQL 8.4, **env slot 3**
+
+`python3 scripts/qa-env-override.py --task T-104 --slot 3`
+
+- Real-schema check: `project` columns exactly `id, person_id, name, description, repo_url, start_date, end_date`; FK cascade; confirm `start_date`/`end_date` nullable in the **live** schema, not just assumed from the migration file.
+- `repoUrl` round-trip over the wire (same naming-strategy risk class as T-102's `fieldOfStudy`).
+- Name-only POST against the real DB: genuine SQL NULLs land, not empty strings, and no 500 from a NOT NULL the entity got wrong.
+- `repoUrl: "not-a-url"` → 201 end-to-end, not just against the mock.
+- Full CRUD round trip; `endDate: null` stays JSON `null`; cascade delete on the real InnoDB FK; unknown `personId` → 404; cross-person id → 404 with the victim row untouched; 400 returns Spring's default problem body.
+
+### Coverage risks flagged up front
+
+- **Primary risk:** copying T-101/T-102 too literally and adding `@NotNull`/`@NotBlank` to `startDate` or `description`. Projects genuinely has a more permissive required-field set — C5, C7 and P6 must be run, not waved through as "same as before".
+- `repo_url` → `repoUrl` naming-strategy check.
+- Scoped repository method for DoR 2.
+- Watch for unrequested `repoUrl` format validation at review — it would narrow the contract without a contract change.
+- Client-supplied `"id": 999` in a POST body: flag, don't block, don't fix here.
 
 ## Definition of done
 
-PR open against `master` from `feat/project-resource`, CI green, task updated.
+All acceptance criteria checked · A1 green · `/code-review` + QA coverage pass converged · PR open from `feat/project-resource`, **Jenkins CI green** · stage-4 QA clean on slot 3 · task `in_review` with the PR URL, `done` on merge.

@@ -6,10 +6,10 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-101](T-101-experience-resource.md) | Experience resource in the domain API | cv-domain-service | todo | | — | |
-| [T-102](T-102-education-resource.md) | Education resource in the domain API | cv-domain-service | todo | | — | |
-| [T-103](T-103-skills-catalog-and-assignments.md) | Skill catalog + person-skill assignments | cv-domain-service | todo | | — | |
-| [T-104](T-104-project-resource.md) | Project resource in the domain API | cv-domain-service | todo | | — | |
+| [T-101](T-101-experience-resource.md) | Experience resource in the domain API | cv-domain-service | in_review | backend-developer | — | [#3](https://github.com/erfeamor/cv-domain-service/pull/3) |
+| [T-102](T-102-education-resource.md) | Education resource in the domain API | cv-domain-service | in_progress | backend-developer | — | |
+| [T-103](T-103-skills-catalog-and-assignments.md) | Skill catalog + person-skill assignments | cv-domain-service | in_progress | backend-developer | — | |
+| [T-104](T-104-project-resource.md) | Project resource in the domain API | cv-domain-service | in_progress | backend-developer | — | |
 | [T-151](T-151-dev-seeds-cv-sections.md) | Dev seed data for CV sections | cv-database | todo | | — | |
 | [T-201](T-201-bff-cv-aggregate.md) | BFF: aggregated public CV endpoint | cv-bff-node | todo | | T-101…T-104 | |
 | [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |
@@ -38,3 +38,5 @@ The four-section milestone is untouched (every task above is genuinely `todo`), 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-001](T-001-selfhost-mysql-followups.md) | Self-hosted MySQL follow-ups: backup, dev parity, docs | cv-infra + meta | todo | | — | |
+| [T-002](T-002-jenkins-on-drone-host.md) | Host Jenkins on the existing Drone CI instance | cv-infra | in_review | infrastructure-engineer | — | [#11](https://github.com/erfeamor/cv-infra/pull/11) |
+| [T-003](T-003-ci-docs-reflect-jenkins.md) | Correct the CI documentation to match reality | cv-project (meta) | todo | | T-002 | |
