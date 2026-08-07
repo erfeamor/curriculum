@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: feat/cv-aggregate-endpoint
 pr:
-depends_on: [T-101, T-102, T-103, T-104]
+depends_on: [T-101, T-102, T-103, T-104, T-006]
 ---
 
 ## Goal
