@@ -40,3 +40,5 @@ The four-section milestone is untouched (every task above is genuinely `todo`), 
 | [T-001](T-001-selfhost-mysql-followups.md) | Self-hosted MySQL follow-ups: backup, dev parity, docs | cv-infra + meta | todo | | — | |
 | [T-002](T-002-jenkins-on-drone-host.md) | Host Jenkins on the existing Drone CI instance | cv-infra | in_review | infrastructure-engineer | — | [#11](https://github.com/erfeamor/cv-infra/pull/11) |
 | [T-003](T-003-ci-docs-reflect-jenkins.md) | Correct the CI documentation to match reality | cv-project (meta) | todo | | T-002 | |
+| [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state: permissions now, remote backend properly | cv-infra | todo | | — | |
+| [T-005](T-005-ci-secret-blast-radius.md) | Limit CI secret blast radius: block IMDS from containers | cv-infra | todo | | T-002 | |
