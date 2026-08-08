@@ -17,7 +17,7 @@ checkpoint:
   a1_caveat: resolved   # was: "no real terraform plan — worktree has no state". Gate run 2026-08-08 from the main clone (where the local-backend tfstate + tfvars live); see pre_apply_gate below.
   worktree: /home/erfeamor/work/cvdl-worktrees/T-002
   pr: https://github.com/erfeamor/cv-infra/pull/11
-  commit: edd9aae
+  commit: 25dfff7
   signed_off: "trust boundary accepted 2026-08-06, conditional on trait pinning (done)"
   developer: infrastructure-engineer
   reviewers: [code-review, infrastructure-engineer, quality-assurance, security-review]
@@ -56,9 +56,22 @@ checkpoint:
     ssm_timeout_note: "null_resource reported 5h37m44s because the LOCAL machine suspended mid-poll; the SSM invocation itself was PT30.007S. The script's 1800s timeout counts loop iterations, not wall clock, so it cannot bound a real run."
     evidence: https://github.com/erfeamor/cv-infra/pull/11#issuecomment-5226866019
   post_apply:
-    status: blocked_on_manual_step
-    blocker: "Neither cv-domain-service nor cv-database has a GitHub webhook. ci.tf documents this as manual BY DESIGN — the PAT is scoped to repo:status and cannot create hooks. Add http://13.39.59.12/jenkins/github-webhook/ (push + pull_request) on both repos before any probe PR can trigger a build."
-    remaining: "probe PR per repo reaching gh pr checks success/failure with commits/<sha>/status total_count >= 1; Drone OAuth /login → callback round trip; /jenkins/ auth posture + raw :8080 refusal; reboot persistence incl. ci-proxy; memory during a real Maven build concurrent with a Drone pipeline"
+    status: pass   # 2026-08-08 — the acceptance criterion is MET
+    proof: |
+      cv-domain-service PR #3  continuous-integration/jenkins/pr-merge  success  total_count=1
+      cv-database       master continuous-integration/jenkins/branch    success  total_count=1
+      gh pr checks 3 => pass; target_url http://13.39.59.12/jenkins/job/cv-domain-service/job/PR-3/2/display/redirect
+      (pre-fix builds emitted http://unconfigured-jenkins-location/... — confirms the edd9aae location fix landed)
+    webhooks: "created manually 2026-08-08 on both repos (push + pull_request, json); both pings 200 and logged by Jenkins as 'PING webhook received from repo'"
+    defects_found: "Every one of the first 7 builds failed, two unrelated causes, both fixed in 25dfff7 and verified by real green builds before committing. (1) 'No such DSL method junit' — the junit plugin was absent from plugins.txt and workflow-aggregator does not pull it in. (2) 'docker: not found' exit 127 — jenkins/jenkins:lts-jdk17 now rebases on Debian 13, where docker.io only *Recommends* docker-cli, so --no-install-recommends yielded an image with no /usr/bin/docker while the image build reported success. R1 had raised 'no docker CLI' and it LOOKED fixed. Now installs docker-cli, which is also correct: only the client is wanted, the daemon is the host's via the socket."
+    probe_choice: "Rebuilt the EXISTING cv-domain-service PR #3 rather than opening a throwaway probe PR — it is T-101's PR, it was blocked on exactly this, so the verification produced a useful green check instead of litter."
+    checks_passed: "commit status on both repos; Jenkins anonymous posture 403 on /jenkins/, /jenkins/api/json, /jenkins/manage with no job data leaked; raw :8080 and :50000 refused from the internet; Drone OAuth /login 303 to github.com/login/oauth/authorize with correct client_id/state/scopes; Drone survived all three applies; terraform plan converged"
+    still_open: "(a) full OAuth CALLBACK round trip — needs a real browser session, automation cannot cover it; open http://13.39.59.12/ and confirm landing back logged in. (b) reboot persistence of all four containers incl. ci-proxy — a deliberate outage, not run."
+    reconciliation_apply: "3rd apply, from the COMMITTED template rather than the hand-patched box: rewrote plugins.txt + Dockerfile from source, rebuilt, and reproduced the hand-verified state exactly (docker 26.1.5 present, junit installed, restarts=0, 0 boot errors, both jobs). terraform plan after: No changes. This is what proves the branch as committed reproduces the working state."
+    evidence: https://github.com/erfeamor/cv-infra/pull/11#issuecomment-5227099959
+  followups_warranted:
+    user_data_ceiling: "95.7% of the 16 KB limit (15,681 B, 703 B headroom). THREE consecutive fixes each needed comment-trimming to fit. Shaving comments is not a strategy — the real fix is staging the provisioning script in S3 and fetching it at boot instead of embedding it. Deserves its own task; the next person to touch either template will likely be the one who blows the limit."
+    pin_everything: "Nothing is pinned — not plugins (plugins.txt has no versions), not the base image (jenkins/jenkins:lts-jdk17 is a floating tag). This caused THREE of the five defects on this task: adoptOpenJdkInstaller (R1), repositoryUrl/configuredByUrl and missing junit (apply time). The Debian 13 rebase that removed the docker CLI is the same class one layer down. T-005 carries pinning as non-blocking — PROMOTE IT."
   gate_note: "Gate checks 1–4 as originally written only grepped the two instances and the EIP association, so the security-group replacement passed straight through them. Check 1 is now a whole-plan grep for 'must be replaced'/'forces replacement' with zero expected hits — carry that phrasing to future infra gates."
   updated: 2026-08-08
 ---
