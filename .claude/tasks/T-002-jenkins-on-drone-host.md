@@ -37,9 +37,12 @@ checkpoint:
     commit: 546c580
     plan: "Plan: 4 to add, 2 to change, 0 to destroy"
     steps_1_4: pass   # domain_service refresh-only; eip_association refresh-only; drone ~ in-place (t3.micro→t3.small, user_data hash); zero 'must be replaced' anywhere
-    steps_5_6: pending   # live docker ps + activated-repo snapshot, and EBS snapshot of the drone root volume — both must precede apply
+    steps_5_6: pass   # 2026-08-08: no build in flight (0 pending/0 running, 27 success + 4 failure); cv-admin-react is the only active repo; EBS snapshot snap-0d7f5ae272ce0cef5 completed
     blocker_found: "aws_security_group.drone planned for replacement — description is ForceNew, no create_before_destroy, referenced by aws_instance.drone.vpc_security_group_ids ⇒ DependencyViolation mid-apply. Reverted in 546c580."
-    evidence: https://github.com/erfeamor/cv-infra/pull/11#issuecomment-5225135292
+    drone_state_location: "/var/lib/drone bind-mounted to /data (NOT a docker volume — `docker volume ls` is empty). Single 1.35 MB database.sqlite holding the activated-repo list AND the drone-deploy aws_access_key_id/aws_secret_access_key, which exist nowhere else — not in SSM, not reconstructable without re-issuing an IAM key. Verified jenkins-provision.sh:291 re-specifies the bind mount on the drone-server recreate, and that the live container's extra DRONE_DATABASE_* vars are drone/drone:2 image ENV defaults rather than runtime overrides, so the recreate cannot silently open a new empty DB."
+    ebs_snapshot: snap-0d7f5ae272ce0cef5   # 30 GiB from vol-0c82f0d4725b608c2, unencrypted (volume is), tagged Task=T-002. DELETE once post-apply verification passes — ~$0.40-0.50/mo.
+    incidental_finding: "ecs-agent container is crash-looping on the CI host (Exited (1), continuous restart) — pre-existing ECS-optimized-AMI leftover, unrelated to T-002, deliberately out of scope. Burns RAM on the box being resized for RAM pressure; worth its own cleanup task."
+    evidence: "steps 1-4: https://github.com/erfeamor/cv-infra/pull/11#issuecomment-5225135292 | steps 5-6: https://github.com/erfeamor/cv-infra/pull/11#issuecomment-5225415994"
   gate_note: "Gate checks 1–4 as originally written only grepped the two instances and the EIP association, so the security-group replacement passed straight through them. Check 1 is now a whole-plan grep for 'must be replaced'/'forces replacement' with zero expected hits — carry that phrasing to future infra gates."
   updated: 2026-08-08
 ---
