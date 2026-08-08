@@ -13,12 +13,11 @@ checkpoint:
   stage: pr
   repo: cv-infra
   branch: feat/jenkins-on-ci-host
-  commit: 929a51f
   a1: pass   # fmt/validate/test green; no new drone-SG ingress; compute.tf+iam.tf untouched; no tfstate/tfvars/secrets tracked
-  a1_caveat: "no real terraform plan — worktree has no state; plan-based claims unverified until apply"
+  a1_caveat: resolved   # was: "no real terraform plan — worktree has no state". Gate run 2026-08-08 from the main clone (where the local-backend tfstate + tfvars live); see pre_apply_gate below.
   worktree: /home/erfeamor/work/cvdl-worktrees/T-002
   pr: https://github.com/erfeamor/cv-infra/pull/11
-  commit: 4015558
+  commit: edd9aae
   signed_off: "trust boundary accepted 2026-08-06, conditional on trait pinning (done)"
   developer: infrastructure-engineer
   reviewers: [code-review, infrastructure-engineer, quality-assurance, security-review]
@@ -33,7 +32,35 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   env_slot: 5
-  updated: 2026-08-04
+  pre_apply_gate:
+    run: 2026-08-08
+    commit: 546c580
+    plan: "Plan: 4 to add, 2 to change, 0 to destroy"
+    steps_1_4: pass   # domain_service refresh-only; eip_association refresh-only; drone ~ in-place (t3.micro→t3.small, user_data hash); zero 'must be replaced' anywhere
+    steps_5_6: pass   # 2026-08-08: no build in flight (0 pending/0 running, 27 success + 4 failure); cv-admin-react is the only active repo; EBS snapshot snap-0d7f5ae272ce0cef5 completed
+    blocker_found: "aws_security_group.drone planned for replacement — description is ForceNew, no create_before_destroy, referenced by aws_instance.drone.vpc_security_group_ids ⇒ DependencyViolation mid-apply. Reverted in 546c580."
+    drone_state_location: "/var/lib/drone bind-mounted to /data (NOT a docker volume — `docker volume ls` is empty). Single 1.35 MB database.sqlite holding the activated-repo list AND the drone-deploy aws_access_key_id/aws_secret_access_key, which exist nowhere else — not in SSM, not reconstructable without re-issuing an IAM key. Verified jenkins-provision.sh:291 re-specifies the bind mount on the drone-server recreate, and that the live container's extra DRONE_DATABASE_* vars are drone/drone:2 image ENV defaults rather than runtime overrides, so the recreate cannot silently open a new empty DB."
+    ebs_snapshot: snap-0d7f5ae272ce0cef5   # 30 GiB from vol-0c82f0d4725b608c2, unencrypted (volume is), tagged Task=T-002. DELETE once post-apply verification passes — ~$0.40-0.50/mo.
+    incidental_finding: "ecs-agent container is crash-looping on the CI host (Exited (1), continuous restart) — pre-existing ECS-optimized-AMI leftover, unrelated to T-002, deliberately out of scope. Burns RAM on the box being resized for RAM pressure; worth its own cleanup task."
+    evidence: "steps 1-4: https://github.com/erfeamor/cv-infra/pull/11#issuecomment-5225135292 | steps 5-6: https://github.com/erfeamor/cv-infra/pull/11#issuecomment-5225415994"
+  apply:
+    run: 2026-08-08
+    commit: edd9aae
+    result: converged   # 2nd attempt; `terraform plan` after it: "No changes. Your infrastructure matches the configuration."
+    first_attempt: failed   # jenkins-provision health probe: "/jenkins/login never came up through ci-proxy within 120s"
+    defects_found: "(1) Jenkins could not boot AT ALL: plugins.txt pins no versions, so the provision pulled a github-branch-source whose GitHubSCMSource ctor requires repositoryUrl + configuredByUrl; Job DSL rejected the script, which aborts the ENTIRE JCasC document → BootFailure, 14 container restarts, proxy 502. (2) Only visible once (1) was fixed: no unclassified.location.url, so Jenkins' root URL was empty → github-branch-source has no target URL for the commit status it posts, and GHHook registration was skipped. Both fixed in edd9aae."
+    method: "Each fix was applied to /var/lib/jenkins-casc/jenkins.yaml on the live box and Jenkins restarted alone (Drone untouched) BEFORE committing and re-applying — a Drone outage was not spent on an unverified fix. Final host state is the template render, not the hand-patch: the provision rewrote the file and recreated the container on the changed config hash, so what is proven working is what is committed."
+    live_state: "jenkins restarts=0, /jenkins/login 200 through the proxy; drone-server 303; ci-proxy + drone-runner up; 0 SEVERE/DslScriptException/BootFailure since boot; jobs cv-domain-service + cv-database created; aws_instance.drone = t3.small"
+    root_cause_note: "THIRD JCasC-abort defect on this task (after adoptOpenJdkInstaller in R1). Common cause: plugins.txt pins nothing, so the JCasC/Job DSL contract moves under us and fails only at runtime, invisible to terraform validate/test. Plugin pinning is non-blocking in T-005 and should be promoted."
+    user_data_bytes: 15460   # 94.4% of the 16 KB limit, 924 B headroom (was 91.1% pre-fix; the board's earlier 85.6% was stale)
+    ssm_timeout_note: "null_resource reported 5h37m44s because the LOCAL machine suspended mid-poll; the SSM invocation itself was PT30.007S. The script's 1800s timeout counts loop iterations, not wall clock, so it cannot bound a real run."
+    evidence: https://github.com/erfeamor/cv-infra/pull/11#issuecomment-5226866019
+  post_apply:
+    status: blocked_on_manual_step
+    blocker: "Neither cv-domain-service nor cv-database has a GitHub webhook. ci.tf documents this as manual BY DESIGN — the PAT is scoped to repo:status and cannot create hooks. Add http://13.39.59.12/jenkins/github-webhook/ (push + pull_request) on both repos before any probe PR can trigger a build."
+    remaining: "probe PR per repo reaching gh pr checks success/failure with commits/<sha>/status total_count >= 1; Drone OAuth /login → callback round trip; /jenkins/ auth posture + raw :8080 refusal; reboot persistence incl. ci-proxy; memory during a real Maven build concurrent with a Drone pipeline"
+  gate_note: "Gate checks 1–4 as originally written only grepped the two instances and the EIP association, so the security-group replacement passed straight through them. Check 1 is now a whole-plan grep for 'must be replaced'/'forces replacement' with zero expected hits — carry that phrasing to future infra gates."
+  updated: 2026-08-08
 ---
 
 ## Why this exists
