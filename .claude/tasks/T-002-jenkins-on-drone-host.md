@@ -13,12 +13,11 @@ checkpoint:
   stage: pr
   repo: cv-infra
   branch: feat/jenkins-on-ci-host
-  commit: 929a51f
   a1: pass   # fmt/validate/test green; no new drone-SG ingress; compute.tf+iam.tf untouched; no tfstate/tfvars/secrets tracked
-  a1_caveat: "no real terraform plan — worktree has no state; plan-based claims unverified until apply"
+  a1_caveat: resolved   # was: "no real terraform plan — worktree has no state". Gate run 2026-08-08 from the main clone (where the local-backend tfstate + tfvars live); see pre_apply_gate below.
   worktree: /home/erfeamor/work/cvdl-worktrees/T-002
   pr: https://github.com/erfeamor/cv-infra/pull/11
-  commit: 4015558
+  commit: 546c580
   signed_off: "trust boundary accepted 2026-08-06, conditional on trait pinning (done)"
   developer: infrastructure-engineer
   reviewers: [code-review, infrastructure-engineer, quality-assurance, security-review]
@@ -33,7 +32,16 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   env_slot: 5
-  updated: 2026-08-04
+  pre_apply_gate:
+    run: 2026-08-08
+    commit: 546c580
+    plan: "Plan: 4 to add, 2 to change, 0 to destroy"
+    steps_1_4: pass   # domain_service refresh-only; eip_association refresh-only; drone ~ in-place (t3.micro→t3.small, user_data hash); zero 'must be replaced' anywhere
+    steps_5_6: pending   # live docker ps + activated-repo snapshot, and EBS snapshot of the drone root volume — both must precede apply
+    blocker_found: "aws_security_group.drone planned for replacement — description is ForceNew, no create_before_destroy, referenced by aws_instance.drone.vpc_security_group_ids ⇒ DependencyViolation mid-apply. Reverted in 546c580."
+    evidence: https://github.com/erfeamor/cv-infra/pull/11#issuecomment-5225135292
+  gate_note: "Gate checks 1–4 as originally written only grepped the two instances and the EIP association, so the security-group replacement passed straight through them. Check 1 is now a whole-plan grep for 'must be replaced'/'forces replacement' with zero expected hits — carry that phrasing to future infra gates."
+  updated: 2026-08-08
 ---
 
 ## Why this exists
