@@ -15,7 +15,7 @@ This file guides Claude Code when working in the **cv-project meta repo**. Each 
 | `cv-public-vanilla` | Public landing | Vanilla JS + Vite | GitHub Actions |
 | `cv-public-react` | Public site (optimized, ISR) | Next.js 14, React 18, TS | Vercel |
 | `cv-observability` | Metrics stack | Prometheus + Grafana | GitHub Actions |
-| `cv-infra` | IaC | Terraform, AWS Free Tier | — |
+| `cv-infra` | IaC | Terraform, AWS (credit-funded) | — |
 
 Flow: public sites (cv-public-vanilla, and cv-public-react via ISR) → BFF → domain service → MySQL. cv-public-react is runtime-decoupled from the domain service: it only fetches the BFF's aggregate endpoint server-side and revalidates in the background. Admin UI → domain service directly. Auth: AWS Cognito JWTs, with a shared `AUTH_ENABLED` toggle (Java defaults **on**, BFF defaults **off**) so local stacks run without a user pool.
 
@@ -49,5 +49,5 @@ Dev stack ports: BFF :3000, domain API :8080 (Swagger at `/swagger-ui.html`), My
 
 - TDD everywhere; a PR without tests for its code path is incomplete.
 - Different CI per repo is a **feature** of the demo, not drift to fix.
-- AWS resources stay within Free Tier limits.
+- AWS cost: this account is on AWS's **post-July-2025 Free Tier** (created 2026-07-12) — a finite pot of credits and a 6-month window, **not** the legacy 12-month/750-hour allowance. There is no free EC2 allowance here; every instance-hour bills and is paid from credits (~$28/mo, net invoice $0). Keep resources modest because the credits are finite and expire, not because a class is "free" — **runway and cliff tracked in T-010**. See cv-infra/CLAUDE.md for the full cost model.
 - Dev seed data lives only in `cv-database/sql/dev-seeds/` (Flyway callback), never in versioned migrations.
