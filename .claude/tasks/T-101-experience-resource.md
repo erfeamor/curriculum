@@ -22,6 +22,12 @@ checkpoint:
   a1: pass                # checkstyle + 28 tests + package, all green 2026-08-04
   review_round: 1
   open_findings: 0
+  qa_coverage_pass: "DONE — review round 1 (2026-08-04) on 3b22793, CONVERGED with 0 blocking. This was QA's *coverage lens* as a reviewer; see the review trail below, which records a substantive finding (verify(never()).findById(any()) is load-bearing because Mockito returns Optional.empty() for unstubbed calls, so an IDOR-vulnerable rewrite would 404 by accident)."
+  qa_stage4_exploratory: "NOT RUN as of 2026-08-09. The Definition of Done requires 'Stage-4 exploratory QA clean against the isolated MySQL 8.4 stack' and there is no record of it: no qa checkpoint entry, stage never advanced past 'pr', and this file's last update (2026-08-04) predates the CI that would have gated it. Do not read 'review CONVERGED' as this having happened — they are different gates."
+  qa_stage4_why_it_matters: "Stage 4 exists to catch precisely what the unit tests cannot. This task's own test plan says so: real-schema validation 'catches an entity mapping that passes H2 but fails ddl-auto: validate on MySQL', and cascade delete must be checked 'against the real InnoDB FK (H2's emulation can diverge from P4)'. The suite runs on H2; production is MySQL 8.4. Merging without stage 4 ships the exact class of defect the plan was written to find."
+  qa_stage4_how: "python3 scripts/qa-env-override.py --task T-101 --slot 0 — then the seven checks under 'Exploratory QA at stage 4' in this file."
+  acceptance_boxes: "All acceptance-criteria checkboxes in this file are still unticked. DoD item 1 is 'All acceptance criteria checked' — tick them against evidence when stage 4 runs, rather than on merge."
+  ci_note: "Jenkins CI is green on PR #3 as of 2026-08-09 (continuous-integration/jenkins/pr-merge: pass). This was impossible until T-002 landed and is the DoD item that was blocked, not the QA one."
   qa_bounces: 0
   fix_attempts: 0
   env_slot: 0
