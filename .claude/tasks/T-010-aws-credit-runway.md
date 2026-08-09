@@ -1,13 +1,29 @@
 ---
 id: T-010
 title: Track the AWS credit runway and the free-plan cliff before it stops the demo
-repo: cv-infra + meta
-status: todo
-owner:
-branch: chore/credit-runway-guardrails
+repo: cv-project (meta)
+status: in_progress
+owner: tech-product-owner
+branch: chore/credit-runway-decision
 depends_on: []
 risk: high
 security_review: false
+checkpoint:
+  stage: H1
+  repo: cv-project (meta)
+  branch: chore/credit-runway-decision
+  developer: tech-product-owner   # NOT an implementable-by-agent task — see human_dependency
+  reviewers: [infrastructure-engineer]
+  risk: high
+  security_review: false
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: 0
+  split: "Stage 0 split the implementable half out as T-011 (cv-infra, budget alarm). This task was repo: 'cv-infra + meta', which the adapter forbids past stage 0 — every task leaving stage 0 touches exactly one repo. What remains here is meta-only."
+  human_dependency: "BLOCKING and unavoidable: steps 1 and 3 need the AWS console (Billing → Credits) — remaining credit balance, each credit's expiry, and Free-plan vs Paid-plan. Neither is exposed by any AWS API; the CLI cannot read them. No developer persona can satisfy this. Everything downstream (the projected date, the real budget thresholds in T-011, and whether any trimming is warranted) depends on those two numbers."
+  updated: 2026-08-09
 ---
 
 ## Why this exists
