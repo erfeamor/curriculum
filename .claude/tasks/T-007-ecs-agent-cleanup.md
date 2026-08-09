@@ -43,7 +43,7 @@ So: disable and mask the `ecs` unit in the user-data template *and* apply the sa
 
 ## Watch out for
 
-- **`user_data` is at 91.1% of EC2's 16 KB limit** (≈1,456 bytes headroom) as of T-002. Re-measure before adding lines to `templates/drone-user-data.sh`; a few `systemctl` calls should fit, but do not assume. T-002's PR body flags this explicitly.
+- **`user_data` is close to EC2's 16 KB limit** — 95.7% as of 2026-08-09, and the figure has moved with every T-002 fix, so do not trust any number quoted here. **Re-measure** before adding lines to `templates/drone-user-data.sh`; a few `systemctl` calls should fit, but do not assume. [T-009](T-009-user-data-size-ceiling.md) exists to remove this constraint — if it has landed, this warning is moot.
 - Check whether `aws_instance.domain_service` was launched from the same AMI and has the same stray agent — the gate only inspected the CI host. If so, fix both in one PR.
 - Consider whether the right long-term answer is a plain Amazon Linux 2023 AMI rather than the ECS-optimized one. That is an AMI change, so it forces instance replacement — **out of scope here**, but worth recording an opinion in the PR if the AMI filter turns out to be selecting the ECS variant unintentionally.
 
