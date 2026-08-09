@@ -22,6 +22,30 @@ checkpoint:
   a1: pass                # checkstyle + 28 tests + package, all green 2026-08-04
   review_round: 1
   open_findings: 0
+  qa_coverage_pass: "DONE — review round 1 (2026-08-04) on 3b22793, CONVERGED with 0 blocking. This was QA's *coverage lens* as a reviewer; see the review trail below, which records a substantive finding (verify(never()).findById(any()) is load-bearing because Mockito returns Optional.empty() for unstubbed calls, so an IDOR-vulnerable rewrite would 404 by accident)."
+  qa_stage4_exploratory: "PASS — executed 2026-08-09 against the isolated stack (cvdl_t-101, slot 0, real MySQL 8.4 + Flyway, domain-service :8090). All seven planned checks green, plus the id-override coverage risk flagged at refinement. Details in qa_stage4_results."
+  qa_stage4_results: |
+    1 real schema      PASS  columns exactly id,person_id,company,role,location,start_date,end_date,description;
+                             fk_experience_person DELETE_RULE=CASCADE; engine InnoDB.
+                             ddl-auto: validate started clean — 0 SchemaManagementException/Schema-validation
+                             errors in the log. This is the H2-vs-MySQL risk the stage exists for.
+    2 CRUD round trip  PASS  POST 201 / GET 200 / PUT 200 / GET 200 / DELETE 204 / GET 200, exactly as planned;
+                             PUT landed (company Acme->Acme2, role->Senior Engineer); 0 rows left in the table.
+    3 date over wire   PASS  endDate present as JSON null (not "null", not omitted) on create; becomes a real
+                             date '2022-06-30' after PUT. Field set exactly the seven contract fields.
+    4 cascade delete   PASS  real InnoDB FK: child rows 1 -> 0 on DELETE of the parent person (204).
+    5 unknown person   PASS  404 on GET, POST, PUT and DELETE against personId 9999.
+    6 cross-person     PASS  PUT and DELETE of person A's experience under person B both 404; A's row verified
+                             untouched in the DB afterwards (A-Corp/A-Role/2020-01-01 intact, row still present).
+                             Error body is uniform — "Experience not found" for both an unknown id and another
+                             person's id, so it never confirms the id exists elsewhere.
+    7 validation 400   PASS  missing company / role / startDate each 400 with Spring's default problem body
+                             (keys exactly timestamp,status,error,path) — no custom error DTO.
+    + id override      PASS  POST with a client-supplied "id":999 returns a generated id, not 999.
+  qa_stage4_tester_note: "One apparent failure during the run was the tester's error, not a defect: GET /{id} returns 405, because the contract defines GET only on the collection (GET/POST on .../experiences, PUT/DELETE on .../{id}). 405 is correct. The test plan's 'POST -> GET -> PUT -> GET -> DELETE -> GET' means list GETs; re-run that way it passes."
+  qa_stage4_how: "python3 scripts/qa-env-override.py --task T-101 --slot 0 — then the seven checks under 'Exploratory QA at stage 4' in this file."
+  acceptance_boxes: "All acceptance-criteria checkboxes in this file are still unticked. DoD item 1 is 'All acceptance criteria checked' — tick them against evidence when stage 4 runs, rather than on merge."
+  ci_note: "Jenkins CI is green on PR #3 as of 2026-08-09 (continuous-integration/jenkins/pr-merge: pass). This was impossible until T-002 landed and is the DoD item that was blocked, not the QA one."
   qa_bounces: 0
   fix_attempts: 0
   env_slot: 0
@@ -53,13 +77,13 @@ These were ambiguous in the original task prose. They are now **acceptance crite
 
 ## Acceptance criteria
 
-- [ ] `GET/POST /api/v1/people/{personId}/experiences`, `PUT/DELETE .../{id}` with the status codes from the contract.
-- [ ] `personId` is validated: unknown person → 404 on every verb.
-- [ ] Bean validation: `company`, `role`, `startDate` required → 400 when missing (Spring's default problem body, no custom error DTO).
-- [ ] Response payload matches the contract shape exactly: `id, company, role, location, startDate, endDate, description` — no extra or missing fields; `endDate: null` serializes as JSON `null`.
-- [ ] DoR decisions 1–4 above each covered by a test.
-- [ ] Tests in the established styles: `@WebMvcTest(addFilters = false)` controller tests (mocked repo) + `@DataJpaTest` persistence test. Both are required per aggregate.
-- [ ] `mvn -B test` and `mvn -B checkstyle:check` pass.
+- [x] `GET/POST /api/v1/people/{personId}/experiences`, `PUT/DELETE .../{id}` with the status codes from the contract.
+- [x] `personId` is validated: unknown person → 404 on every verb.
+- [x] Bean validation: `company`, `role`, `startDate` required → 400 when missing (Spring's default problem body, no custom error DTO).
+- [x] Response payload matches the contract shape exactly: `id, company, role, location, startDate, endDate, description` — no extra or missing fields; `endDate: null` serializes as JSON `null`.
+- [x] DoR decisions 1–4 above each covered by a test.
+- [x] Tests in the established styles: `@WebMvcTest(addFilters = false)` controller tests (mocked repo) + `@DataJpaTest` persistence test. Both are required per aggregate.
+- [x] `mvn -B test` and `mvn -B checkstyle:check` pass.
 
 ## Test plan (authored by Quality Assurance at refinement — QA executes this verbatim at stage 4)
 
