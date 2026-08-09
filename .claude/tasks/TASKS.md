@@ -6,7 +6,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-101](T-101-experience-resource.md) | Experience resource in the domain API | cv-domain-service | in_review | backend-developer | — | [#3](https://github.com/erfeamor/cv-domain-service/pull/3) |
+| [T-101](T-101-experience-resource.md) | Experience resource in the domain API | cv-domain-service | done | backend-developer | — | [#3](https://github.com/erfeamor/cv-domain-service/pull/3) |
 | [T-102](T-102-education-resource.md) | Education resource in the domain API | cv-domain-service | todo (H1 done) | | — | |
 | [T-103](T-103-skills-catalog-and-assignments.md) | Skill catalog + person-skill assignments | cv-domain-service | todo (H1 done) | | — | |
 | [T-104](T-104-project-resource.md) | Project resource in the domain API | cv-domain-service | todo (H1 done) | | — | |
@@ -20,7 +20,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 ### Parallelization notes (read before claiming)
 
 - **Wave 1 (5 agents in parallel):** T-101, T-102, T-103, T-104, T-151 — fully independent; the four API tasks touch disjoint packages, so PRs won't conflict except trivially.
-  - **Status as of 2026-08-09:** only T-101 was ever implemented (PR #3, CI green). T-102/T-103/T-104 reached **H1 and stopped** — refinement and their DoR/test plans are complete and ratified, but no code was written; their claims were reset from a stale `in_progress` so they can be picked up. **Start them at implementation, not refinement.** T-151 never started.
+  - **Status as of 2026-08-09:** T-101 is **merged** (PR #3, `09282ed` — CI green, stage-4 QA passed). T-102/T-103/T-104 reached **H1 and stopped** — refinement and their DoR/test plans are complete and ratified, but no code was written; their claims were reset from a stale `in_progress` so they can be picked up. **Start them at implementation, not refinement.** T-151 never started.
 - **Wave 2:** T-201 and T-301 — both may *start* against the contract (mocked upstreams) during wave 1; their final verification needs wave 1 merged.
 - **Wave 3:** T-401 and T-402 after T-201 (different repos — run them in parallel); T-501 strictly last.
 - T-103 is the highest-risk API task (composite key, upsert, 409) — assign it to the strongest agent or start it first.
