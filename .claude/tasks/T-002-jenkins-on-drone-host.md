@@ -2,7 +2,7 @@
 id: T-002
 title: Host Jenkins on the existing Drone CI instance
 repo: cv-infra
-status: in_review
+status: done
 owner: infrastructure-engineer
 branch: feat/jenkins-on-ci-host
 pr: https://github.com/erfeamor/cv-infra/pull/11
@@ -75,6 +75,8 @@ checkpoint:
     scanning_note: "The proxy log shows the CI host under steady untargeted internet scanning — of 1,161 lines, most traffic is not ours (117 req from 20.113.142.140, 98 from 20.218.73.95, 85 from 64.23.252.42, plus raw TLS ClientHello sent to plain-HTTP :80 and probes for /geoserver/web/). Verified nothing is reachable: Jenkins 403 to anonymous on every path, :8080/:50000 refused, Drone gated by OAuth + DRONE_USER_FILTER; the 200 on /geoserver/web/ is Drone's SPA catch-all, not a leak. Not a finding against this PR, but it is the environment the accepted trust boundary sits in — carry to T-005 as an argument for scheduling TLS."
     reconciliation_apply: "3rd apply, from the COMMITTED template rather than the hand-patched box: rewrote plugins.txt + Dockerfile from source, rebuilt, and reproduced the hand-verified state exactly (docker 26.1.5 present, junit installed, restarts=0, 0 boot errors, both jobs). terraform plan after: No changes. This is what proves the branch as committed reproduces the working state."
     evidence: https://github.com/erfeamor/cv-infra/pull/11#issuecomment-5227099959
+  merged: "cv-infra PR #11 merged 2026-08-09T06:47:58Z as b30c20c"
+  budget_premise_corrected: "The H1 'Free Tier exception, net +$8/mo' framing in this file is WRONG and is left in place only as a record of what was decided. This account (created 2026-07-12) is on AWS's post-July-2025 Free Tier — credits + a 6-month window, no 750h/month EC2 allowance. Verified: aws freetier get-free-tier-usage returns only Always Free entries (Glue/SQS/KMS), no 12-Month-Free rows. So there was no allowance to make an exception TO, and every instance-hour bills. Real run rate is ~$0.92/day ~= $28/mo (not the ~$16.60 projected), fully covered by credits — July usage $22.90/credit -$22.90, August $16.06/credit -$16.06, net $0 both months, which is why no billing warning ever fired. The t3.small DECISION stands and was correct; only its justification was mis-framed. Real constraint is credit runway + the 6-month cliff: T-010."
   followups_warranted:
     user_data_ceiling: "95.7% of the 16 KB limit (15,681 B, 703 B headroom). THREE consecutive fixes each needed comment-trimming to fit. Shaving comments is not a strategy — the real fix is staging the provisioning script in S3 and fetching it at boot instead of embedding it. Deserves its own task; the next person to touch either template will likely be the one who blows the limit."
     pin_everything: "Nothing is pinned — not plugins (plugins.txt has no versions), not the base image (jenkins/jenkins:lts-jdk17 is a floating tag). This caused THREE of the five defects on this task: adoptOpenJdkInstaller (R1), repositoryUrl/configuredByUrl and missing junit (apply time). The Debian 13 rebase that removed the docker CLI is the same class one layer down. T-005 carries pinning as non-blocking — PROMOTE IT."
