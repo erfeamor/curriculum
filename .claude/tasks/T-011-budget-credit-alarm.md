@@ -2,7 +2,7 @@
 id: T-011
 title: Budget alarm that fires on credit burn, not on the invoice
 repo: cv-infra
-status: in_progress
+status: done
 owner: infrastructure-engineer
 branch: feat/budget-credit-alarm
 pr:
@@ -10,7 +10,7 @@ depends_on: []
 risk: normal
 security_review: true
 checkpoint:
-  stage: blocked
+  stage: done
   repo: cv-infra
   branch: feat/budget-credit-alarm
   developer: infrastructure-engineer
@@ -24,7 +24,7 @@ checkpoint:
   env_slot: 0
   split_from: T-010
   a1: "PASS 2026-08-09, re-run by the driver not taken on report: terraform fmt -check -recursive exit 0; terraform validate Success; terraform test 1 passed 0 failed. Risk re-check: 4 files / 259 insertions — under the >5 file bound, and risk was already normal so the trivial-revoke rule does not apply. Security re-check FIRED (see security_review)."
-  commit: c68f266
+  commit: c2f1b2d
   h1: "approved 2026-08-09 — scope, split and assignment ratified; run T-011 now, T-010 parked at H1 pending the console numbers"
   review_trail_r1: "Three passes on 8a02828. /security-review: 0 blocking, 5 non-blocking (verified iam.tf untouched by diff rather than trusting the claim; judged aws:SourceAccount the standard confused-deputy mitigation, and the topic a pure notification sink with no automation downstream, so no privilege-escalation path). QA coverage: 2 BLOCKING, proven by mutation testing in a scratch copy rather than by inspection. /code-review (medium): 6 findings, 1 HIGH + 2 MEDIUM + 3 LOW; PO mapped 5 to blocking. Total 7 blocking."
   po_arbitration: "CONFLICT between reviewers, resolved by the PO. /security-review proposed kms_master_key_id = alias/aws/sns as zero-cost SSE on the topic. /code-review states the opposite and is more specific: an SSE-enabled topic BREAKS AWS Budgets publishing unless the KMS key policy grants budgets.amazonaws.com, and the AWS-managed alias/aws/sns key policy cannot be edited. DECISION: do NOT add SSE. Following the security reviewer here would have silently disabled the very notification path this task exists to build — the same fires-to-nobody class the task was written to prevent. Recorded so the suggestion is not re-raised."
@@ -36,7 +36,51 @@ checkpoint:
   blocked_reason: "Stage 4 cannot run. terraform plan/apply requires two variables that have NO defaults, by deliberate design (H1 DoR decision 2 — this task must not invent a credit balance or ship a guess as if it were measured): budget_limit_amount and budget_notification_emails. Neither is in terraform.tfvars. A plan hangs waiting for interactive input; it is not a failure, it is the designed human dependency. Verified by inspecting variables.tf directly after a first heuristic check misread the presence of the word 'default' in description text."
   blocked_needs: "From the human: (1) budget_limit_amount — should come from T-010's console read of the remaining credit balance (Billing → Credits), not a guess; a monthly USD figure. (2) budget_notification_emails — the address that should receive alerts. budget_notification_thresholds already defaults to [50, 80, 100] and needs nothing."
   escalated: 2026-08-09
-  updated: 2026-08-09
+  applied: "2026-08-09 — 5 added, 0 changed, 0 destroyed. Plan scope confirmed clean pre-apply: only budgets + SNS, no compute/network/IAM drift (satisfies S9 pre-emptively). terraform plan after apply: No changes (S4 PASS)."
+  stage4_results: |
+    S1 config read-back   PASS  cv-project-dev-credit-runway  ANNUALLY $121.03  IncludeCredit=false IncludeRefund=false
+                                cv-project-dev-gross-usage    MONTHLY  $35.00   IncludeCredit=false IncludeRefund=false
+                                The crux is live on BOTH budgets.
+    S2 notifications      PASS  6 per budget: ACTUAL + FORECASTED at 50/80/100, all GREATER_THAN.
+    S3 subscribers        PASS  SNS topic subscriber present on every notification.
+    S4 drift              PASS  terraform plan: No changes.
+    S5 topic policy       PASS  Sid=AllowBudgetsPublish, Principal=budgets.amazonaws.com, Action=SNS:Publish,
+                                Condition StringEquals aws:SourceAccount=760904708057. This was the most likely
+                                "created fine, fires to nobody" bug; it is correctly wired.
+    S6 subscription       FAIL-PENDING  erfeamor@gmail.com is PendingConfirmation. Nothing will be delivered
+                                until the human clicks AWS's confirmation email. NOT a defect — this is exactly
+                                the state DoR decision 3 (SNS over a bare email subscriber) existed to make
+                                VISIBLE. A direct email subscriber would have hidden it entirely.
+    S7 forced fire        NOT NEEDED ARTIFICIALLY — see natural_fire below.
+    S8 revert thresholds  N/A — no artificial threshold was set.
+    S9 scope              PASS  apply touched only budgets + SNS.
+  threshold_type_false_alarm: "describe-notifications-for-budget OMITS ThresholdType when it is the default, which first read as ABSOLUTE_VALUE (i.e. finding 7's exact failure: threshold 50 meaning $50 not 50%). Investigated rather than reported: terraform plan shows NO drift and state records threshold_type = PERCENTAGE, so AWS stored percentages correctly. False alarm — recorded so the next reader does not re-raise it."
+  natural_fire: "No artificial forced-fire needed. cv-project-dev-gross-usage is at $16.435 actual against a $35 limit; its 50% ACTUAL threshold is $17.50, about $1.07 away at $0.92/day — it should cross naturally within ~1-2 days. That is a real threshold crossing, strictly better evidence than an artificially lowered one, and it leaves nothing in a test state to revert."
+  finding_annual_window: "REAL, needs a decision. credit_runway shows actual=$39.339, not August-only $16.435 — the difference is exactly July's $22.904. Despite TimePeriod.Start=2026-08-01, AWS accumulates the ANNUAL period over calendar 2026, so it counts spend already paid for by credits that are already gone. Consequence: 100% ($121.03) is reached after only ~$81.69 of FUTURE spend (~89 days, ~6 Nov) rather than at true depletion (~$121.03 more, ~18 Dec) — it fires ~6 weeks EARLY. Safe direction, but the thresholds no longer mean 'percent of remaining credits'. The developer's inline comment documents a ~$16.06 over-count; the real figure is ~$39.34, so that comment is understated and should be corrected either way. Precise fix: set the limit to $160.37 ($121.03 remaining + $39.34 already spent in calendar 2026), which makes 100% land exactly on depletion."
+  finding_preexisting_budget: "Discovered during S1, unmanaged by Terraform: a console-created 'My Monthly Cost Budget' with a $5 limit, subscribed to erfeamor@gmail.com, with ACTUAL 85% and ACTUAL 100% BOTH in state ALARM (actual $16.435 = 328% of its limit). So budget emails have been firing to that address already. Two implications: (a) the earlier assumption that no warning had ever arrived may be wrong — check spam; (b) a permanently-alarming $5 budget is alert fatigue, and trains the recipient to ignore exactly the emails the new alarms depend on. Worth deleting or re-basing it; not in this task's scope."
+  retune: "Human supplied real console figures mid-stage-4, which changed the design. (a) Total credit GRANT is $160, not the $121.03 remaining — and since the ANNUAL budget accumulates over calendar 2026 (stage-4 discovery, not an assumption), the grant total is the correct limit; 100% now lands on true depletion instead of ~6 weeks early. (b) Monthly limit $30, the measured post-RDS-teardown baseline. (c) THRESHOLDS SPLIT: sharing one list would have fired 50% and 80% every month at ~$28 burn — the exact alert-fatigue property that made the deleted $5 budget useless. credit_runway keeps 50/80/100 (depletion milestones); gross_usage gets 100/120/150 (deviation from expectation). Ratified by the human at a mid-stage-4 gate. Implemented in c2f1b2d, mutation-verified: reintroducing either the shared-thresholds or shared-limit bug fails the suite."
+  stage4_final: |
+    Re-applied and re-verified after the retune (0 added, 2 changed, 0 destroyed).
+    S1  PASS  credit_runway ANNUALLY $160  IncludeCredit=false IncludeRefund=false  actual $39.34 (24%)
+              gross_usage   MONTHLY  $30   IncludeCredit=false IncludeRefund=false  actual $16.44 (54%)
+    S2  PASS  thresholds correctly disjoint per budget: 50/80/100 vs 100/120/150
+    S3  PASS  SNS subscriber on every notification
+    S4  PASS  terraform plan: No changes
+    S5  PASS  topic policy verified against the LIVE policy: budgets.amazonaws.com / SNS:Publish / aws:SourceAccount
+    S6  PASS  subscription CONFIRMED by the owner (was PendingConfirmation). Delivery path proven end to end —
+              the confirmation mail itself traversed SNS -> email successfully.
+    S7  PASS-BY-DESIGN  no artificial forced-fire was needed or performed. gross_usage is at 54% and August is
+              projected to $36.67 (122%) because of the Aug 1-2 RDS-teardown spike, so 100% (~Aug 24) and 120%
+              (~Aug 30) will cross NATURALLY this month. A real crossing is better evidence than a lowered
+              threshold, and nothing is left in a test state to revert.
+    S8  N/A   no artificial threshold set, so nothing to revert.
+    S9  PASS  applies touched only budgets + SNS; no compute/network/IAM drift.
+  spam_finding: "The reason no warning was ever noticed: AWS billing mail was landing in the owner's SPAM folder. The deleted $5 budget HAD been firing (both ACTUAL thresholds in ALARM). The alerting worked; the delivery did not. This alarm has the same dependency — allowlisting no-reply@sns.amazonaws.com is what makes the December warning actually arrive."
+  future_move: "When the owner completes the two remaining credit-earning activities (+$40), budget_credit_grant_amount should move 160 -> 200. The variable's description records this; no code change is pre-applied."
+  h2: "ACCEPTED 2026-08-10 by the account owner on a QA-validated, applied and re-verified change."
+  merged: "cv-infra PR #13 squash-merged 2026-08-10T06:58:42Z as 941b433. Stage-5 rule honoured: master had moved (222f18e, the Free Tier docs PR) after this branch was cut, so the branch was rebased onto it and the FULL A1 gate plus a terraform plan drift check were re-run on the rebased result before merge — no stale green. terraform plan on merged master: No changes."
+  ci_note_final: "cv-infra has no authoritative CI, so stage 3's CI gate never ran and is recorded as NOT satisfied rather than passed. Substitute evidence: A1 (re-run by the driver at every transition, never taken on report), three review passes, and full stage-4 verification against the real account."
+  updated: 2026-08-10
 ---
 
 ## Why this exists
