@@ -54,7 +54,7 @@ Same question applies to self-hosted MySQL, tracked as **T-001**.
 ## Do first, regardless of which option wins
 
 - [ ] **Complete the two remaining $20 credit-earning activities** (Lambda; foundation-model experimentation). Free, ~1 hour, moves the cliff 20 Dec → 12 Jan. Ratified in T-010.
-- [ ] **Allowlist `no-reply@sns.amazonaws.com`.** T-010 found the previous budget had been firing for months into a spam folder — the alerting worked, the delivery did not. The December warning inherits that dependency and has exactly one job.
+- [x] **Allowlist `no-reply@sns.amazonaws.com`** — **done 2026-08-11.** T-010 found the previous budget had been firing for months into a spam folder: the alerting worked, the delivery did not. The December warning inherited that dependency and has exactly one job. With the subscription confirmed *and* the sender allowlisted, the delivery path is now clear end to end. Note this is an inbox-side setting, invisible to Terraform and to `describe-budgets` — if the mailbox or its rules ever change, this silently reverts and nothing in AWS will say so.
 - [ ] **Do not raise `budget_credit_grant_amount` to $200** when the grant increases. Corrected in cv-infra PR #14, restated here because it is counter-intuitive: at $200 the 100% alert fires 2027-02-01, ~20 days *after* the account is paused. Held at $160 it fires 24 Sep / 15 Nov / 20 Dec.
 
 ## Acceptance criteria
