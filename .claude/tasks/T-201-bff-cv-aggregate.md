@@ -11,7 +11,9 @@ depends_on: [T-101, T-102, T-103, T-104, T-006]
 
 ## Goal
 
-`GET /api/v1/people/:id/cv` returning the full normalized CV in one call, per [docs/api-contract.md](../../docs/api-contract.md) § BFF.
+`GET /bff/api/v1/people/:id/cv` returning the full normalized CV in one call, per [docs/api-contract.md](../../docs/api-contract.md) § BFF.
+
+> **Path corrected 2026-08-13 by T-013.** This task originally specified `GET /api/v1/people/:id/cv`. T-013 moved the BFF's entire public surface behind the `/bff` edge prefix, because the BFF and the domain service would otherwise both claim `GET /api/v1/people/:id` at one CloudFront distribution. The BFF now mounts its routers at `/bff/api/v1` and the prefix is **not** stripped at the edge, so this is the real path in local dev as well as in AWS. T-202 makes the mount change; this task builds on top of it. Nothing else here changes — same payload, same error mapping, same parallel fetch.
 
 > Unit-test development can start immediately against the contract (mock `global.fetch` exactly like `test/people.test.ts` does); only the final integration check needs T-101…T-104 merged.
 

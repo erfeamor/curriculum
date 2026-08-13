@@ -49,6 +49,7 @@ The intended approach is the domain service's, per the meta README backlog — *
 - [ ] The domain service, MySQL and the admin are all still working after the apply — explicitly re-checked, given the instance replacement.
 - [ ] MySQL data survived the replacement, or its loss was a recorded, accepted decision made **before** the apply.
 - [ ] `compute.tf:1` and `README.md:14` describe what actually runs.
+- [ ] **`/metrics` and `/health` are excluded from the `spa_router` CloudFront Function** (`functions/spa-router.js`) so they return 404 at the edge. Added 2026-08-13 from T-013's review: the function rewrites every extensionless URI to `/index.html`, so without this both paths answer **200 with the public SPA shell**. No metrics leak — nothing routes them to the BFF — but a monitoring probe aimed at the CloudFront domain reads that 200 as "healthy". Verify with a real request against the distribution, not by reading the Terraform.
 - [ ] No new EIP, no NAT gateway, no port-22 ingress, no secret in a committed file.
 
 ## Definition of done
