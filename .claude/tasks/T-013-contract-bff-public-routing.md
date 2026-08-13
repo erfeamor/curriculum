@@ -2,7 +2,7 @@
 id: T-013
 title: Contract — settle the BFF's public edge path and anonymous read semantics
 repo: cv-project (meta)
-status: in_review
+status: done
 owner: tech-product-owner
 branch: docs/contract-bff-public-routing
 pr: https://github.com/erfeamor/curriculum/pull/22
@@ -10,7 +10,7 @@ depends_on: []
 risk: normal
 security_review: false
 checkpoint:
-  stage: in_review          # stage 3 — PR open, awaiting H2. Stage 4 waived (see qa_stage_4).
+  stage: done               # merged as 3008bca; H2 accepted 2026-08-13
   repo: cv-project (meta)
   branch: docs/contract-bff-public-routing
   pr: https://github.com/erfeamor/curriculum/pull/22
