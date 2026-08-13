@@ -39,7 +39,7 @@ The four-section milestone is untouched (every task above is genuinely `todo`), 
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-001](T-001-selfhost-mysql-followups.md) | Backup: replace the managed backups lost when MySQL left RDS | cv-infra | done (**not applied**) | infrastructure-engineer | — | [#15](https://github.com/erfeamor/cv-infra/pull/15) |
+| [T-001](T-001-selfhost-mysql-followups.md) | Backup: replace the managed backups lost when MySQL left RDS | cv-infra | done (applied + restore verified) | infrastructure-engineer | — | [#15](https://github.com/erfeamor/cv-infra/pull/15) |
 | [T-016](T-016-dev-prod-mysql-parity.md) | Dev/prod parity: bump the local MySQL to 8.4 | cv-project (meta) | todo | | — | |
 | [T-017](T-017-docs-drift-rds-to-selfhosted.md) | Docs drift: the repo still says RDS in five places | cv-project (meta) + cv-database | todo | | — | |
 | [T-018](T-018-mysql-on-dedicated-ebs-volume.md) | MySQL on a dedicated EBS volume, surviving instance replacement | cv-infra | todo | | — | |
@@ -59,7 +59,9 @@ The four-section milestone is untouched (every task above is genuinely `todo`), 
 
 **Board-line correction 2026-08-13.** T-002's line above read `in_review` while its own task file had said `done` since PR [#11](https://github.com/erfeamor/cv-infra/pull/11) merged on 2026-08-09 — rule 1 requires both to be updated and only the file was. The line is now `done`. The practical cost was not cosmetic: **T-003, T-005, T-007, T-008 and T-009 all gate on T-002**, so five infra tasks read as un-claimable for four days. They are claimable now, and none is owned. T-001 is also unowned and is the only thing that has to happen before the deployment chain reaches its destructive step.
 
-> **T-001 is merged but NOT applied — there are still no backups.** `terraform apply` was deliberately outside its DoD (H1 ruling: it replaces the instance and blips the admin UI, so the human runs it). Until that apply happens the database has exactly the durability it had before: one instance volume, no copy. `done` on that row means *the code is merged*, not *the data is protected*. Runbook is in [cv-infra#15](https://github.com/erfeamor/cv-infra/pull/15); the verified restore is the real acceptance test, not the upload.
+> **T-001 applied and verified 2026-08-13 — backups are now real.** The nightly timer is enabled on `i-038600c71d141035b` (next run 03:04 UTC), a forced run landed `cv-20260813T152654Z.sql.gz` in `s3://cv-project-mysql-backup-dev/mysql-dumps/`, and that dump was **restored into a throwaway MySQL 8.4 container** — all six tables plus the Flyway history. The restore, not the upload, is what makes this claim worth anything.
+>
+> The instance was replaced as expected, so the previous test data is gone and the verified dump is schema-only. The mechanism is proven; it has simply had no authored content to capture yet. **[T-018](T-018-mysql-on-dedicated-ebs-volume.md) is still the thing that matters before real content exists** — a nightly dump does not save data written between dumps, and T-014's apply will replace this box again.
 
 ## Public-path deployment gap (cross-repo — blocks T-501)
 
