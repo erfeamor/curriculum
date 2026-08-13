@@ -13,6 +13,8 @@ depends_on: [T-201]
 
 Extend cv-public-react beyond the person head to render experience, education, skills, and projects from the BFF aggregate `GET /api/v1/people/:id/cv`, following the repo's hexagonal + ISR conventions. The app already fetches the full aggregate and types it; today only `PersonHeader` is rendered. This is the React/ISR counterpart of T-401 (cv-public-vanilla).
 
+> **Note (2026-08-12) — not a blocking dependency, but read before claiming.** The BFF this app fetches from is **not deployed to AWS** (**T-014** deploys it; **T-013** → **T-202** settle its public path and anonymous-read semantics first). Local work is unaffected — `BFF_URL` defaults to `localhost:3000` in `src/composition/container.ts:23` — but the Vercel deployment has no reachable BFF to point at, so "done" here means *renders locally / in preview against a local BFF*, not *renders in production*. Pointing Vercel's `BFF_URL` at the deployed edge path is a project-setting change tracked at T-501, not a code change in this repo.
+
 > Section components + tests can be built against the contract immediately (the `Cv` type + a fixture); only the live check needs T-201 (the BFF aggregate) deployed.
 
 ## Pointers

@@ -50,3 +50,40 @@ The four-section milestone is untouched (every task above is genuinely `todo`), 
 | [T-010](T-010-aws-credit-runway.md) | Track the AWS credit runway and free-plan cliff before it stops the demo | cv-project (meta) | done | tech-product-owner | — | |
 | [T-011](T-011-budget-credit-alarm.md) | Budget alarm that fires on credit burn, not on the invoice | cv-infra | done | infrastructure-engineer | — | [#13](https://github.com/erfeamor/cv-infra/pull/13) |
 | [T-012](T-012-aws-endgame-decision.md) | **Decide Paid-vs-teardown before the Free-plan window closes** | cv-project (meta) | todo | | — | **due 2026-12-20** |
+
+> T-013, T-014 and T-015 are part of the deployment chain below and are boarded there, not here, so there is one line per task to claim.
+
+## Public-path deployment gap (cross-repo — blocks T-501)
+
+**`cv-bff-node` has never been deployed to AWS, and neither has `cv-public-vanilla`.** Verified against the live account 2026-08-11/12: no BFF ECR repo, no BFF container in `user_data`, CloudFront `/api/*` goes straight to Java on :8080, and `s3://cv-project-frontend-dev/` holds only `admin/`. The only BFF-named object in the account is an empty log group. The whole **public** path is absent; the admin is live and unaffected because it bypasses the BFF by design (`docs/architecture.md:28`) — which is exactly why the gap stayed invisible.
+
+It stayed unfiled because the IaC asserts the opposite: `cv-infra/compute.tf:1` and `cv-infra/README.md:14` both claim the box already runs the BFF. Same failure class as T-010 — a documented assumption never re-checked against the account.
+
+Deploying it is **not** just adding a container. Two blockers are contract-level, which is why T-013 leads: the BFF serves `GET /api/v1/people/:id` on the **same path** CloudFront already routes to Java (`src/app.ts:26`), and it gates *all* of `/api/v1` behind `requireAuth()` when `AUTH_ENABLED=true` (`src/app.ts:22-25`), which would 401 every anonymous visitor.
+
+One task per repo, strictly sequential — each task's `depends_on` enforces the order, so exactly one is claimable at a time. **This is the board line for all six; claim here.**
+
+| # | ID | Title | Repo | Status | Owner | Depends on | PR |
+|---|----|-------|------|--------|-------|------------|----|
+| 1 | [T-013](T-013-contract-bff-public-routing.md) | Contract: BFF public edge path + anonymous reads | cv-project (meta) | todo | | — | |
+| 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | todo | | T-013 | |
+| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** | cv-infra | todo | | T-013, T-202 | |
+| 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014 | |
+| 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed | cv-project (meta) | todo | | T-014, T-403 | |
+| — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
+
+Personas and risk (assigned per the adapter's capability→repo map; each task file carries the reviewer set and gate commands):
+
+| ID | Developer | Risk | `security_review` |
+|---|---|---|---|
+| T-013 | tech-product-owner | normal | false — no code changes; it fires on the consumers |
+| T-202 | fullstack-developer | normal | **true** — auth wiring + CORS (adapter §5) |
+| T-014 | infrastructure-engineer | **high** | **true** — SG ingress, published ports, CORS |
+| T-403 | fullstack-developer | normal | **true** — `.github/workflows/**` + AWS deploy creds |
+| T-015 | tech-product-owner | trivial | false — docs only |
+| T-203 | infrastructure-engineer | normal | **true** — CI config + AWS creds; read T-005 first |
+
+- **T-203 is off the critical path.** T-501 needs the BFF *deployed*, not *auto-deployed*; T-014's manual deploy is a legitimate stopping point.
+- **T-014 is the expensive one** (adapter §7: real apply + stage-4 AWS verification = budget for the full ceiling, never run it in a wave). It replaces the instance via `user_data_replace_on_change`, which **destroys the self-hosted MySQL volume** — T-001's `mysqldump`→S3 is the mitigation and is still `todo`.
+- **T-403 was not part of the original ask.** It surfaced while verifying the BFF gap; without it T-014 delivers a BFF that nothing in AWS consumes.
+- **Deadline context:** anything meant to be demonstrated live must exist before the T-012 dates (credits ~2026-12-20, Free-plan window 2027-01-12). If T-012 resolves to teardown-and-rebuild, this chain must be **in Terraform before teardown** or the rebuild will not reproduce it.
