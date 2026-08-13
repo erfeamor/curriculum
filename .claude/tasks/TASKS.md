@@ -69,11 +69,12 @@ One task per repo, strictly sequential — each task's `depends_on` enforces the
 | # | ID | Title | Repo | Status | Owner | Depends on | PR |
 |---|----|-------|------|--------|-------|------------|----|
 | 1 | [T-013](T-013-contract-bff-public-routing.md) | Contract: BFF public edge path + anonymous reads | cv-project (meta) | done | tech-product-owner | — | [#22](https://github.com/erfeamor/curriculum/pull/22) |
-| 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | todo | | T-013 | |
+| 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | in_review | fullstack-developer | T-013 | [#4](https://github.com/erfeamor/cv-bff-node/pull/4) |
 | 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** | cv-infra | todo | | T-013, T-202, **T-001 §1** | |
 | 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014 | |
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed | cv-project (meta) | todo | | T-014, T-403 | |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
+| — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call | cv-bff-node | todo | | T-202 | |
 
 **T-013 merged 2026-08-13 ([#22](https://github.com/erfeamor/curriculum/pull/22)) — [T-202](T-202-bff-public-routing-and-auth.md) is now the claimable head of this chain.** The contract settles the edge path (`/bff/*`, prefix carried to the origin, BFF mounts at `/bff/api/v1`), the two-route anonymous allowlist, and `/metrics`. One thing T-014 inherited from that review: `spa_router` rewrites extensionless URIs to `/index.html`, so `/metrics` and `/health` answer **200 with the SPA shell**, not 404 — T-014 now carries an acceptance criterion to exclude them.
 

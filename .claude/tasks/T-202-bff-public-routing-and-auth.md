@@ -2,13 +2,36 @@
 id: T-202
 title: "BFF: implement the public edge path and anonymous read routes"
 repo: cv-bff-node
-status: todo
-owner:
+status: in_review
+owner: fullstack-developer
 branch: feat/public-routing-and-auth
-pr:
+pr: https://github.com/erfeamor/cv-bff-node/pull/4
 depends_on: [T-013]
 risk: normal
 security_review: true
+checkpoint:
+  stage: in_review          # stage 3 — PR open, GitHub Actions running. Stage 4 QA and H2 NOT done.
+  repo: cv-bff-node
+  branch: feat/public-routing-and-auth
+  base: b953756
+  worktree: none   # cv-bff-node has no competing task in flight; single-task run, no wave
+  developer: fullstack-developer
+  reviewers: [code-review, infrastructure-engineer, quality-assurance]
+  risk: normal
+  security_review: true
+  env_slot: 0
+  pr: https://github.com/erfeamor/cv-bff-node/pull/4
+  commits: [c8e8f00, 3876307]
+  a1: pass   # lint/typecheck/test/build all green, re-run independently by the driver after each round
+  review_round: 1
+  open_findings: 0
+  review_status: CONVERGED
+  security_review: done   # infrastructure-engineer, adversarial: no critical, no blocking
+  review_trail: "R1 on c8e8f00. Security lens tested with raw HTTP rather than by reading — percent-encoding (%2F, %2e%2e), dot-segment traversal, double slashes, case and trailing-slash variants. No input reached a gated route anonymously. requireAuth() confirmed fail-CLOSED: missing COGNITO_ISSUER_URI under AUTH_ENABLED=true throws out of createApp() and crashes at startup rather than silently mounting no guard. 2 non-blocking applied in 3876307: HEAD not exempted (Express auto-generates a HEAD handler per GET route, so a probe would have seen 401) and allowlist case-sensitive while Express routing is not (over-gated a public URL). The i flag widens nothing — Express already dispatched those to the same public handler."
+  implementation_traps: "express-unless matches plain strings by === with no :param support, so a literal '/bff/api/v1/people/:id' entry would match nothing and 401 every public request — hence anchored regexes. useOriginalUrl set explicitly rather than inherited: it defaults true in express-unless@2.1.3, but relying on a version-dependent default for an auth boundary breaks on a dependency bump."
+  spawned_task: "T-204 — validate req.params.id before the upstream interpolation. Pre-existing on master, but this task moves the route from JWT-gated to anonymous, so the exposure changed even though the defect did not."
+  remaining: "stage 4 exploratory QA (not run) and H2 (not held). CI was still running at the budget stop."
+  budget_note: "Entered stage 0 at 263/400 turns (65.8%). A code task with TDD, A1, a forced security lens and stage-4 QA is unlikely to fit in the remaining ~137 turns. Expect a checkpointed budget stop mid-pipeline; that is the designed behavior, not a failure."
 ---
 
 ## Why this exists
