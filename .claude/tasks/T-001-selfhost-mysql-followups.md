@@ -2,7 +2,7 @@
 id: T-001
 title: "Backup: replace the managed backups lost when MySQL left RDS"
 repo: cv-infra
-status: in_review
+status: done
 owner: infrastructure-engineer
 branch: feat/mysql-backup-to-s3
 pr: https://github.com/erfeamor/cv-infra/pull/15
@@ -10,7 +10,9 @@ depends_on: []
 risk: normal
 security_review: true
 checkpoint:
-  stage: in_review          # PR open. Security review DONE. Awaiting the human apply, which is out of DoD by H1 ruling.
+  stage: done               # merged as 56dea10 (cv-infra#15), 2026-08-13
+  APPLIED: false            # <-- READ THIS. The code is merged; terraform apply has NOT been run.
+  applied_note: "T-001 is `done` against its ratified DoD, which excluded the apply by H1 ruling. It does NOT mean backups are running. Until someone runs `terraform apply`, NO nightly dump exists and the database has exactly the durability it had before this task: one instance volume, no copy. Do not read `done` here as `protected`. The runbook is in cv-infra#15's body; record the apply and the verified restore on this task when they happen."
   repo: cv-infra
   branch: feat/mysql-backup-to-s3
   worktree: none   # cv-infra cannot be worked from a worktree — local backend, tfstate/tfvars live only in the main clone (see T-002's worktree_rationale)
