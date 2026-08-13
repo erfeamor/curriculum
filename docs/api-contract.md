@@ -70,7 +70,9 @@ Assignments (person-scoped):
 
 ### Public edge path — `/bff/api/v1`
 
-The BFF is served under its own edge prefix, **`/bff/*`**, as a CloudFront behavior with higher precedence than the existing `/api/*`. This is the whole of the routing decision, and it exists because the BFF and the domain service would otherwise both claim `GET /api/v1/people/:id`.
+The BFF is served under its own edge prefix, **`/bff/*`**, as a new CloudFront `ordered_cache_behavior` alongside the existing `/api/*`. This is the whole of the routing decision, and it exists because the BFF and the domain service would otherwise both claim `GET /api/v1/people/:id`.
+
+The two patterns are **disjoint** — they differ in the first path segment — so CloudFront's first-match-wins evaluation never has to choose between them and their declaration order is irrelevant. The collision is solved by the prefixes being different, not by ordering one ahead of the other. Do not add a precedence constraint that does not exist.
 
 | Edge path | Origin | Consumers |
 |---|---|---|
@@ -96,16 +98,23 @@ These BFF routes serve unauthenticated traffic **even when `AUTH_ENABLED=true`**
 |---|---|---|
 | `GET /bff/api/v1/people/:id` | **yes** | public site's person header |
 | `GET /bff/api/v1/people/:id/cv` | **yes** | public site's whole payload |
-| `GET /health` | **yes** | already public; unchanged |
 | anything else under `/bff/api/v1` | no | stays behind `requireAuth()` |
+
+(`/health` and `/metrics` are mounted outside `/bff/api/v1` and are unaffected by the guard either way — see below.)
+
+**Match on exact method + path, not on path prefix.** Both public routes are `GET`s under `/people/:id`, so a prefix-style exemption would look correct today and silently exempt every future route added under that path — including non-`GET`s. The allowlist is two entries, not a subtree.
 
 **This is deliberate — do not "fix" it by removing the exemption.** It is enumerated as an explicit allowlist rather than by setting `AUTH_ENABLED=false`, which would leave the entire surface open including any future non-public route. This mirrors the domain service's existing pattern, where `SecurityConfig` permits `/actuator/health`, `/actuator/prometheus` and swagger by explicit list while requiring auth for everything else.
 
 Consequence, stated plainly: on these two routes the § Design-rules ban on `id`, `personId`, `skillId` and `email` in public payloads stops being a normalization nicety and becomes **the only thing between the domain database and the open internet**. A normalization leak here is a data-exposure bug, not a cosmetic one.
 
-### `/metrics` is not exposed at the edge
+### `/metrics` and `/health` are not exposed at the edge
 
-No CloudFront behavior routes to it. `cv-observability` scrapes it in-network, which is the only consumer it has. With no matching behavior the path falls through to the default behavior (the S3 frontend origin) and 404s — that is the intended outcome, recorded here so it is a decision rather than an accident of `frontend.tf`.
+**No CloudFront behavior routes either path to the BFF.** `cv-observability` scrapes `/metrics` in-network and that is its only consumer; `/health` is for container and local checks. Both stay mounted at the BFF app root (outside `/bff/api/v1`), so neither is reachable through CloudFront and neither is affected by the auth allowlist above.
+
+**What the edge actually returns is not a 404, and T-014 must not assume it is.** With no matching behavior these paths fall through to `default_cache_behavior`, which carries a `function_association` to the `spa_router` CloudFront Function (`cv-infra/functions/spa-router.js`). That function rewrites *any* URI whose last segment has no file extension to `/index.html`. `/metrics` and `/health` both qualify, so the edge serves **HTTP 200 with the public site's SPA shell**.
+
+The security property holds — no BFF metrics or health data is exposed — but the observable behavior is misleading, and a monitoring probe pointed at the edge would read that 200 as "healthy". **T-014 must exclude both paths from the `spa_router` rewrite** so they return an honest 404 rather than a false 200. This is a required implementation step, not an optional cleanup.
 
 ### Aggregate endpoint
 
