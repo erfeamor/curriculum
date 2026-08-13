@@ -9,6 +9,18 @@ pr:
 depends_on: []
 risk: high
 security_review: true
+checkpoint:
+  stage: H1
+  note: "NOT a fresh todo. Stage 0 refinement was completed 2026-08-13 and the DoR rulings below are written up; whoever picks this up starts at IMPLEMENTATION, not refinement. Deliberately left status:todo with no owner so the board cannot repeat the stale-claim bug that parked three wave-1 tasks earlier this session — an H1-complete task with an owner set reads as in-flight and blocks re-pickup under board rule 1."
+  repo: cv-infra
+  branch: feat/mysql-dedicated-ebs
+  worktree: none   # cv-infra cannot be worked from a worktree (local backend; see T-002 worktree_rationale)
+  developer: infrastructure-engineer
+  reviewers: [code-review, infrastructure-engineer, security-review]
+  risk: high
+  security_review: true
+  h1_status: "refined, awaiting ratification — the five rulings below are PROPOSED, not yet human-ratified"
+  budget_note: "Refined under a HARD budget reading (447/400 turns). Refinement only; no code, no spawns. Implementation and the two applies need a fresh session."
 ---
 
 ## Why this exists
@@ -29,6 +41,40 @@ Both are proceeding anyway because **the database currently holds only test data
 **The moment the demo holds authored CV content, the next `user_data` edit silently destroys it.** There is no guard: `terraform apply` will report the replacement in the plan, but nothing distinguishes "replacing a box with a scratch database" from "replacing a box with the only copy of real content".
 
 Do this **before** the demo is populated for real — which, per T-012, is before anything meant to be shown live.
+
+## Definition of Ready — decisions that must be settled before code
+
+Refined 2026-08-13. Five rulings, each a place where the obvious implementation is wrong.
+
+### 1. The instance's AZ is not currently pinned — fix this first
+
+`compute.tf:31` sets `subnet_id = data.aws_subnets.default.ids[0]`. **`aws_subnets` does not guarantee ordering**, so `ids[0]` can resolve to a different subnet — and therefore a different availability zone — on a later plan.
+
+An EBS volume is **AZ-locked**. If the instance moves AZ and the volume does not, attachment fails and the apply breaks with the database stranded in another zone. Today this is invisible because nothing is AZ-bound; this task makes it load-bearing.
+
+**Ruling:** pin the subnet deterministically before adding the volume — an explicit AZ variable, or a subnet selected by a stable filter rather than list position — and derive `aws_ebs_volume.availability_zone` from that same pinned source so the two cannot diverge. Do not create the volume from a separately-computed AZ.
+
+### 2. The device name Terraform gives you is not the device the kernel shows
+
+`aws_volume_attachment.device_name` takes something like `/dev/sdf`, but these are **nitro instances**: the kernel presents EBS volumes as `/dev/nvme<N>n1`, and **N is not stable across boots**. A bootstrap that formats or mounts `/dev/sdf` either fails or, worse, matches the wrong disk.
+
+**Ruling:** resolve the device by **volume ID**, via `/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol<id>` (note: AWS renders the ID without the `vol-` hyphen in that symlink) or `nvme id-ctrl` output. Never hard-code `/dev/sdf` or `/dev/nvme1n1` in the bootstrap.
+
+### 3. Format only when the volume is genuinely empty — this is the failure that looks like success
+
+**Ruling:** the bootstrap formats **only** if the resolved device has no filesystem, detected with `blkid` (or `file -s`) and a fail-closed default: if detection is ambiguous or errors, **do not format**. An unconditional `mkfs` reformats the database on the next instance replacement and the box comes up looking perfectly healthy — the exact failure this task exists to prevent, delivered by the task itself.
+
+### 4. Mount before MySQL, and make it survive reboot without bricking the box
+
+**Ruling:** mount at `/var/lib/cv-mysql` **before** the `docker run mysql` line in `templates/domain-service-user-data.sh` (currently at line ~38). Persist via `/etc/fstab` **by UUID, not device name** (see ruling 2), with `nofail` so a missing or detached volume degrades to a failed MySQL rather than an unbootable instance that cannot even be reached by SSM to diagnose.
+
+### 5. Start empty; do not migrate the current contents
+
+**Ruling:** the volume starts empty and Flyway rebuilds the schema. The database holds only test data (established at T-001's H1), and the previous instance replacement already discarded it. Writing a one-off data-migration path would add risk to buy nothing. **This ruling expires the moment the demo holds authored content** — at which point this task must run *before* that content exists, not after.
+
+### Open question for the implementer — flag, do not guess
+
+`aws_volume_attachment` destroy can hang waiting for a detach while the old instance is still terminating. `force_detach = true` avoids the hang but risks filesystem corruption if the volume is still mounted and dirty. **Do not reach for `force_detach` reflexively.** Establish what the replacement actually does first — that is what the two-replacement test in the acceptance criteria is for.
 
 ## Scope
 
