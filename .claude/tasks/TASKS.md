@@ -39,7 +39,10 @@ The four-section milestone is untouched (every task above is genuinely `todo`), 
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-001](T-001-selfhost-mysql-followups.md) | Self-hosted MySQL follow-ups: backup, dev parity, docs | cv-infra + meta | todo | | — | |
+| [T-001](T-001-selfhost-mysql-followups.md) | Backup: replace the managed backups lost when MySQL left RDS | cv-infra | done (**not applied**) | infrastructure-engineer | — | [#15](https://github.com/erfeamor/cv-infra/pull/15) |
+| [T-016](T-016-dev-prod-mysql-parity.md) | Dev/prod parity: bump the local MySQL to 8.4 | cv-project (meta) | todo | | — | |
+| [T-017](T-017-docs-drift-rds-to-selfhosted.md) | Docs drift: the repo still says RDS in five places | cv-project (meta) + cv-database | todo | | — | |
+| [T-018](T-018-mysql-on-dedicated-ebs-volume.md) | MySQL on a dedicated EBS volume, surviving instance replacement | cv-infra | todo | | — | |
 | [T-002](T-002-jenkins-on-drone-host.md) | Host Jenkins on the existing Drone CI instance | cv-infra | done | infrastructure-engineer | — | [#11](https://github.com/erfeamor/cv-infra/pull/11) |
 | [T-003](T-003-ci-docs-reflect-jenkins.md) | Correct the CI documentation to match reality | cv-project (meta) | todo | | T-002 | |
 | [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state: permissions now, remote backend properly | cv-infra | todo | | — | |
@@ -56,6 +59,8 @@ The four-section milestone is untouched (every task above is genuinely `todo`), 
 
 **Board-line correction 2026-08-13.** T-002's line above read `in_review` while its own task file had said `done` since PR [#11](https://github.com/erfeamor/cv-infra/pull/11) merged on 2026-08-09 — rule 1 requires both to be updated and only the file was. The line is now `done`. The practical cost was not cosmetic: **T-003, T-005, T-007, T-008 and T-009 all gate on T-002**, so five infra tasks read as un-claimable for four days. They are claimable now, and none is owned. T-001 is also unowned and is the only thing that has to happen before the deployment chain reaches its destructive step.
 
+> **T-001 is merged but NOT applied — there are still no backups.** `terraform apply` was deliberately outside its DoD (H1 ruling: it replaces the instance and blips the admin UI, so the human runs it). Until that apply happens the database has exactly the durability it had before: one instance volume, no copy. `done` on that row means *the code is merged*, not *the data is protected*. Runbook is in [cv-infra#15](https://github.com/erfeamor/cv-infra/pull/15); the verified restore is the real acceptance test, not the upload.
+
 ## Public-path deployment gap (cross-repo — blocks T-501)
 
 **`cv-bff-node` has never been deployed to AWS, and neither has `cv-public-vanilla`.** Verified against the live account 2026-08-11/12: no BFF ECR repo, no BFF container in `user_data`, CloudFront `/api/*` goes straight to Java on :8080, and `s3://cv-project-frontend-dev/` holds only `admin/`. The only BFF-named object in the account is an empty log group. The whole **public** path is absent; the admin is live and unaffected because it bypasses the BFF by design (`docs/architecture.md:28`) — which is exactly why the gap stayed invisible.
@@ -70,7 +75,7 @@ One task per repo, strictly sequential — each task's `depends_on` enforces the
 |---|----|-------|------|--------|-------|------------|----|
 | 1 | [T-013](T-013-contract-bff-public-routing.md) | Contract: BFF public edge path + anonymous reads | cv-project (meta) | done | tech-product-owner | — | [#22](https://github.com/erfeamor/curriculum/pull/22) |
 | 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | done | fullstack-developer | T-013 | [#4](https://github.com/erfeamor/cv-bff-node/pull/4) |
-| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** | cv-infra | todo | | T-013, T-202, **T-001 §1** | |
+| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** | cv-infra | todo | | T-013, T-202 | |
 | 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014 | |
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed | cv-project (meta) | todo | | T-014, T-403 | |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
@@ -100,6 +105,8 @@ Personas and risk (assigned per the adapter's capability→repo map; each task f
 | T-203 | infrastructure-engineer | normal | **true** — CI config + AWS creds; read T-005 first |
 
 - **T-203 is off the critical path.** T-501 needs the BFF *deployed*, not *auto-deployed*; T-014's manual deploy is a legitimate stopping point.
-- **T-014 is the expensive one** (adapter §7: real apply + stage-4 AWS verification = budget for the full ceiling, never run it in a wave). It replaces the instance via `user_data_replace_on_change`, which **destroys the self-hosted MySQL volume** — T-001's `mysqldump`→S3 is the mitigation, and as of 2026-08-13 it is an **encoded `depends_on`**, not just prose. Only T-001 §1 (backup) gates it; a hand-taken verified dump recorded in T-014's checkpoint is the alternative discharge. Previously the dependency lived only in T-014's notes, so the board would have offered the destroy as claimable with no backup in place.
+- **T-014 is the expensive one** (adapter §7: real apply + stage-4 AWS verification = budget for the full ceiling, never run it in a wave). It replaces the instance via `user_data_replace_on_change`, which **destroys the self-hosted MySQL volume**.
+- **Correction, same day (2026-08-13):** T-001 was added to T-014's `depends_on` that morning as the mitigation, then removed again. The dependency rested on an assumption never checked — that the volume held something worth keeping. The human confirmed it holds **test data only**, so the loss is *accepted*, not mitigated, and T-014 no longer waits on T-001. Recorded rather than quietly reverted, because the reasoning was the error, not the typing.
+- **That is a dated fact.** Once the demo holds authored CV content, this apply destroys it and no nightly-dump task changes that. The durable fix is **[T-018](T-018-mysql-on-dedicated-ebs-volume.md)** (MySQL on an independent EBS volume), filed from T-001's refinement. **Re-check the database contents before applying T-014.**
 - **T-403 was not part of the original ask.** It surfaced while verifying the BFF gap; without it T-014 delivers a BFF that nothing in AWS consumes.
 - **Deadline context:** anything meant to be demonstrated live must exist before the T-012 dates (credits ~2026-12-20, Free-plan window 2027-01-12). If T-012 resolves to teardown-and-rebuild, this chain must be **in Terraform before teardown** or the rebuild will not reproduce it.
