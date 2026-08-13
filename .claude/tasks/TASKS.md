@@ -39,7 +39,7 @@ The four-section milestone is untouched (every task above is genuinely `todo`), 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-001](T-001-selfhost-mysql-followups.md) | Self-hosted MySQL follow-ups: backup, dev parity, docs | cv-infra + meta | todo | | — | |
-| [T-002](T-002-jenkins-on-drone-host.md) | Host Jenkins on the existing Drone CI instance | cv-infra | in_review | infrastructure-engineer | — | [#11](https://github.com/erfeamor/cv-infra/pull/11) |
+| [T-002](T-002-jenkins-on-drone-host.md) | Host Jenkins on the existing Drone CI instance | cv-infra | done | infrastructure-engineer | — | [#11](https://github.com/erfeamor/cv-infra/pull/11) |
 | [T-003](T-003-ci-docs-reflect-jenkins.md) | Correct the CI documentation to match reality | cv-project (meta) | todo | | T-002 | |
 | [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state: permissions now, remote backend properly | cv-infra | todo | | — | |
 | [T-005](T-005-ci-secret-blast-radius.md) | Limit CI secret blast radius: block IMDS from containers | cv-infra | todo | | T-002 | |
@@ -52,6 +52,8 @@ The four-section milestone is untouched (every task above is genuinely `todo`), 
 | [T-012](T-012-aws-endgame-decision.md) | **Decide Paid-vs-teardown before the Free-plan window closes** | cv-project (meta) | todo | | — | **due 2026-12-20** |
 
 > T-013, T-014 and T-015 are part of the deployment chain below and are boarded there, not here, so there is one line per task to claim.
+
+**Board-line correction 2026-08-13.** T-002's line above read `in_review` while its own task file had said `done` since PR [#11](https://github.com/erfeamor/cv-infra/pull/11) merged on 2026-08-09 — rule 1 requires both to be updated and only the file was. The line is now `done`. The practical cost was not cosmetic: **T-003, T-005, T-007, T-008 and T-009 all gate on T-002**, so five infra tasks read as un-claimable for four days. They are claimable now, and none is owned. T-001 is also unowned and is the only thing that has to happen before the deployment chain reaches its destructive step.
 
 ## Public-path deployment gap (cross-repo — blocks T-501)
 
@@ -67,7 +69,7 @@ One task per repo, strictly sequential — each task's `depends_on` enforces the
 |---|----|-------|------|--------|-------|------------|----|
 | 1 | [T-013](T-013-contract-bff-public-routing.md) | Contract: BFF public edge path + anonymous reads | cv-project (meta) | todo | | — | |
 | 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | todo | | T-013 | |
-| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** | cv-infra | todo | | T-013, T-202 | |
+| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** | cv-infra | todo | | T-013, T-202, **T-001 §1** | |
 | 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014 | |
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed | cv-project (meta) | todo | | T-014, T-403 | |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
@@ -84,6 +86,6 @@ Personas and risk (assigned per the adapter's capability→repo map; each task f
 | T-203 | infrastructure-engineer | normal | **true** — CI config + AWS creds; read T-005 first |
 
 - **T-203 is off the critical path.** T-501 needs the BFF *deployed*, not *auto-deployed*; T-014's manual deploy is a legitimate stopping point.
-- **T-014 is the expensive one** (adapter §7: real apply + stage-4 AWS verification = budget for the full ceiling, never run it in a wave). It replaces the instance via `user_data_replace_on_change`, which **destroys the self-hosted MySQL volume** — T-001's `mysqldump`→S3 is the mitigation and is still `todo`.
+- **T-014 is the expensive one** (adapter §7: real apply + stage-4 AWS verification = budget for the full ceiling, never run it in a wave). It replaces the instance via `user_data_replace_on_change`, which **destroys the self-hosted MySQL volume** — T-001's `mysqldump`→S3 is the mitigation, and as of 2026-08-13 it is an **encoded `depends_on`**, not just prose. Only T-001 §1 (backup) gates it; a hand-taken verified dump recorded in T-014's checkpoint is the alternative discharge. Previously the dependency lived only in T-014's notes, so the board would have offered the destroy as claimable with no backup in place.
 - **T-403 was not part of the original ask.** It surfaced while verifying the BFF gap; without it T-014 delivers a BFF that nothing in AWS consumes.
 - **Deadline context:** anything meant to be demonstrated live must exist before the T-012 dates (credits ~2026-12-20, Free-plan window 2027-01-12). If T-012 resolves to teardown-and-rebuild, this chain must be **in Terraform before teardown** or the rebuild will not reproduce it.
