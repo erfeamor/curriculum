@@ -69,13 +69,24 @@ One task per repo, strictly sequential — each task's `depends_on` enforces the
 | # | ID | Title | Repo | Status | Owner | Depends on | PR |
 |---|----|-------|------|--------|-------|------------|----|
 | 1 | [T-013](T-013-contract-bff-public-routing.md) | Contract: BFF public edge path + anonymous reads | cv-project (meta) | done | tech-product-owner | — | [#22](https://github.com/erfeamor/curriculum/pull/22) |
-| 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | todo | | T-013 | |
+| 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | done | fullstack-developer | T-013 | [#4](https://github.com/erfeamor/cv-bff-node/pull/4) |
 | 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** | cv-infra | todo | | T-013, T-202, **T-001 §1** | |
 | 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014 | |
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed | cv-project (meta) | todo | | T-014, T-403 | |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
+| — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call | cv-bff-node | todo | | T-202 | |
 
-**T-013 merged 2026-08-13 ([#22](https://github.com/erfeamor/curriculum/pull/22)) — [T-202](T-202-bff-public-routing-and-auth.md) is now the claimable head of this chain.** The contract settles the edge path (`/bff/*`, prefix carried to the origin, BFF mounts at `/bff/api/v1`), the two-route anonymous allowlist, and `/metrics`. One thing T-014 inherited from that review: `spa_router` rewrites extensionless URIs to `/index.html`, so `/metrics` and `/health` answer **200 with the SPA shell**, not 404 — T-014 now carries an acceptance criterion to exclude them.
+**T-013 and T-202 both merged 2026-08-13** ([#22](https://github.com/erfeamor/curriculum/pull/22), [cv-bff-node#4](https://github.com/erfeamor/cv-bff-node/pull/4)). The contract settles the edge path (`/bff/*`, prefix carried to the origin), the two-route anonymous allowlist, and `/metrics`; the BFF now implements them and `/api/v1` is gone from that repo.
+
+**T-014 is next in the chain but is NOT claimable yet** — it also gates on **T-001 §1** (the `mysqldump`→S3 backup), which is still `todo` and unowned. That is deliberate: T-014's apply replaces the instance and destroys the self-hosted MySQL volume. Do T-001 §1 first, or take a hand dump and record it in T-014's checkpoint.
+
+Two things T-014 inherited from this chain's reviews, both of which fail quietly:
+- `spa_router` rewrites extensionless URIs to `/index.html`, so `/metrics` and `/health` answer **200 with the SPA shell**, not 404. T-014 carries an acceptance criterion to exclude them, and to verify by request rather than by reading the Terraform.
+- The BFF now serves `/bff/api/v1`, so CloudFront must forward the prefix **unstripped**. A behavior that strips it produces a deploy that 404s with nothing obviously wrong in the config.
+
+**[T-204](T-204-bff-validate-person-id-param.md) was filed from T-202's security review.** Pre-existing defect, but T-202 moved the route from JWT-gated to anonymous — so it goes public the moment T-014 deploys. It does not block T-014; it should not sit unfixed for long after it.
+
+> **T-202 merged without stage-4 QA.** Its auth matrix is proven by unit tests against `createApp()`, not against a live stack — no request has traversed a real CloudFront → BFF → domain-service path. T-014's own stage-4 verification is the first time that happens, so treat its live checks as covering both tasks.
 
 Personas and risk (assigned per the adapter's capability→repo map; each task file carries the reviewer set and gate commands):
 
