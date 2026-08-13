@@ -62,7 +62,11 @@ Global skill catalog and person-scoped skill assignments per [docs/api-contract.
 - [ ] `DELETE` assignment → 204; unknown person or skill → 404; unlinked pair → 404.
 - [ ] The upsert read-then-write is inside a single `@Transactional` boundary.
 - [ ] DoR rulings 1–9 each covered by a test or verified at review.
-- [ ] **Ordering (added 2026-08-13 by T-006, after this task's H1):** both collections are ordered in their repository queries — the catalog `GET /api/v1/skills` by `name` ASC then `id` ASC; the person assignments `GET .../people/{personId}/skills` by `category` ASC, then `name` ASC, then `id` ASC. This is the one task with **two** ordered collections and no date to sort on; a test per collection, each asserting the full key sequence.
+- [ ] **Ordering (added 2026-08-13 by T-006, after this task's H1):** both collections are ordered in their repository queries — the catalog `GET /api/v1/skills` by `name` ASC then `id` ASC (derived method is fine; `skill.name` is `NOT NULL UNIQUE`). The person assignments `GET .../people/{personId}/skills` by `category` ASC with **uncategorized last**, then `name` ASC, then **`skillId` ASC**. Two traps here, both found in T-006's review:
+  - `skill.category` is **nullable**, and MySQL sorts NULL lowest — so the natural query puts uncategorized skills *first*, the opposite of the contract. Needs an explicit `@Query` (`ORDER BY category IS NULL, category ASC, name ASC, skill_id ASC`); a derived method name cannot express it.
+  - The tiebreaker is **`skillId`, not `id`**. `person_skill` has a composite PK `(person_id, skill_id)` and no `id` column — `OrderBy…IdAsc` has nothing to bind to here.
+
+  This is the one task with **two** ordered collections and no date to sort on; a test per collection asserting the full key sequence, and the assignments test must include a `category = NULL` row or it proves nothing.
 - [ ] `@WebMvcTest(addFilters = false)` + `@DataJpaTest` coverage including the upsert path and the 409.
 - [ ] `mvn -B test` and `mvn -B checkstyle:check` pass.
 

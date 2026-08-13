@@ -22,12 +22,23 @@ Added 2026-08-13 (T-006). Collection endpoints returned rows in whatever order M
 | `experiences` | `startDate` **DESC** | `id` ASC |
 | `education` | `startDate` **DESC** | `id` ASC |
 | `projects` | `startDate` **DESC**, undated **last** | `id` ASC |
-| `skills` (person) | `category` ASC, `name` ASC | `id` ASC |
+| `skills` (person) | `category` ASC, uncategorized **last**, then `name` ASC | `skillId` ASC |
 | `skills` (catalog) | `name` ASC | `id` ASC |
 
-**The secondary key is mandatory, not decorative.** Two experiences starting the same month otherwise come back in arbitrary relative order, and ISR caches whichever won that day — "ordered" without a tiebreaker still means "unstable". `id` ASC is the tiebreaker everywhere; it is insertion order and makes no claim about recency.
+**The secondary key is mandatory, not decorative.** Two experiences starting the same month otherwise come back in arbitrary relative order, and ISR caches whichever won that day — "ordered" without a tiebreaker still means "unstable". The tiebreaker is insertion order and makes no claim about recency.
 
-**NULL placement is specified behavior, not inherited behavior.** `projects.startDate` is nullable (unlike experience and education, where it is `NOT NULL`). Undated projects sort **last**, and implementations must express that explicitly — e.g. `ORDER BY start_date IS NULL, start_date DESC, id ASC` — rather than relying on MySQL sorting NULL lowest. The engine detail happens to agree today; a different database, or a move to sorting in Java, would reverse it silently and nothing would fail loudly.
+It is `id` ASC for four of the five collections. **Person skills are the exception:** `person_skill` has a composite primary key `(person_id, skill_id)` and **no `id` column of its own**, so there is no row id to sort by. Its tiebreaker is `skillId` ASC — the joined `skill.id`, which is also the name the response payload uses. Do not write `id` here; it does not exist.
+
+**NULL placement is specified behavior, not inherited behavior.** Two sort keys in the table above are nullable, and MySQL sorts NULL lowest, which would silently place both groups *first*:
+
+| Column | Nullable | Specified placement |
+|---|---|---|
+| `project.start_date` | yes — the only nullable date of the three | undated projects **last** |
+| `skill.category` | yes | uncategorized skills **last** |
+
+Both must be expressed explicitly — `ORDER BY start_date IS NULL, start_date DESC, id ASC` and `ORDER BY category IS NULL, category ASC, name ASC, skill_id ASC` — rather than relying on the engine default. The default happens to disagree with both rules today, so leaving it implicit is not merely fragile, it is wrong now. `experience.start_date` and `education.start_date` are `NOT NULL`; do not add NULL handling there, where it would be dead code implying a nullability the schema does not have.
+
+**Implementation note — the nullable cases need `@Query`.** Spring Data's derived method names support `OrderBy…Asc/Desc` chains but cannot express a synthetic `IS NULL` sort key. Experiences, education and the skill catalog can use the derived form (`findByPersonIdOrderByStartDateDescIdAsc`); **projects and person skills cannot** and require an explicit `@Query`. Following the derived idiom there would compile, look right, and produce the wrong NULL placement.
 
 Ordering is **not** pagination — § Non-goals rules out the latter for v1 and says nothing about the former.
 
