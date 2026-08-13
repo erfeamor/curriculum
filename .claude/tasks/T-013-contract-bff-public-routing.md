@@ -2,13 +2,36 @@
 id: T-013
 title: Contract — settle the BFF's public edge path and anonymous read semantics
 repo: cv-project (meta)
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: docs/contract-bff-public-routing
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/22
 depends_on: []
 risk: normal
 security_review: false
+checkpoint:
+  stage: done               # merged as 3008bca; H2 accepted 2026-08-13
+  repo: cv-project (meta)
+  branch: docs/contract-bff-public-routing
+  pr: https://github.com/erfeamor/curriculum/pull/22
+  commits: [21ab5d4, beceee9, 7ffb066]
+  h1: "ratified 2026-08-13 — edge option (a) /bff/* with no edge rewrite; allowlist over AUTH_ENABLED=false; /metrics not edge-exposed"
+  review_round: 1
+  open_findings: 0
+  review_status: CONVERGED
+  review_trail: "R1 on 21ab5d4+beceee9. infrastructure-engineer: 1 BLOCKING — the /metrics fall-through claim was factually wrong (default_cache_behavior carries a function_association to spa_router, which rewrites extensionless URIs to /index.html, so the edge answers 200 with the SPA shell, not 404). Verified independently against cv-infra/functions/spa-router.js and frontend.tf:116-133 before accepting. Fixed in 7ffb066; T-014 gained an acceptance criterion to exclude /metrics and /health from the rewrite. Plus 2 non-blocking, both applied: precedence framing (the two patterns are disjoint, so declaration order is irrelevant — the text implied a constraint that does not exist) and /health edge reachability left unstated. fullstack-developer: 0 blocking, 1 non-blocking applied (allowlist must match exact method+path, not prefix, or a future non-GET under /people/:id is silently exempted)."
+  code_review_skipped: "deliberate — /code-review targets code defects and has no purchase on a markdown-only diff. The signal here came from the two specialist lenses. Recorded rather than silently dropped."
+  cross_chain_finding: "T-201 specified GET /api/v1/people/:id/cv and was corrected to the /bff path in beceee9. It sits in the M2 chain, not this deployment chain, so no depends_on edge connects them — the chains are coupled only through the contract, which is how a task ends up built to a superseded spec."
+  worktree: none   # docs-only change in the meta repo; no build, no stack, nothing to isolate
+  developer: tech-product-owner
+  reviewers: [code-review, infrastructure-engineer, fullstack-developer]
+  risk: normal          # task file explicitly refuses the docs fast-path — decision 2 is a security boundary
+  security_review: false   # fires on T-202/T-014, which implement the decisions
+  wave: [T-006, T-013]
+  wave_slot: 1
+  merge_order: 1        # lands first — larger § BFF rewrite; T-006 rebases its one-line addition on top
+  file_conflict: "docs/api-contract.md — shares § BFF and the status/version line with T-006"
+  qa_stage_4: waived    # docs-only: no stack to exercise; substituted by consumer-buildability review
 ---
 
 ## Why this exists

@@ -2,12 +2,36 @@
 id: T-006
 title: Contract — define ordering for the CV section collections
 repo: cv-project (meta)
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: docs/contract-section-ordering
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/23
 depends_on: []
 risk: normal
+checkpoint:
+  stage: done               # merged as e8e7222; H2 accepted 2026-08-13
+  repo: cv-project (meta)
+  branch: docs/contract-section-ordering
+  pr: https://github.com/erfeamor/curriculum/pull/23
+  commits: [ad04e15, c909d8c]
+  h1: "ratified 2026-08-13 — ordering per the proposed table; enforced in the domain service; id ASC tiebreaker; undated projects last; T-101 handled by follow-up task (T-105), the 'amend the PR' option being dead since T-101 merged 2026-08-09"
+  review_round: 1
+  open_findings: 0
+  review_status: CONVERGED
+  review_trail: "R1 on ad04e15, backend-developer, against V1__init_schema.sql. 2 BLOCKING, both verified before accepting. (1) The person-skills tiebreaker did not exist: person_skill has composite PK (person_id, skill_id) and no id column, so 'id ASC everywhere' was false for one of the five collections and OrderBy...IdAsc had nothing to bind to — now skillId ASC. (2) skill.category is nullable with unspecified NULL placement, in a document that had just insisted NULL placement must be specified; MySQL sorts NULL lowest so uncategorized skills would sort first — now uncategorized last, stated explicitly. 1 non-blocking applied: projects and person skills need an explicit @Query because derived method names cannot express an IS NULL sort key. Fixed in c909d8c."
+  finding_side_effect: "Finding 2 exposed that the original projects wording ('the engine default happens to agree today') was itself wrong in both directions — NULL sorts lowest, so under DESC undated projects land first, the opposite of the rule. The implicit behavior was not fragile, it was already incorrect. Text corrected."
+  code_review_skipped: "deliberate — same reason as T-013: no purchase on a markdown-only diff."
+  spawned_task: "T-105 — retrofit ordering onto the merged Experience resource; closes this task's last acceptance criterion."
+  worktree: none   # docs-only change in the meta repo; no build, no stack, nothing to isolate
+  developer: tech-product-owner
+  reviewers: [code-review, backend-developer]
+  risk: normal          # gates take the docs fast-path; the DECISIONS do not (see task DoD)
+  security_review: false
+  wave: [T-006, T-013]
+  wave_slot: 0
+  merge_order: 2        # rebases onto T-013 — see wave note below
+  file_conflict: "docs/api-contract.md — shares § BFF and the status/version line with T-013"
+  qa_stage_4: waived    # docs-only: no stack to exercise; substituted by consumer-buildability review
 ---
 
 ## Why this exists
