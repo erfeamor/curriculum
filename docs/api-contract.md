@@ -1,6 +1,6 @@
 # API contract — CV section resources (v1)
 
-Status: **ratified v1** (2026-07-12). Changes require a PR to this file plus sign-off in the task that consumes it. All tasks in `.claude/tasks/` targeting the domain model implement *this* document — when in doubt, this file wins over any task prose.
+Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF public edge path, anonymous reads, `/metrics` exposure). Changes require a PR to this file plus sign-off in the task that consumes it. All tasks in `.claude/tasks/` targeting the domain model implement *this* document — when in doubt, this file wins over any task prose.
 
 ## Design rules
 
@@ -68,9 +68,50 @@ Assignments (person-scoped):
 
 ## BFF (cv-bff-node)
 
-New public endpoint aggregating the full CV in **one** call:
+### Public edge path — `/bff/api/v1`
 
-`GET /api/v1/people/:id/cv` → 200:
+The BFF is served under its own edge prefix, **`/bff/*`**, as a CloudFront behavior with higher precedence than the existing `/api/*`. This is the whole of the routing decision, and it exists because the BFF and the domain service would otherwise both claim `GET /api/v1/people/:id`.
+
+| Edge path | Origin | Consumers |
+|---|---|---|
+| `/bff/*` | cv-bff-node (:3000) | `cv-public-vanilla`, `cv-public-react` |
+| `/api/*` | cv-domain-service (:8080) — **unchanged** | `cv-admin-react` |
+
+**The prefix is not stripped at the edge.** CloudFront forwards the matched path whole, and the BFF mounts its routers at `/bff/api/v1`, so a given endpoint has *one* URL and it is the same string in local dev and in AWS:
+
+```
+GET /bff/api/v1/people/:id        → person, normalized
+GET /bff/api/v1/people/:id/cv     → the aggregate below
+```
+
+Rejected: a CloudFront Function rewriting `/bff/api/v1/...` → `/api/v1/...` so the BFF could keep its internal paths. It buys tidier internals at the cost of an extra AWS resource, a second place routing can break, and dev/prod URLs that differ — the failure mode being a deploy that 404s for reasons invisible in local testing.
+
+`/api/*` → domain service is **byte-identical to today**, so the already-deployed `cv-admin-react` needs no redeploy and no retest. That is the reason this option was chosen over moving the admin to its own prefix.
+
+### Public (anonymous) routes
+
+These BFF routes serve unauthenticated traffic **even when `AUTH_ENABLED=true`**, because the public sites have no user to authenticate:
+
+| Route | Public | Why |
+|---|---|---|
+| `GET /bff/api/v1/people/:id` | **yes** | public site's person header |
+| `GET /bff/api/v1/people/:id/cv` | **yes** | public site's whole payload |
+| `GET /health` | **yes** | already public; unchanged |
+| anything else under `/bff/api/v1` | no | stays behind `requireAuth()` |
+
+**This is deliberate — do not "fix" it by removing the exemption.** It is enumerated as an explicit allowlist rather than by setting `AUTH_ENABLED=false`, which would leave the entire surface open including any future non-public route. This mirrors the domain service's existing pattern, where `SecurityConfig` permits `/actuator/health`, `/actuator/prometheus` and swagger by explicit list while requiring auth for everything else.
+
+Consequence, stated plainly: on these two routes the § Design-rules ban on `id`, `personId`, `skillId` and `email` in public payloads stops being a normalization nicety and becomes **the only thing between the domain database and the open internet**. A normalization leak here is a data-exposure bug, not a cosmetic one.
+
+### `/metrics` is not exposed at the edge
+
+No CloudFront behavior routes to it. `cv-observability` scrapes it in-network, which is the only consumer it has. With no matching behavior the path falls through to the default behavior (the S3 frontend origin) and 404s — that is the intended outcome, recorded here so it is a decision rather than an accident of `frontend.tf`.
+
+### Aggregate endpoint
+
+Aggregates the full CV in **one** call:
+
+`GET /bff/api/v1/people/:id/cv` → 200:
 
 ```json
 {
@@ -85,10 +126,11 @@ New public endpoint aggregating the full CV in **one** call:
 - Fetches person + four sections from the domain service **in parallel** (`Promise.all`).
 - No `id`, `personId`, `skillId`, or `email` fields in the public payload.
 - Person 404 upstream → 404. Any section fetch failing → 502 (the public site treats the CV as one unit).
-- The existing `GET /api/v1/people/:id` endpoint is unchanged.
+- The existing person endpoint keeps its behavior and payload; only its **path** moves, from `/api/v1/people/:id` to `/bff/api/v1/people/:id`, per the edge-path decision above. Consumers must update their base URL — this is a breaking change for `cv-public-vanilla`, which calls the old path today.
 
 ## Non-goals (v1)
 
 - Pagination (CV sections are small by nature).
 - PATCH semantics — `PUT` replaces.
-- Auth changes — the existing `AUTH_ENABLED` behavior in both services covers these routes as-is.
+
+> **Removed 2026-08-13 (T-013):** *"Auth changes — the existing `AUTH_ENABLED` behavior in both services covers these routes as-is."* This was false for a deployed public BFF. `AUTH_ENABLED=true` applies `requireAuth()` to all of `/api/v1`, which would 401 every anonymous visitor to the public site; `AUTH_ENABLED=false` would leave the whole surface open. Neither is "covered as-is". The public-route allowlist in § BFF replaces it, and auth on the BFF is now explicitly **in scope** for v1.
