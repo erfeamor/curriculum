@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: feat/deploy-bff-node
 pr:
-depends_on: [T-013, T-202]
+depends_on: [T-013, T-202, T-001]
 risk: high
 security_review: true
 ---
@@ -61,5 +61,6 @@ PR open against `master` from `feat/deploy-bff-node`, gates green, applied and v
 - **`security_review: true`, forced by adapter §5**, on three independent paths: security-group ingress, published container ports, and CORS config. Also touches auth env wiring.
 - **`risk: high` is deliberate.** Adapter §7: *"a high-risk infra task with a real apply and stage-4 verification against AWS is the expensive shape — budget for the full ceiling and do not start one on a `SOFT` reading."* Probe the budget before starting, and do not run this in a wave with other tasks.
 - **H2 must gate the apply, not just the merge.** The instance replacement is destructive to the self-hosted MySQL volume; the human gate is the point where that is accepted or a backup is taken first. T-001 (mysqldump→S3) is the mitigation and is still `todo` — consider doing it first, or take a one-off dump by hand and say so in the checkpoint.
+- **`depends_on` includes T-001 to encode that mitigation** (added 2026-08-13). Only **T-001 §1 (backup)** gates this task — §2 (dev/prod parity) and §3 (docs drift) do not, so a split T-001 satisfies this dependency as soon as the backup PR merges. The alternative discharge is a hand-taken `mysqldump` verified restorable and recorded in this task's checkpoint; if you take it, note here that the dependency was satisfied that way rather than silently editing `depends_on` back. Without one of the two, do not apply — the board's sequential gating was the only thing standing between this task and an unbacked-up destroy.
 - Gates (adapter §3): `terraform fmt -check -recursive` · `terraform validate` · `terraform test`, from `cv-infra/`. No CI system — the gates are the local commands.
 - `terraform apply` stays in `ask` in `settings.local.json` **on purpose** — do not allowlist it to speed this up.
