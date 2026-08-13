@@ -48,9 +48,10 @@ Every one of these needs a definite answer written into the contract. They are l
 ## Rollout — the part that needs care
 
 - **T-102, T-103, T-104 have not started.** They should absorb the ordering into their DoR and tests from the start. Their task files need updating once this merges.
-- **T-101 is already `in_review`** ([cv-domain-service#3](https://github.com/erfeamor/cv-domain-service/pull/3)) with a converged review, but is parked waiting on CI that does not exist yet. Two options, to be decided when this lands:
-  - *Amend T-101's PR* — it is idle anyway and the change is a few characters plus a test; cheapest overall, but it reopens a converged review.
-  - *Follow-up task* — keeps T-101's review history clean at the cost of another PR.
+- **T-101 — DECIDED 2026-08-13 at this task's H1: follow-up task, filed as [T-105](T-105-experience-ordering-retrofit.md).**
+  - The two options below were written while T-101 was still `in_review`. It has since **merged** ([cv-domain-service#3](https://github.com/erfeamor/cv-domain-service/pull/3), 2026-08-09), which killed the first one outright — a merged PR cannot absorb the change. The choice made itself; it is recorded here so the dead option is not rediscovered and re-argued.
+  - ~~*Amend T-101's PR* — it is idle anyway and the change is a few characters plus a test; cheapest overall, but it reopens a converged review.~~ **Dead: T-101 is merged.**
+  - *Follow-up task* — keeps T-101's review history clean at the cost of another PR. **Chosen.**
 - **T-201, T-401, T-402** consume the ordering and should not be implemented against an unspecified contract. `T-201` now lists this task in `depends_on`, which gates the whole downstream chain.
 
 ## Acceptance criteria

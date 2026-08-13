@@ -29,7 +29,7 @@ Extend cv-public-react beyond the person head to render experience, education, s
 
 - [ ] A component per section (experience, education, skills, projects) rendering the contract fields; RTL test each: happy path, empty array (section omitted, no heading), and null `endDate` → "Present".
 - [ ] `app/page.tsx` composes all four sections below the person head from the one `getCv()` call.
-- [ ] Any ordering / empty-section logic lives in `loadCv` with its own test.
+- [ ] ~~Any ordering / empty-section logic lives in `loadCv` with its own test.~~ **Corrected 2026-08-13 by T-006:** *empty-section* logic still lives in `loadCv` with its own test — but **ordering must not**. The contract's § Ordering makes the domain service the single source of truth and the BFF a pass-through, so sorting in `loadCv` would create a second answer that disagrees with the admin UI and cv-public-vanilla. Render each section in the order received; no `.sort()` in this repo. This task is the reason the rule matters most: ISR **caches** whatever order is rendered, so a frontend sort freezes a divergent order into a served page until the next revalidation.
 - [ ] `npm test`, `npm run typecheck`, and `npm run lint` pass; `npm run build` succeeds (page still prerenders static/ISR).
 
 ## Definition of done

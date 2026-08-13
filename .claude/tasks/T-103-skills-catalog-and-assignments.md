@@ -62,6 +62,7 @@ Global skill catalog and person-scoped skill assignments per [docs/api-contract.
 - [ ] `DELETE` assignment → 204; unknown person or skill → 404; unlinked pair → 404.
 - [ ] The upsert read-then-write is inside a single `@Transactional` boundary.
 - [ ] DoR rulings 1–9 each covered by a test or verified at review.
+- [ ] **Ordering (added 2026-08-13 by T-006, after this task's H1):** both collections are ordered in their repository queries — the catalog `GET /api/v1/skills` by `name` ASC then `id` ASC; the person assignments `GET .../people/{personId}/skills` by `category` ASC, then `name` ASC, then `id` ASC. This is the one task with **two** ordered collections and no date to sort on; a test per collection, each asserting the full key sequence.
 - [ ] `@WebMvcTest(addFilters = false)` + `@DataJpaTest` coverage including the upsert path and the 409.
 - [ ] `mvn -B test` and `mvn -B checkstyle:check` pass.
 

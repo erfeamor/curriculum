@@ -62,6 +62,7 @@ Out of scope as with the twins: date-ordering validation, a separate DTO layer.
 - [ ] **Only `name` is required** — no validation annotation on any other field.
 - [ ] Payload matches the contract shape exactly; `endDate: null` serializes as JSON `null`.
 - [ ] DoR rulings 1–6 each covered by a test.
+- [ ] **Ordering (added 2026-08-13 by T-006, after this task's H1):** `GET` returns `startDate` **DESC** with **undated projects last**, tiebroken by `id` **ASC**, enforced in the repository query. This resource owns the contract's sharp edge — `start_date` is the only nullable one of the three date columns, so write the NULL placement explicitly (`ORDER BY start_date IS NULL, start_date DESC, id ASC`) rather than relying on MySQL sorting NULL lowest. Tests must cover a NULL-`startDate` row **and** a same-date tiebreak; a test with only dated rows would pass against either NULL convention and prove nothing.
 - [ ] `@WebMvcTest(addFilters = false)` + `@DataJpaTest` coverage, both required.
 - [ ] `mvn -B test` and `mvn -B checkstyle:check` pass.
 

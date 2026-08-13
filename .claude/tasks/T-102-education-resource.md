@@ -55,6 +55,7 @@ T-101's four ratified rulings apply **unchanged**; QA confirmed no contract basi
 - [ ] Unknown person → 404 on every verb; missing `institution`/`degree`/`startDate` → 400 (Spring's default problem body).
 - [ ] Payload matches the contract shape exactly; `endDate: null` serializes as JSON `null`.
 - [ ] DoR rulings 1–4 each covered by a test.
+- [ ] **Ordering (added 2026-08-13 by T-006, after this task's H1):** `GET` returns `startDate` **DESC**, tiebroken by `id` **ASC**, enforced in the repository query — not in the service, not in the controller. A test must assert the tiebreaker with two rows sharing a `startDate`; asserting only the date order passes on unordered data by luck.
 - [ ] `@WebMvcTest(addFilters = false)` + `@DataJpaTest` coverage, both required.
 - [ ] `mvn -B test` and `mvn -B checkstyle:check` pass.
 
