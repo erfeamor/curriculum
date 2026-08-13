@@ -2,13 +2,27 @@
 id: T-013
 title: Contract — settle the BFF's public edge path and anonymous read semantics
 repo: cv-project (meta)
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: docs/contract-bff-public-routing
 pr:
 depends_on: []
 risk: normal
 security_review: false
+checkpoint:
+  stage: H1
+  repo: cv-project (meta)
+  branch: docs/contract-bff-public-routing
+  worktree: none   # docs-only change in the meta repo; no build, no stack, nothing to isolate
+  developer: tech-product-owner
+  reviewers: [code-review, infrastructure-engineer, fullstack-developer]
+  risk: normal          # task file explicitly refuses the docs fast-path — decision 2 is a security boundary
+  security_review: false   # fires on T-202/T-014, which implement the decisions
+  wave: [T-006, T-013]
+  wave_slot: 1
+  merge_order: 1        # lands first — larger § BFF rewrite; T-006 rebases its one-line addition on top
+  file_conflict: "docs/api-contract.md — shares § BFF and the status/version line with T-006"
+  qa_stage_4: waived    # docs-only: no stack to exercise; substituted by consumer-buildability review
 ---
 
 ## Why this exists

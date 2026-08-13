@@ -2,12 +2,26 @@
 id: T-006
 title: Contract — define ordering for the CV section collections
 repo: cv-project (meta)
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: docs/contract-section-ordering
 pr:
 depends_on: []
 risk: normal
+checkpoint:
+  stage: H1
+  repo: cv-project (meta)
+  branch: docs/contract-section-ordering
+  worktree: none   # docs-only change in the meta repo; no build, no stack, nothing to isolate
+  developer: tech-product-owner
+  reviewers: [code-review, backend-developer]
+  risk: normal          # gates take the docs fast-path; the DECISIONS do not (see task DoD)
+  security_review: false
+  wave: [T-006, T-013]
+  wave_slot: 0
+  merge_order: 2        # rebases onto T-013 — see wave note below
+  file_conflict: "docs/api-contract.md — shares § BFF and the status/version line with T-013"
+  qa_stage_4: waived    # docs-only: no stack to exercise; substituted by consumer-buildability review
 ---
 
 ## Why this exists
