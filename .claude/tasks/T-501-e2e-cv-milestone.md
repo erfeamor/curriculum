@@ -6,12 +6,14 @@ status: todo
 owner:
 branch: chore/m2-e2e-verification
 pr:
-depends_on: [T-101, T-102, T-103, T-104, T-151, T-201, T-301, T-401, T-402]
+depends_on: [T-101, T-102, T-103, T-104, T-151, T-201, T-301, T-401, T-402, T-014, T-403]
 ---
 
 ## Goal
 
 Prove milestone M2 works as a system, not just as green unit tests, then close out the roadmap entry.
+
+> **Added 2026-08-12 — this cannot be verified in AWS today.** `cv-bff-node` is not deployed (no ECR repo, no container, no edge route) and `cv-public-vanilla` has never been published (`s3://cv-project-frontend-dev/` holds only `admin/`). The whole public path is absent from the account; only the admin, which bypasses the BFF by design, is live. **T-014** (deploy the BFF) and **T-403** (deploy the public site) are therefore hard dependencies of this task, along with the contract and code changes they rest on (T-013 → T-202). If E2E here is scoped to the local compose stack instead, say so explicitly in the close-out — do not report the milestone as verified end-to-end when the public path exists only on localhost.
 
 ## Steps
 
