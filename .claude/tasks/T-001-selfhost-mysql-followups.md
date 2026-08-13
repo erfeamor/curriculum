@@ -2,15 +2,15 @@
 id: T-001
 title: "Backup: replace the managed backups lost when MySQL left RDS"
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: infrastructure-engineer
 branch: feat/mysql-backup-to-s3
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/15
 depends_on: []
 risk: normal
 security_review: true
 checkpoint:
-  stage: A1-green          # stage 1 + A1 complete. Stage 2 (security review) NOT started — budget stop.
+  stage: in_review          # PR open. Security review DONE. Awaiting the human apply, which is out of DoD by H1 ruling.
   repo: cv-infra
   branch: feat/mysql-backup-to-s3
   worktree: none   # cv-infra cannot be worked from a worktree — local backend, tfstate/tfvars live only in the main clone (see T-002's worktree_rationale)
@@ -24,7 +24,11 @@ checkpoint:
   a1: pass   # fmt -check -recursive clean, validate Success, terraform test 2 passed — re-run independently by the driver
   driver_verified: "IAM least-privilege confirmed by reading the policy: s3:PutObject alone, Resource scoped to bucket ARN + prefix + /*, no s3:* and no bucket-root grant. No credential in any committed file — DB_PASSWORD is read from SSM with --with-decryption at RUN time, not baked into the unit or template. Failure handling verified: set -euo pipefail, mysqldump pipeline failure caught despite gzip always exiting 0, empty-file guard, temp removed on both failure paths, timestamped keys so a bad run cannot clobber the last good dump."
   driver_finding: "NON-BLOCKING, not yet fixed: the dump runs `docker exec mysql mysqldump -u root -p\"$DB_PASSWORD\"`, so the password appears in the host process list and is readable via ps/proc by any local user. Low severity on a single-tenant box with SSM-only access and no other human logins, but it is a textbook finding and the fix is one line — pass it as `docker exec -e MYSQL_PWD=\"$DB_PASSWORD\"` and drop the -p flag. Raised by the driver during A1 verification; hand to the security lens rather than fixing unreviewed."
-  security_review_status: NOT_RUN   # forced true by adapter §5 (IAM + S3). The spawned lens has NOT run. Driver verified the two highest-value items inline (see driver_verified) but that is NOT a substitute — do not merge as if the lens ran.
+  security_review_status: PASS   # infrastructure-engineer lens, ran 2026-08-13. No blocking, no critical.
+  security_review_result: "IAM least-privilege CONFIRMED by exact-equality assertion, not eyeball. A compromised instance cannot destroy its own backups — no s3:DeleteObject and per-run timestamped keys, so PutObject cannot clobber. SSM read fails closed under set -e before anything is written or uploaded. Default SSE-S3 already covers encryption at rest on this account (created after Jan 2023), so no explicit resource needed. TLS-only bucket policy assessed LOW value here and skipped deliberately on cost grounds, not missed."
+  security_findings_applied: "1 non-blocking, in 01242b6: the temp dump landed 0644 under root default umask — the entire database world-readable while on disk. Fixed with umask 077."
+  security_finding_deferred: "mysqldump still passes the password via -p, visible in the host process list. Assessed non-blocking: SSM Session Manager is the only shell access and implies root-equivalent already, so the same principal could read the SSM parameter directly. Revisit before the box stops being single-tenant."
+  driver_finding_was_wrong: "The driver proposed `docker exec -e MYSQL_PWD=` as the fix. The security lens refuted it: -e lands in the docker CLI's own argv on the host, exactly as visible in ps as -p — it relocates the exposure rather than closing it. Correct fix is --defaults-extra-file or --env-file with a 0600 file so only a filename reaches any command line. Recorded because the wrong fix looks obviously right."
   test_landmine: "tests/plan.tftest.hcl's O7 comment claims `command = apply` is safe under mock_provider. It is NOT: ci.tf's null_resource.jenkins_provision has a local-exec that shells out to real `aws ssm` calls regardless of provider mocking. A full-module apply run block hangs on a 300s SSM timeout and fails teardown. Worked around by scoping the new apply run with plan_options.target. The real terraform.tfstate was verified untouched (terraform test uses ephemeral state). The stale O7 comment is worth correcting in a later PR."
   scope_ruling: "H1 2026-08-13 — build + offline gates + PR only. terraform apply is DEFERRED to the human and is NOT part of this task's DoD."
   data_ruling: "H1 2026-08-13 — the human confirmed the prod MySQL holds only test data, nothing authored. The instance replacement this apply causes therefore loses nothing of value. No pre-apply dump is needed; the restore is verified against a throwaway container per the AC."
