@@ -28,6 +28,7 @@ The landing page consumes `GET /api/v1/people/:id/cv` (one request instead of on
 
 - [ ] Section renderers are pure functions with Vitest coverage: happy path, empty array (section omitted entirely, no empty headings), XSS escape, null `endDate`.
 - [ ] `main.js` renders all sections from a single fetch of the aggregate payload.
+- [ ] **Render in the order received (added 2026-08-13 by T-006):** no client-side sorting of any section. The contract's § Ordering makes the domain service the single source of truth and the BFF a pass-through; a `.sort()` here would silently disagree with the admin UI and the React site.
 - [ ] `npm test` and `npm run lint` pass; `npm run build` succeeds.
 
 ## Definition of done

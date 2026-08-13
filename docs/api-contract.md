@@ -1,6 +1,6 @@
 # API contract — CV section resources (v1)
 
-Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF public edge path, anonymous reads, `/metrics` exposure). Changes require a PR to this file plus sign-off in the task that consumes it. All tasks in `.claude/tasks/` targeting the domain model implement *this* document — when in doubt, this file wins over any task prose.
+Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF public edge path, anonymous reads, `/metrics` exposure) · **2026-08-13 — T-006** (collection ordering). Changes require a PR to this file plus sign-off in the task that consumes it. All tasks in `.claude/tasks/` targeting the domain model implement *this* document — when in doubt, this file wins over any task prose.
 
 ## Design rules
 
@@ -9,6 +9,38 @@ Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF 
 3. Dates are ISO-8601 (`YYYY-MM-DD`). `endDate: null` means "current".
 4. Validation errors return `400` with Spring's default problem body; unknown IDs return `404`; success on `DELETE` is `204`.
 5. The domain service exposes internal `id`s; the BFF **strips ids and emails** from public payloads (same rule as the existing `people/:id` normalization).
+6. Every collection response is **explicitly ordered** — see § Ordering. An endpoint returning rows in the database's natural order does not satisfy this contract.
+
+## Ordering
+
+Added 2026-08-13 (T-006). Collection endpoints returned rows in whatever order MySQL happened to produce, which is wrong to a CV reader and, because `cv-public-react` renders via ISR, gets *frozen* into a cached page that a later revalidation can silently reshuffle.
+
+**Ordering is the domain service's responsibility.** It sorts; the BFF passes arrays through unchanged; no frontend re-sorts. One source of truth, so the admin UI, the aggregate, and both public sites always agree. A frontend that re-sorts is creating a second answer and is a review blocker.
+
+| Collection | Order | Then |
+|---|---|---|
+| `experiences` | `startDate` **DESC** | `id` ASC |
+| `education` | `startDate` **DESC** | `id` ASC |
+| `projects` | `startDate` **DESC**, undated **last** | `id` ASC |
+| `skills` (person) | `category` ASC, uncategorized **last**, then `name` ASC | `skillId` ASC |
+| `skills` (catalog) | `name` ASC | `id` ASC |
+
+**The secondary key is mandatory, not decorative.** Two experiences starting the same month otherwise come back in arbitrary relative order, and ISR caches whichever won that day — "ordered" without a tiebreaker still means "unstable". The tiebreaker is insertion order and makes no claim about recency.
+
+It is `id` ASC for four of the five collections. **Person skills are the exception:** `person_skill` has a composite primary key `(person_id, skill_id)` and **no `id` column of its own**, so there is no row id to sort by. Its tiebreaker is `skillId` ASC — the joined `skill.id`, which is also the name the response payload uses. Do not write `id` here; it does not exist.
+
+**NULL placement is specified behavior, not inherited behavior.** Two sort keys in the table above are nullable, and MySQL sorts NULL lowest, which would silently place both groups *first*:
+
+| Column | Nullable | Specified placement |
+|---|---|---|
+| `project.start_date` | yes — the only nullable date of the three | undated projects **last** |
+| `skill.category` | yes | uncategorized skills **last** |
+
+Both must be expressed explicitly — `ORDER BY start_date IS NULL, start_date DESC, id ASC` and `ORDER BY category IS NULL, category ASC, name ASC, skill_id ASC` — rather than relying on the engine default. The default happens to disagree with both rules today, so leaving it implicit is not merely fragile, it is wrong now. `experience.start_date` and `education.start_date` are `NOT NULL`; do not add NULL handling there, where it would be dead code implying a nullability the schema does not have.
+
+**Implementation note — the nullable cases need `@Query`.** Spring Data's derived method names support `OrderBy…Asc/Desc` chains but cannot express a synthetic `IS NULL` sort key. Experiences, education and the skill catalog can use the derived form (`findByPersonIdOrderByStartDateDescIdAsc`); **projects and person skills cannot** and require an explicit `@Query`. Following the derived idiom there would compile, look right, and produce the wrong NULL placement.
+
+Ordering is **not** pagination — § Non-goals rules out the latter for v1 and says nothing about the former.
 
 ## Domain service (cv-domain-service)
 
@@ -133,6 +165,7 @@ Aggregates the full CV in **one** call:
 ```
 
 - Fetches person + four sections from the domain service **in parallel** (`Promise.all`).
+- **Preserves upstream order** in every section array — the BFF does not sort, re-sort, or reverse. Ordering is settled in § Ordering and owned by the domain service; a `.sort()` in this layer is a second source of truth and a review blocker.
 - No `id`, `personId`, `skillId`, or `email` fields in the public payload.
 - Person 404 upstream → 404. Any section fetch failing → 502 (the public site treats the CV as one unit).
 - The existing person endpoint keeps its behavior and payload; only its **path** moves, from `/api/v1/people/:id` to `/bff/api/v1/people/:id`, per the edge-path decision above. Consumers must update their base URL — this is a breaking change for `cv-public-vanilla`, which calls the old path today.

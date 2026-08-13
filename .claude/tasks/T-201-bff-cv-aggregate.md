@@ -31,6 +31,7 @@ depends_on: [T-101, T-102, T-103, T-104, T-006]
 - [ ] No internal ids or email anywhere in the payload (explicit test).
 - [ ] 404 and 502 paths covered by tests.
 - [ ] Upstream calls verifiably parallel (e.g. assert `fetch` call count, not ordering).
+- [ ] **Order is passed through, not imposed (added 2026-08-13 by T-006):** every section array appears in the aggregate in exactly the order the domain service returned it. No `.sort()`, `.reverse()`, or re-keying anywhere in this route — ordering is settled in the contract's § Ordering and owned upstream, so sorting here creates a second answer. A test must feed deliberately out-of-natural-order mocked upstream arrays and assert the output order is byte-identical to the input.
 - [ ] `npm test`, `npm run typecheck`, and `npm run lint` pass.
 
 ## Definition of done
