@@ -41,6 +41,14 @@ checkpoint:
   updated: 2026-08-11
 ---
 
+> ⚠️ **Superseded numbers — read this before quoting anything below (added 2026-08-14).**
+> This task is `done`, but two of its outputs went stale **three days before it was ratified** and nothing re-checked them:
+> - **The rate.** Everything here is derived from **$0.92/day ≈ $28/month**. The 2026-08-08 `t3.micro`→`t3.small` resize of the CI host took it to **~$1.23/day ≈ $37.30/month**.
+> - **Therefore the date.** Credits exhaust **~2026-11-17**, not ~18 December — ~5 weeks earlier. [T-012](T-012-aws-endgame-decision.md) has been re-dated to `due: 2026-11-01`.
+> - **Therefore decision (b), "do NOT trim".** It rested on the crossover at ~$32/month, below which the window binds and savings expire unspent. At $37.30/month **credits bind first**, so trimming now buys real elapsed demo time. The decision was sound on the numbers it had; the numbers moved. See [T-019](T-019-ci-host-on-demand.md).
+>
+> Decision (a) (complete the two $20 activities) and the alarm-trap finding at `alarm_trap_found` are **unaffected** and still stand. Correcting the model, and the console read the corrected dates need, are **[T-020](T-020-cost-model-correction.md)**.
+
 ## Why this exists
 
 The whole project has been reasoning about cost using a rule that does not apply to this account, while the constraint that *does* apply is untracked and has a deadline.

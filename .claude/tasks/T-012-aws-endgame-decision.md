@@ -8,30 +8,42 @@ branch: chore/aws-endgame-decision
 pr:
 depends_on: []
 risk: high
-due: 2026-12-20
-deadline: 2027-01-12
+due: 2026-11-01          # re-dated 2026-08-14 — was 2026-12-20, which is AFTER the credits run out at the real burn rate
+deadline: 2027-01-12     # the Free-plan window; no longer the binding constraint, see below
 ---
 
 ## Why this exists
 
 T-010 answered *when* the account dies and built the alarm that warns about it. It deliberately **deferred one decision**, and this task holds it so it is not lost in a task marked `done`.
 
-**On the Free plan, 2027-01-12 is a hard ceiling.** Not a soft one, and not one more credits can move:
+**On the Free plan, 2027-01-12 is a hard ceiling.** Not a soft one, and not one more credits can move. But it is no longer the thing that binds first.
+
+### Re-dated 2026-08-14 — the credits run out ~5 weeks earlier than this task said
+
+The model below was built at **$0.92/day**. The real rate has been **$1.23/day** since the 2026-08-08 `t3.micro`→`t3.small` resize of the CI host (verified against the August cost export). The rate change was recorded on the board; the dates derived from it were not re-run. Re-running them, from the same console read ($120.66 remaining on 2026-08-11):
 
 ```
-grant $160 (Aug 2026):   $120.66 left -> 131d -> credits die 2026-12-20   CREDITS bind
-grant $200 (after acts): $160.66 left -> 175d -> window shuts 2027-01-12  WINDOW binds
+                          modelled ($0.92/d)          re-derived ($1.23/d)
+grant $160 (current):     131d -> 2026-12-20          98d -> ~2026-11-17   CREDITS bind (~8wk)
+grant $200 (after acts):  175d -> 2027-01-12          130d -> ~2026-12-19  CREDITS bind (~3wk)
 ```
 
-Completing the two $20 activities buys ~3 weeks and then stops helping. **Trimming the run rate buys nothing at all while the window binds** — savings would expire unspent. That is why T-010 recorded "no trims" as a decision rather than an oversight.
+**`due` was 2026-12-20 — after the money is gone in the $160 case.** It is now **2026-11-01**, which keeps T-010's principle intact: decide while there is still time to act calmly, not on the day the alarm fires.
+
+**Two conclusions below are now wrong, and are struck rather than deleted:**
+
+- ~~"Completing the two $20 activities buys ~3 weeks and then stops helping."~~ They still buy ~4½ weeks, but they no longer reach the window — credits bind in **both** rows now. Whether they were ever completed is unrecorded (T-010 ratified doing them on 2026-08-11); establishing that is T-020's §2.
+- ~~"Trimming the run rate buys nothing at all while the window binds — savings would expire unspent."~~ **This no longer follows from its own reasoning.** It rested on a crossover at ~$32/month: *below* that, the window binds and savings expire unspent. Real burn is **$37.30/month — above the crossover** — so credits bind first and trimming buys real elapsed demo time (up to ~8 weeks in the $160 case; enough to hand the binding constraint back to the window). T-010's "no trims" was a correct decision on the numbers it had; the numbers changed three days before it was ratified and nobody re-checked. See **[T-019](T-019-ci-host-on-demand.md)** — and note its DoR §4: stopping the CI host by hand saves the identical $17.24/month with no new infrastructure.
+
+**These dates are derived, not read.** The balance is from 2026-08-11 and the rate is inferred from a cost export; the true remaining balance is visible only in the console (no AWS API exposes it). **[T-020](T-020-cost-model-correction.md) holds that read** and will correct this task again if the console disagrees.
 
 When the window closes on the Free plan, AWS **pauses the account and stops the resources**. That is the whole stack: both EC2 instances, the CI host that gates `cv-domain-service` and `cv-database`, CloudFront, the lot.
 
 ## The decision
 
-Pick one, by **20 December 2026** at the latest — that is when the runway alarm's 100% threshold fires and when there is still time to act calmly.
+Pick one, by **1 November 2026** at the latest (was 20 December — see the re-dating above; the old date assumed a burn rate a third too low, and the alarm threshold it was pinned to fires on the same stale model, which is T-020's §4).
 
-**A · Upgrade to the Paid plan.** ~$28/month ongoing. The demo survives indefinitely. **Trimming becomes worthwhile the moment this is chosen**, because the bill is now recurring rather than notional:
+**A · Upgrade to the Paid plan.** ~$37/month ongoing at the current rate — **not the ~$28 written below**, same staleness; the table's line items are pre-resize and understate compute. The demo survives indefinitely. **Trimming becomes worthwhile the moment this is chosen**, because the bill is now recurring rather than notional:
 
 | Line | $/mo | Share | Note |
 |---|---|---|---|
@@ -60,7 +72,7 @@ Same question applies to self-hosted MySQL, tracked as **T-001**.
 ## Acceptance criteria
 
 - [ ] The two activities completed, and the new grant total recorded here.
-- [ ] A written decision — A, B, or C — with its cost and its consequences, made on or before 2026-12-20.
+- [ ] A written decision — A, B, or C — with its cost and its consequences, made on or before **2026-11-01**.
 - [ ] If **A**: the plan upgraded, and a follow-up task filed for the trims that are now worth doing.
 - [ ] If **B**: T-008 landed first, a teardown runbook written, and the rebuild verified at least once against a throwaway apply rather than assumed.
 - [ ] If **C**: the migration scoped as its own dependency-ordered tasks.
