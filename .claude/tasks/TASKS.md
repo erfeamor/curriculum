@@ -42,7 +42,8 @@ The four-section milestone is untouched (every task above is genuinely `todo`), 
 | [T-001](T-001-selfhost-mysql-followups.md) | Backup: replace the managed backups lost when MySQL left RDS | cv-infra | done (applied + restore verified) | infrastructure-engineer | — | [#15](https://github.com/erfeamor/cv-infra/pull/15) |
 | [T-016](T-016-dev-prod-mysql-parity.md) | Dev/prod parity: bump the local MySQL to 8.4 | cv-project (meta) | todo | | — | |
 | [T-017](T-017-docs-drift-rds-to-selfhosted.md) | Docs drift: the repo still says RDS in five places | cv-project (meta) + cv-database | todo | | — | |
-| [T-018](T-018-mysql-on-dedicated-ebs-volume.md) | MySQL on a dedicated EBS volume, surviving instance replacement | cv-infra | todo | | — | |
+| [T-018](T-018-mysql-on-dedicated-ebs-volume.md) | MySQL on a dedicated EBS volume, surviving instance replacement | cv-infra | todo (H1 done) | | — | |
+| [T-019](T-019-ci-host-on-demand.md) | Stop paying for an idle CI host: start on demand, stop when quiet | cv-infra | todo | | — | |
 | [T-002](T-002-jenkins-on-drone-host.md) | Host Jenkins on the existing Drone CI instance | cv-infra | done | infrastructure-engineer | — | [#11](https://github.com/erfeamor/cv-infra/pull/11) |
 | [T-003](T-003-ci-docs-reflect-jenkins.md) | Correct the CI documentation to match reality | cv-project (meta) | todo | | T-002 | |
 | [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state: permissions now, remote backend properly | cv-infra | todo | | — | |
@@ -54,6 +55,8 @@ The four-section milestone is untouched (every task above is genuinely `todo`), 
 | [T-010](T-010-aws-credit-runway.md) | Track the AWS credit runway and free-plan cliff before it stops the demo | cv-project (meta) | done | tech-product-owner | — | |
 | [T-011](T-011-budget-credit-alarm.md) | Budget alarm that fires on credit burn, not on the invoice | cv-infra | done | infrastructure-engineer | — | [#13](https://github.com/erfeamor/cv-infra/pull/13) |
 | [T-012](T-012-aws-endgame-decision.md) | **Decide Paid-vs-teardown before the Free-plan window closes** | cv-project (meta) | todo | | — | **due 2026-12-20** |
+
+**Cost model is stale as of 2026-08-14 — the documented figures understate real burn by a third.** `cv-infra/CLAUDE.md` and T-010's runway both encode *~$0.92/day ≈ $28/month*. The 2026-08-08 `t3.micro`→`t3.small` resize of the CI host (T-002, deliberate, for Maven headroom) took the real rate to **~$1.23/day ≈ $37.30/month**, verified against the August cost export and `describe-instances`. Consequences: the credits deplete **~25% sooner in elapsed time**, which moves T-012's date; and the `$30` monthly budget is now **structurally exceeded (~124%)**, so its 100/120% thresholds will fire every month from September — an alarm that always fires stops being a signal. Note [cv-infra#14](https://github.com/erfeamor/cv-infra/pull/14) deliberately refused to raise that limit, so this needs a decision rather than a bump. **T-014 may push it further** — its own watch-outs say the domain-service box may need `t3.small` for RAM, another +$8.62/month → ~$46. [T-019](T-019-ci-host-on-demand.md) is the largest available offset (~$17.24/month).
 
 > T-013, T-014 and T-015 are part of the deployment chain below and are boarded there, not here, so there is one line per task to claim.
 
