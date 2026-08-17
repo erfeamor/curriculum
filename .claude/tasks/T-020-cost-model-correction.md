@@ -44,7 +44,7 @@ The obvious fix is the wrong one. [cv-infra#14](https://github.com/erfeamor/cv-i
 
 **2. Confirm whether the two $20 credit-earning activities were completed.** T-010's ratified decision (a) was *"complete them now"* on 2026-08-11 (Lambda; foundation-model experimentation). Nothing on the board records whether they were, and it selects which row of the table above is live.
 
-**3. Correct the model where it is written down:** `cv-infra/CLAUDE.md`'s cost section, and T-010's runway figures. Give each a **date read** and the instance sizes it assumes, so the next resize makes the staleness visible instead of silent.
+**3. Correct the model where it is written down — in all *three* places.** `cv-infra/CLAUDE.md`'s cost section, T-010's runway figures, and **the meta `CLAUDE.md`** (added 2026-08-17), whose Conventions section states *"~$28/mo, net invoice $0"* — the same stale figure, in the file every agent loads on every session, and it was outside this task's scope until now. Give each a **date read** and the instance sizes it assumes, so the next resize makes the staleness visible instead of silent.
 
 **4. Decide what the budget alarm should do** — retune, split into spend-vs-depletion, or accept and document the monthly fire. Not a bump; cv-infra#14's reasoning stands and must be addressed rather than reverted.
 
@@ -54,7 +54,7 @@ The obvious fix is the wrong one. [cv-infra#14](https://github.com/erfeamor/cv-i
 
 - [ ] Real credit balance, credit expiry dates and plan type recorded here with the date read.
 - [ ] Whether the two $20 activities landed, recorded with the resulting grant total.
-- [ ] `cv-infra/CLAUDE.md` and T-010 state the real rate, with a date and the instance sizes assumed.
+- [ ] `cv-infra/CLAUDE.md`, the **meta `CLAUDE.md`**, and T-010 all state the real rate, with a date and the instance sizes assumed. Grep for the old figures (`0.92`, `$28`) rather than trusting this list — it has already been wrong once by omission.
 - [ ] T-012's `due` verified against the real balance.
 - [ ] A budget-alarm decision that does **not** reproduce the cv-infra#14 trap, with its reasoning written down.
 - [ ] If the alarm changes: `terraform fmt -check -recursive`, `terraform validate`, `terraform test` pass, with assertions updated for any changed budget resource.

@@ -11,7 +11,7 @@ risk: high
 security_review: true
 checkpoint:
   stage: H1
-  note: "NOT a fresh todo. Stage 0 refinement completed 2026-08-14 and the six DoR rulings below are written up; whoever picks this up starts at IMPLEMENTATION, not refinement. Deliberately left status:todo with no owner — an H1-complete task with an owner set reads as in-flight and blocks re-pickup under board rule 1. Same pattern T-018 used successfully."
+  note: "NOT a fresh todo. Stage 0 refinement completed 2026-08-14 and the seven DoR rulings below are written up (this said 'six' until 2026-08-17 — ruling 7 was added by QA during the same refinement and the count was never updated); whoever picks this up starts at IMPLEMENTATION, not refinement. Deliberately left status:todo with no owner — an H1-complete task with an owner set reads as in-flight and blocks re-pickup under board rule 1. Same pattern T-018 used successfully."
   repo: cv-infra
   branch: feat/deploy-bff-node
   worktree: none   # cv-infra has a local Terraform backend; it cannot be worked from a worktree
@@ -54,7 +54,7 @@ The intended approach is the domain service's, per the meta README backlog — *
 ## Watch-outs (measured, not hypothetical)
 
 - **RAM.** The box is a `t3.micro` (1 GB) already carrying MySQL 8.4 + a JVM on a 2 GB swapfile; `templates/domain-service-user-data.sh` itself recommends a `t3.small`. Adding a Node process pushes it further into swap. If the plan resizes the instance, `terraform test`'s instance-class assertion and the cost note must change **in the same PR** — and T-010's finding applies: trimming or growing run rate does not change the Free-plan cliff, so argue this on stability, not cost.
-- **`user_data_replace_on_change`** is already set on `aws_instance.domain_service` and must stay. Editing the bootstrap without it updates state and never re-provisions the box — this exact bug shipped once (repo review guidance item 3). This task edits `user_data`, so the instance **will** be replaced: MySQL data lives on `/var/lib/cv-mysql` on the host volume and **is lost when the instance is replaced**. Plan for that before applying — this is the sharpest edge in the task.
+- **`user_data_replace_on_change`** is already set on `aws_instance.domain_service` and must stay. Editing the bootstrap without it updates state and never re-provisions the box — this exact bug shipped once (repo review guidance item 3). This task edits `user_data`, so the instance **will** be replaced. ~~MySQL data lives on `/var/lib/cv-mysql` on the host volume and **is lost when the instance is replaced**. Plan for that before applying — this is the sharpest edge in the task.~~ **Superseded by [T-018](T-018-mysql-on-dedicated-ebs-volume.md), struck here 2026-08-17** — `/var/lib/cv-mysql` is now mounted from a dedicated EBS volume that survives replacement, proven by test. The replacement still happens and still has to be verified (§6 of the test plan); it is simply no longer destructive to data. The strike-through is applied *here*, at the watch-out itself, because the supersession was previously recorded only two sections further down — a reader who stopped at the watch-outs got the opposite answer. **The live sharp edge is now `var.db_password`: do not change it during this task (T-021).**
 - **No NAT gateway, no new EIP.** ~$32/mo and ~$3.60/mo respectively; the two existing public IPv4s are already ~24% of the bill (T-010).
 - **No SSH.** Shell access stays SSM Session Manager. Do not add port 22 or a key pair to debug the container.
 
@@ -62,7 +62,7 @@ The intended approach is the domain service's, per the meta README backlog — *
 
 Premises re-verified against `cv-infra@774a9fc` and `cv-bff-node@b63eae2` before refining. **All of the task's original claims still hold**: no `aws_ecr_repository` for the BFF (only `domain_service`), no BFF container anywhere in `templates/domain-service-user-data.sh`, exactly one `ordered_cache_behavior` (`/api/*` → `domain-service-api`), and `observability.tf:10`'s `bff_node` log group still empty. `compute.tf:1` still claims the box "Runs cv-domain-service and cv-bff-node".
 
-Six rulings. Each is a place where the obvious implementation is wrong or the task prose is now out of date.
+**Seven** rulings, plus two corrections that follow them. Each is a place where the obvious implementation is wrong or the task prose is now out of date. (Counted as "six" until 2026-08-17; ruling 7 arrived later in the same refinement, from QA.)
 
 ### 1. Do NOT copy the existing security-group pattern for port 3000
 
@@ -130,12 +130,12 @@ The BFF container must reach the domain service as `http://domain-service:8080` 
 
 ## Test plan — authored by `quality-assurance` at stage 0, 2026-08-14
 
-QA authors the plan it later executes. Live values at authoring time: CloudFront `dvdlxl0zqepqi.cloudfront.net`, EIP `15.236.195.130`, instance `i-029dd84261c922f72`. **Read ruling 7's correction above before executing §1.4/§8.4.**
+QA authors the plan it later executes. Live values at authoring time: CloudFront `dvdlxl0zqepqi.cloudfront.net`, EIP `15.236.195.130`, instance `i-029dd84261c922f72`. **Read "Correction to the QA plan" above — i.e. ruling 1 — before executing §1.4/§8.4.** (This said "ruling 7's correction" until 2026-08-17; ruling 7 is the `/cv` 404 finding and says nothing about ingress. The correction that overrides §1.4/§8.4 is ruling 1's prefix-list decision.)
 
 ### §0 · Baseline — MUST run before the apply, cannot be reconstructed afterwards
 
 - **0.1** `/bff/api/v1/people/1` through CloudFront is **not** 200 today (no `/bff/*` behavior exists). If it already is, the premises are stale — stop.
-- **0.2** `/metrics` and `/health` return **200 with the SPA shell**. This is the "before" that makes criterion 4's 404 meaningful. Capture the body, not just the status.
+- **0.2** `/metrics` and `/health` return **200 with the SPA shell**. This is the "before" that makes **acceptance criterion 6**'s 404 meaningful (corrected 2026-08-17 — this said "criterion 4", which is the MySQL criterion T-018 superseded). Capture the body, not just the status.
 - **0.3** Snapshot the DB fixture (T-018 left `person id=1`, `T018 Survival Probe`) — the diff target for survival after replacement.
 - **0.4** Snapshot the MySQL volume UUID — the one piece of evidence a reformat cannot fake.
 - **0.5** Record the EIP and the current SG rules, for the "no new EIP / no widened ingress" checks.

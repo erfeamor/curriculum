@@ -32,6 +32,13 @@ Task IDs are grouped by layer: `T-0xx` design/meta/ops (incl. cv-infra) · `T-1x
 6. **On PR open**: set `status: in_review` and paste the PR URL into `pr:`. **On merge**: set `status: done`.
 7. Board-state edits (status/owner flips) are working-tree edits in the meta repo — batch-commit them via a `chore/board-sync` PR periodically or when a milestone completes; don't open a PR per status flip.
 
-## Current milestone
+## Current work — three tracks
 
 **M2 — Complete the domain model end-to-end** (`experience`, `education`, `skill`, `project` from database to public site). Tasks T-101…T-501. The database schema for all four already exists (`cv-database/sql/migrations/V1__init_schema.sql`); nobody needs to touch the schema for this milestone.
+
+Two other tracks run alongside M2 and have carried most of the recent work — a reader sent only to M2 gets a misleading picture of where the project is:
+
+- **The public-path deployment chain** (T-013 → T-202 → T-014 → T-403 → T-015, plus T-203/T-204/T-404). `cv-bff-node` and `cv-public-vanilla` have never been deployed, so the entire public data path exists only on localhost. This **blocks T-501**, which cannot verify a milestone end-to-end through infrastructure that is absent.
+- **Infra & ops** (T-001…T-024). Security, durability, cost and docs debt. Two items here are time-boxed rather than merely open: **T-012** (Paid-vs-teardown) is due **2026-11-01**, and **T-020** holds the console read every date on this board is derived from.
+
+See [TASKS.md](TASKS.md) for all three, and read the sweep note at its foot before trusting any prose you find in a task file that has been open a while.

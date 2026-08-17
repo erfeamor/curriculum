@@ -8,7 +8,7 @@ branch: feat/ci-secret-blast-radius
 pr:
 depends_on: [T-002]
 risk: high
-security_review: required
+security_review: true
 ---
 
 ## Why this exists

@@ -11,7 +11,9 @@ depends_on: [T-201]
 
 ## Goal
 
-The landing page consumes `GET /api/v1/people/:id/cv` (one request instead of one-per-section) and renders experience, education, skills, and projects below the existing header card.
+The landing page consumes `GET /bff/api/v1/people/:id/cv` (one request instead of one-per-section) and renders experience, education, skills, and projects below the existing header card.
+
+> **Path corrected 2026-08-17.** This task said `GET /api/v1/people/:id/cv` until now. T-013 moved the BFF's entire public surface behind the `/bff` edge prefix on 2026-08-13 and T-202 implemented it, so `/api/v1` no longer exists in `cv-bff-node` at all — in local dev as well as in AWS. T-013's own review caught this drift in T-201 and fixed it there; this file and T-402 were missed at the time. The prefix is **not** stripped at the edge, so the path above is the literal string to fetch in both environments.
 
 > **Note (2026-08-12) — not a blocking dependency, but read before claiming.** This repo is **not deployed to AWS** and its BFF base URL falls back to `localhost:3000` in a built bundle; both are fixed by **T-403**, and the BFF this task calls is not deployed either (**T-014**). None of that blocks writing or unit-testing this rendering work, which is why `depends_on` is unchanged — but "done" here means *renders locally*, not *renders in AWS*. T-403 touches `src/main.js:3` and the workflow in this same repo; if both are in flight, sequence them rather than running them in one wave.
 

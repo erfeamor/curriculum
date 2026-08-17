@@ -13,7 +13,7 @@ security_review: false
 
 ## Why this exists
 
-Split out of T-001 on 2026-08-13 (§2 of its original three-part scope), so a local-stack chore cannot sit in the dependency path of the deployment chain — `T-014` gates on T-001, and T-001 is now the backup alone.
+Split out of T-001 on 2026-08-13 (§2 of its original three-part scope), so a local-stack chore could not sit in the dependency path of the deployment chain. ~~`T-014` gates on T-001~~ — that clause is stale (corrected 2026-08-17): T-014's dependency on T-001 was removed later the same day, and T-001 is `done` regardless. The split still stands on its own merits; this task has never had a dependency of its own.
 
 `docker-compose.dev.yml` still pins `mysql:8.0` while production runs **`mysql:8.4`** on the self-hosted container. Dev and prod disagreeing on the database major version is exactly the gap that lets a migration or a query pass locally and fail deployed.
 

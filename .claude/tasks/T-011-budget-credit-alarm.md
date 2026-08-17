@@ -5,7 +5,7 @@ repo: cv-infra
 status: done
 owner: infrastructure-engineer
 branch: feat/budget-credit-alarm
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/13   # filled in 2026-08-17 — was blank while the URL sat in checkpoint.pr only (board rule 6)
 depends_on: []
 risk: normal
 security_review: true

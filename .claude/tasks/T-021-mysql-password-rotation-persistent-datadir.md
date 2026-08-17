@@ -58,5 +58,6 @@ PR open against `master` from `fix/mysql-password-rotation`, gates green, verifi
 
 - **Developer:** `infrastructure-engineer`. **`security_review: true`** — this task handles database credentials directly, and option A writes them at boot.
 - **Depends on T-018** because the failure mode does not exist until the datadir persists.
+- **[T-004](T-004-terraform-state-hardening.md) §3 is the other end of this** (linked 2026-08-17). That task asks whether the secrets sitting in world-readable local state should be rotated, and `db_password` is one of them — so a "rotate" answer there walks straight into this bug. Neither file referenced the other. If T-004 decides to rotate, it waits on this task; if this task lands first, T-004's decision becomes free of that constraint.
 - **Do not bundle this into T-018.** It was deliberately scoped out at review-round-1 adjudication: a credential-rewriting branch in an unattended boot script is a different risk profile from a storage-layout change, and mixing them makes both harder to review and to roll back.
 - The same class of trap may exist for other first-init-only MySQL settings now that the datadir survives — worth a look while in here, but anything found goes in its own task, not this one.

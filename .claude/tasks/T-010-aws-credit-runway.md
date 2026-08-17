@@ -5,6 +5,7 @@ repo: cv-project (meta)
 status: done
 owner: tech-product-owner
 branch: chore/credit-runway-decision
+pr:                       # key added 2026-08-17; deliberately empty — the board records no PR for this task and none was found. Its implementable half shipped as T-011 (cv-infra#13) and its docs half rode the Free-Tier docs PR. Left blank rather than back-filled with a guess.
 depends_on: []
 risk: high
 security_review: false
@@ -126,7 +127,7 @@ Re-architecting for cost (serverless, spot, smaller regions). This task is about
 
 ## Definition of done
 
-PR open against `master` from `chore/credit-runway-guardrails`, the two console numbers recorded here, a working budget alarm, and a decision written down rather than deferred.
+PR open against `master` from `chore/credit-runway-decision` (branch name corrected 2026-08-17 — this said `chore/credit-runway-guardrails`, which contradicted the frontmatter and matches no branch that ever existed), the two console numbers recorded here, a working budget alarm, and a decision written down rather than deferred.
 
 ## Related
 
