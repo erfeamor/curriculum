@@ -70,7 +70,7 @@ Six rulings. Each is a place where the obvious implementation is wrong or the ta
 
 **Ruling:** ingress for 3000 is scoped to CloudFront's own origin-facing ranges via the managed prefix list — `data.aws_ec2_managed_prefix_list` with name `com.amazonaws.global.cloudfront.origin-facing`, referenced as `prefix_list_ids` on the ingress rule. Not `0.0.0.0/0`. The PR must state this explicitly, per scope §4.
 
-**Separately:** that pre-existing `0.0.0.0/0` on 8080 is a real exposure and is **out of scope here** — do not fix it in this PR. It wants its own task, and H1 should decide whether to file one now.
+**Separately:** that pre-existing `0.0.0.0/0` on 8080 is a real exposure and is **out of scope here** — do not fix it in this PR. ~~It wants its own task, and H1 should decide whether to file one now.~~ **Filed 2026-08-14 as [T-022](T-022-domain-service-origin-bypasses-cloudfront.md)** on the human's instruction at H1. Probing it turned up more than an open port: `/v3/api-docs` answers **200 unauthenticated** on the public IP, leaking the whole OpenAPI surface, and it grows automatically as M2 lands resources. T-022 applies the *same* managed-prefix-list fix to 8080 that ruling 1 mandates for 3000 — so **doing T-022 first makes this task follow an established pattern instead of inventing one**, and gives the reviewer one consistent approach across both ports. Not a hard dependency in either direction.
 
 ### 2. Behavior ordering is a non-issue — the task prose overstates it
 
