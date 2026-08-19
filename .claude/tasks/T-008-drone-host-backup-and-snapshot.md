@@ -58,6 +58,12 @@ The task is not "write a cron job." Pick and record an answer to:
 
 Note that T-002 now also puts **Jenkins' `JENKINS_HOME`** on this same host, so whatever is decided should say whether Jenkins config/job history is in or out of scope.
 
+## New reason this matters — found at T-009, 2026-08-19
+
+**T-009's acceptance criterion could not be executed because of the gap this task exists to close.** It asks for a *"fresh boot self-provisions Jenkins"* proof, which means replacing the instance. Replacing it destroys `/var/lib/drone/database.sqlite`, whose `drone-deploy` AWS credentials this task records as existing **nowhere else**. So the verification was substituted with an SSM probe over the identical fetch → verify → execute path, and the criterion is recorded as deliberately unexecuted.
+
+That is the second time this gap has changed how another task is done ([T-012](T-012-aws-endgame-decision.md)'s option B is the first — it cannot be chosen until this lands). **The cost of not doing T-008 is no longer hypothetical: it is now blocking real verification work**, and it will block it again for any task that wants to prove a clean-boot path on the CI host.
+
 ## Sequencing
 
 The snapshot deletion is gated on T-002's post-apply verification passing — do not delete it while that PR is still unverified, and do not let this task block on the larger backup decision. If the backup design needs more thought, split it: delete the orphan snapshot in a small PR, and keep the design question open.
