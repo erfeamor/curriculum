@@ -2,7 +2,7 @@
 id: T-019
 title: "Stop paying for an idle CI host: start it on demand, stop it when quiet"
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: infrastructure-engineer
 branch: feat/ci-host-on-demand
 pr:
@@ -10,7 +10,34 @@ depends_on: []
 risk: normal
 security_review: true
 checkpoint:
-  stage: H1
+  stage: stage-4-verified
+  pr: https://github.com/erfeamor/cv-infra/pull/17
+  applied: "2026-08-19 — 15 added, 1 changed, 2 destroyed. aws_instance.drone updated in place (user_data only; no replacement, instance type untouched). SSM re-provisioning succeeded in 37s. terraform plan after the follow-up fixes: No changes."
+  stage4: |
+    13 of 14 live checks passed on the first full run; the 14th was drift from a
+    hand-set tag and is now resolved. Proven by request against the live account,
+    never by reading Terraform:
+      - stopped -> signed webhook -> "starting" -> RUNNING   (the core loop)
+      - stopped -> UNSIGNED request -> "bad signature" -> still STOPPED
+      - stopped -> WRONG signature  -> "bad signature" -> still STOPPED
+      - GET -> 405, signed ping -> pong (no start), signed push for a repo
+        outside the allowlist -> handler 403
+      - reaper honours CIKeepAlive: {"stopped": false, "reason": "keepalive tag set"}
+      - both IAM policies read back from the live account: ARN-scoped to the one
+        instance, start/stop only, no destructive actions
+      - secret is SecureString; schedule ENABLED at rate(5 minutes)
+  stage4_findings: |
+    TWO DEFECTS, neither visible from the config, both fixed in 03faeb5:
+    1. The Function URL 403'd every request and the Lambda was NEVER invoked
+       (zero log streams) while a direct invoke worked. This account's default
+       Lambda block-public-access makes aws_lambda_function_url's own
+       InvokeFunctionUrl grant insufficient; an unconditioned
+       lambda:InvokeFunction grant is required. The whole deployment was inert
+       and every plan-time assertion passed anyway.
+    2. CIKeepAlive -- the documented manual override -- was queued for removal
+       by the next plan. Terraform would have stripped it silently, mid-demo.
+       Now under lifecycle.ignore_changes.
+  remaining: "ONE manual step, and the automation is inert until it happens: re-point the GitHub webhooks at the Function URL with the secret (ci.tf manual step 5). Until then a real push does not reach the doorbell and the box must be started by hand. T-019's 'proven with a real push' criterion is NOT yet met -- the doorbell path is proven with a signed synthetic payload."
   note: "Stage 0 refinement done 2026-08-19; §4 was ratified the same day (build it) and §§1-3 are ruled on below, PENDING H1 RATIFICATION. Nothing is implemented yet — T-019's own DoR §1 forbids writing code before the replay design is chosen."
   repo: cv-infra
   branch: feat/ci-host-on-demand
