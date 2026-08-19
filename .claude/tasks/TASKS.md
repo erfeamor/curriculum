@@ -46,7 +46,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-018](T-018-mysql-on-dedicated-ebs-volume.md) | MySQL on a dedicated EBS volume, surviving instance replacement | cv-infra | done (applied + survival proven) | infrastructure-engineer | — | [#16](https://github.com/erfeamor/cv-infra/pull/16) |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-022](T-022-domain-service-origin-bypasses-cloudfront.md) | Domain service reachable on :8080 bypassing CloudFront; leaks OpenAPI spec | cv-infra | todo | | — | |
-| [T-019](T-019-ci-host-on-demand.md) | Stop paying for an idle CI host: start on demand, stop when quiet | cv-infra | todo | | — | |
+| [T-019](T-019-ci-host-on-demand.md) | Stop paying for an idle CI host: start on demand, stop when quiet | cv-infra | todo (**H1 ratified — build it**; also unblocks M2's Jenkins gate) | | — | |
 | [T-002](T-002-jenkins-on-drone-host.md) | Host Jenkins on the existing Drone CI instance | cv-infra | done | infrastructure-engineer | — | [#11](https://github.com/erfeamor/cv-infra/pull/11) |
 | [T-003](T-003-ci-docs-reflect-jenkins.md) | Correct the CI documentation to match reality | cv-project (meta) | todo | | T-002 | |
 | [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state: permissions now, remote backend properly | cv-infra | todo | | — | |
@@ -58,7 +58,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-010](T-010-aws-credit-runway.md) | Track the AWS credit runway and free-plan cliff before it stops the demo | cv-project (meta) | done | tech-product-owner | — | |
 | [T-011](T-011-budget-credit-alarm.md) | Budget alarm that fires on credit burn, not on the invoice | cv-infra | done | infrastructure-engineer | — | [#13](https://github.com/erfeamor/cv-infra/pull/13) |
 | [T-012](T-012-aws-endgame-decision.md) | **Decide Paid-vs-teardown before the Free-plan window closes** | cv-project (meta) | todo | | — | **due 2026-11-01** |
-| [T-020](T-020-cost-model-correction.md) | Correct the stale cost model; stop the budget alarm crying wolf | cv-project (meta) + cv-infra | todo | | — | |
+| [T-020](T-020-cost-model-correction.md) | Correct the stale cost model; stop the budget alarm crying wolf | cv-project (meta) + cv-infra | in_progress (§1–§2 read, meta half done; **cv-infra half open**) | tech-product-owner | — | |
 | [T-023](T-023-meta-docs-stale-bff-smoke-path.md) | The documented E2E smoke command curls a path the BFF no longer serves | cv-project (meta) | todo | | — | |
 | [T-024](T-024-contract-skill-assignment-put-shape.md) | Contract: split the skill-assignment PUT's request body from its response | cv-project (meta) | todo | | — | |
 
@@ -76,7 +76,28 @@ Two consequences, neither cosmetic:
 1. **[T-012](T-012-aws-endgame-decision.md)'s `due: 2026-12-20` is now after the money is gone** in the $160 case. Re-dated in that file.
 2. **T-010's ratified decision (b) — "do NOT trim the run rate" — no longer follows from its own reasoning.** It rested on the crossover at ~$32/month: *below* that the 6-month window binds first and savings expire unspent. Real burn is **$37.30/month, above the crossover**, so credits bind first and trimming now buys real elapsed demo time — up to ~8 weeks in the $160 case. That does not automatically mean *build* [T-019](T-019-ci-host-on-demand.md): its own DoR §4 notes stopping the host by hand saves the identical $17.24 with no new IAM, no public endpoint and nothing to break. What changed is that the saving is now worth *something*, where T-010 correctly concluded it was worth nothing. **Decide it at T-019's H1.**
 
-**These figures are derived, not read.** The balance behind them is three days old and the burn rate is inferred; the remaining credit balance is not exposed by any AWS API (T-010's `human_dependency`), so confirming it needs a console read. That read, and the correction of the stale $0.92/day model in `cv-infra/CLAUDE.md`, are filed as **[T-020](T-020-cost-model-correction.md)** — previously unowned by any task, since T-019 explicitly disclaims it and T-010 is `done`.
+~~**These figures are derived, not read.** … confirming it needs a console read.~~ **Read 2026-08-19 — see below. Everything above this line is superseded; it is kept because the arithmetic was right each time and only the premises moved.**
+
+### The measured model — [T-020](T-020-cost-model-correction.md), read 2026-08-19
+
+**No console needed, and that is itself a finding.** `aws freetier get-account-plan-state` and `list-account-activities` post-date T-010 and return everything its `human_dependency` declared console-only. T-020's §1 was parked on a constraint that had expired.
+
+| | |
+|---|---|
+| Plan | **FREE**, ACTIVE, expires **2027-01-12T15:38:35Z** |
+| Credits remaining | **$111.08** |
+| Grant | **$160** — the two $20 activities T-010 ratified on 2026-08-11 are still `NOT_STARTED` |
+| Run rate | **$0.6837/day ≈ $20.81/month** |
+| Binding constraint | **WINDOW** (2027-01-12); credits now last to ~2027-01-28 |
+
+**Why the rate fell: `cv-project-drone` has been `stopped` since 2026-08-14 08:12 GMT** (`User initiated`), and it was 46% of the bill. Nothing on the board recorded that. Daily Cost Explorer confirms all three eras — $0.92 (Aug 5–7), $1.226 (Aug 9–13), **$0.684 (Aug 15–17)** — so both earlier models were accurate for their moment and both are now wrong.
+
+Four consequences:
+
+1. **The binding constraint flipped back to the window**, reversing the 2026-08-14 re-derivation above. Crossover is **$0.761/day**: below it the window binds, above it the credits do. Restart the CI host 24/7 and it is credits again at ~2026-11-17.
+2. **[T-012](T-012-aws-endgame-decision.md) stays at `due: 2026-11-01`** — deliberately *not* relaxed. The low rate rests on a stopped box and an unbuilt automation; one forgotten `start-instances` restores the November cliff, and a loosened deadline would then sit after it.
+3. **The budget alarm's premise evaporated.** The `$30` monthly limit is not structurally exceeded at $20.81/month — September projects to **68%**. August still breaches once (~$34.68, 116%) on the strength of its first half. T-020 §4 now recommends **changing nothing**: a $30 limit against a $20.81 rate fires precisely when the CI host is left running, which is the one behaviour worth an alert.
+4. **Jenkins and Drone are on the stopped box, and T-102/T-103/T-104 all require "Jenkins CI green".** The M2 backend wave cannot close while it is off — so the cost model and the milestone schedule became the same decision. **[T-019](T-019-ci-host-on-demand.md)'s H1 was ratified 2026-08-19: build the start-on-push automation**, which keeps the rate *and* unblocks M2. Its "runs 24/7" premise is corrected in that file.
 
 > T-013, T-014 and T-015 are part of the deployment chain below and are boarded there, not here, so there is one line per task to claim.
 

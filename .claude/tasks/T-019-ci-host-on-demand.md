@@ -11,9 +11,21 @@ risk: normal
 security_review: true
 ---
 
+> ## H1 RATIFIED 2026-08-19 — build it. And two premises below have changed.
+>
+> **Decision, by the account owner:** build the start-on-push automation. DoR §4 offered closing this task in favour of a documented manual habit and that option is **declined** — see the reason below, which is new information rather than a preference.
+>
+> **1. The box is already stopped.** `i-073e5284ca2a1ceed` has been `stopped` since **2026-08-14 08:12:29 GMT** (`StateTransitionReason: User initiated`). Nothing on the board recorded it. So the table below — *"runs 24/7"*, *"idle well over 95% of the time, and it is billing every hour of it"* — **describes a state that ended five days before this ruling**. The $17.24/month saving this task promises has *already been taken*, by hand.
+>
+> **2. That is exactly why the automation is worth building, and it is not the cost argument.** Jenkins and Drone are on this box. **T-102, T-103 and T-104 all carry *"Jenkins CI green"* in their definition of done**, so while it is stopped the entire M2 backend wave cannot close. A manual habit therefore has a failure mode nobody costed: the box gets started for a build and left running (restoring ~$1.23/day and the ~2026-11-17 credit cliff), or it stays stopped and M2 silently cannot land. Start-on-push resolves both — the host is up when work needs it and down otherwise, with no one having to remember either transition.
+>
+> **3. The saving is now a *retention* problem, not a reduction one.** [T-020](T-020-cost-model-correction.md) measured the current rate at **$0.6837/day ≈ $20.81/month**, below the **$0.761/day** crossover, so the Free-plan window (2027-01-12) binds before the credits (~2027-01-28). This task's job is to keep it that way through months of real CI use. Every hour the host is left up moves the cliff back toward 17 November.
+>
+> **Acceptance criterion added by this ruling:** the measured rate after a full billing week must still be at or near $0.684/day *with builds actually running through the automation* — proving the doorbell shuts the door again, which is the only part a manual habit reliably gets wrong.
+
 ## Why this exists
 
-`cv-project-drone` (Jenkins **and** Drone, `t3.small`) runs 24/7 and is **the single largest line on the AWS bill**. From the 2026-08 cost export:
+~~`cv-project-drone` (Jenkins **and** Drone, `t3.small`) runs 24/7 and is **the single largest line on the AWS bill**.~~ **Stale — it was stopped by hand on 2026-08-14; see the ruling above.** It *was* the largest line, and it becomes so again the moment it is started and forgotten. From the 2026-08 cost export, back when it ran continuously:
 
 | Line | $/month | Share of bill |
 |---|---|---|
@@ -79,7 +91,7 @@ So the CI host costs roughly **$5–6/month stopped versus ~$23/month running**.
 
 **3. Function URL authentication — do not skip this.** See the security note below.
 
-**4. Automate at all, or just stop it by hand?** Manual `aws ec2 stop-instances` saves the **identical** $17.24/month with zero new infrastructure, zero IAM, and nothing to break. The Lambda buys convenience, not savings, and every component it adds is one that can fail in a way that looks like "CI is broken". Build it only if the box is being left running by accident, or if start-on-push is wanted as part of the demo story. **A defensible H1 outcome is to close this task in favour of a documented manual habit.**
+**4. ~~Automate at all, or just stop it by hand?~~ SETTLED at H1 on 2026-08-19: automate.** ~~Manual `aws ec2 stop-instances` saves the **identical** $17.24/month with zero new infrastructure, zero IAM, and nothing to break. The Lambda buys convenience, not savings… **A defensible H1 outcome is to close this task in favour of a documented manual habit.**~~ The reasoning was sound and lost to a fact it did not have: the manual habit was *already in force* (stopped 2026-08-14) and it silently blocks M2, whose three backend tasks require Jenkins green. The choice was never "save $17.24 twice" — it is between a host that is up when work needs it, and a human remembering both transitions correctly every time for five months. The Lambda's failure modes are real and are what §§1–3 above exist to settle; they are now accepted rather than avoided.
 
 ## Security — why `security_review: true`
 
@@ -97,7 +109,8 @@ So the CI host costs roughly **$5–6/month stopped versus ~$23/month running**.
 - [ ] IAM is scoped to the single instance ARN and to start/stop only.
 - [ ] The webhook secret lives in SSM, not in a committed file.
 - [ ] `terraform fmt -check -recursive`, `terraform validate`, `terraform test` pass offline, with assertions for the new Lambda, its IAM policy and the schedule.
-- [ ] The measured saving is recorded against T-010's cost model after a full billing week.
+- [ ] The measured saving is recorded against **[T-020](T-020-cost-model-correction.md)**'s cost model (not T-010's, which is superseded) after a full billing week — and the rate is still at or near **$0.6837/day** *with builds running through the automation*. Added at H1 2026-08-19: the host is already stopped, so a low rate proves nothing on its own. What needs proving is that it goes back down after each build.
+- [ ] **A build that needs the host actually completes end to end while the automation owns the lifecycle** — pick one of T-102/T-103/T-104's PRs, or an equivalent push to `cv-domain-service`, and confirm Jenkins reports a commit status. This is the criterion that connects the task to why it was ratified.
 
 ## Definition of done
 
@@ -110,4 +123,4 @@ PR open against `master` from `feat/ci-host-on-demand`, gates green, applied, ve
 - **Stopping the host takes Jenkins and Drone offline**, which are part of what the demo shows. If someone is being walked through CI, the box needs to be up — factor a manual override into whatever is built.
 - **Related but separate:** the cost model in `cv-infra/CLAUDE.md` (~$0.92/day ≈ $28/month) and T-010's runway are both stale since the 2026-08-08 `t3.micro`→`t3.small` resize took the real rate to ~$1.23/day ≈ $37.30/month. Correcting those is not this task, but this task's saving should be folded in when they are. **Now owned by [T-020](T-020-cost-model-correction.md)**, filed 2026-08-14 precisely because no task owned it.
 - **What this task is worth changed on 2026-08-14 — read before H1.** T-010 ratified *"do NOT trim the run rate"* on the grounds that savings expire unspent while the 6-month window binds. Re-deriving the dates at the real $1.23/day shows **credits bind first, by ~8 weeks** ([T-012](T-012-aws-endgame-decision.md)), so a trim now buys elapsed demo time instead of nothing. This task's $17.24/month is roughly enough to push credit exhaustion past the window and hand the binding constraint back to it.
-  - **That argues for the saving, not necessarily for the Lambda.** The payoff is capped by the window either way, and DoR §4 already notes that stopping the box by hand saves the *identical* $17.24 with no IAM, no public endpoint and nothing that can fail looking like "CI is broken". **Closing this task in favour of a documented manual habit remains the defensible H1 outcome** — the changed numbers make the saving worth taking, not the automation worth building.
+  - ~~**That argues for the saving, not necessarily for the Lambda.** … **Closing this task in favour of a documented manual habit remains the defensible H1 outcome** — the changed numbers make the saving worth taking, not the automation worth building.~~ **Overtaken by events, 2026-08-19.** The manual habit was adopted (2026-08-14) *before* this argument was ever weighed at a gate, and [T-020](T-020-cost-model-correction.md)'s readings show what it actually bought: the rate fell to $0.684/day and the window binds again — but the same act took Jenkins offline, and three M2 tasks require it. **H1 ratified building the automation.** The saving is no longer the argument; keeping the saving *without* blocking M2 is.
