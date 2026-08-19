@@ -2,10 +2,10 @@
 id: T-020
 title: "Correct the stale cost model, and stop the budget alarm from crying wolf every month"
 repo: cv-project (meta) + cv-infra
-status: in_progress
+status: done
 owner: tech-product-owner
 branch: chore/cost-model-correction
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/36 + https://github.com/erfeamor/cv-infra/pull/19
 depends_on: []
 risk: normal
 security_review: false
@@ -109,16 +109,17 @@ The obvious fix is the wrong one. [cv-infra#14](https://github.com/erfeamor/cv-i
 
 PR open against `master` from `chore/cost-model-correction`, the console numbers recorded here, the model corrected in both places, and the alarm decision written down rather than deferred.
 
-### Split as the notes below anticipated — what is done and what is left
+### Split as the notes below anticipated — BOTH HALVES DONE 2026-08-19
 
-**Meta half — done 2026-08-19** (this PR): §1 and §2 read and recorded, §4's recommendation and §5's re-check written down, the meta `CLAUDE.md` corrected, T-010's superseded figures and obsolete `human_dependency` corrected, T-019's H1 ratified and its falsified premise fixed, the board's cost block replaced with the measured model.
+**Meta half** ([curriculum#36](https://github.com/erfeamor/curriculum/pull/36)): §1 and §2 read and recorded, §4's recommendation and §5's re-check written down, the meta `CLAUDE.md` corrected, T-010's superseded figures and obsolete `human_dependency` corrected, T-019's H1 ratified and its falsified premise fixed, the board's cost block replaced with the measured model.
 
-**cv-infra half — still open**, and it is why this task is `in_progress` rather than `done`:
+**cv-infra half** ([cv-infra#19](https://github.com/erfeamor/cv-infra/pull/19), merged as `a37bfc2`):
 
-- [ ] `cv-infra/CLAUDE.md` — the cost-model bullet (*"~$0.92/day ≈ $28/month"*) and the review-guidance line that judges cost drift against *"~$28/mo today"*. Both need the measured rate, the date read, and the instance-state assumption (CI host stopped except during builds), so the next resize makes staleness visible instead of silent.
-- [ ] §4's "change nothing" recommendation either accepted and recorded in `budgets.tf`'s comments, or overridden — with `terraform fmt`/`validate`/`test` if any budget resource actually changes. It should not need to.
+- [x] `cv-infra/CLAUDE.md` — the cost model now carries the measured figures, the date read, **and the instance state they assume** (domain-service up, CI host stopped between builds), so the next change makes staleness visible instead of silent. It also records the CLI commands to re-read the numbers, including the `RECORD_TYPE=Usage` filter without which Cost Explorer nets credits out and reports ~$0.
+- [x] §4 decided and recorded in `budgets.tf`: **change nothing.** The retune this task was filed for became unnecessary — at ~$21/month, September projects to ~68% of the `$30` limit rather than the 124% the board predicted. A `$30` limit against ~$21/month is a working *deviation* alarm firing on the one behaviour worth knowing about (the CI host left running, ~$17/month). Retuning it down would trade that signal for noise. Recorded rather than left implicit, because "we looked and changed nothing" is otherwise indistinguishable from "nobody looked".
+- [x] **Five more stale figures found by grepping**, in `storage.tf`, `variables.tf` and `budgets.tf` — including a `storage.tf` comment that pointed at CLAUDE.md's figure as stale and needing T-020, which fixing CLAUDE.md turned into a dangling reference. The acceptance criterion's instruction to grep rather than trust a list is what caught them; it had already been wrong once by omission.
 
-That is a `cv-infra` PR on its own branch, per the one-repo rule. Nothing in it blocks [T-019](T-019-ci-host-on-demand.md), which is now the higher-value work on that repo.
+Comments and docs only: zero non-comment lines changed in any `.tf`, `terraform plan` clean, gates 3/0.
 
 ## dev-loop notes
 
