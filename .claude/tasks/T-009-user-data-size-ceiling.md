@@ -5,9 +5,10 @@ repo: cv-infra
 status: todo
 owner:
 branch: feat/provision-script-from-s3
+pr:
 depends_on: [T-002]
 risk: normal
-security_review: required
+security_review: true
 ---
 
 ## Why this exists
@@ -69,4 +70,4 @@ PR open against `master` from `feat/provision-script-from-s3`, `terraform fmt`/`
 
 ## Housekeeping
 
-`T-007`'s "Watch out for" section quotes **91.1%** — stale as of this task's measurement. Correct it to point here instead of restating a number that keeps moving.
+~~`T-007`'s "Watch out for" section quotes **91.1%** — stale as of this task's measurement. Correct it to point here instead of restating a number that keeps moving.~~ **Done — closed 2026-08-17.** [T-007](T-007-ecs-agent-cleanup.md)'s watch-out now reads 95.7%, tells the reader to re-measure rather than trust any quoted figure, and points here. The request outlived its own fulfilment.

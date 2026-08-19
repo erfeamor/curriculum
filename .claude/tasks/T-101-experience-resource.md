@@ -9,7 +9,7 @@ pr: https://github.com/erfeamor/cv-domain-service/pull/3
 depends_on: []
 risk: normal
 checkpoint:
-  stage: pr
+  stage: done               # corrected 2026-08-17 — read "pr" while the task was done and the merge recorded below
   repo: cv-domain-service
   branch: feat/experience-resource
   commit: 3b22793

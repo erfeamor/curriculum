@@ -16,7 +16,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |
 | [T-401](T-401-public-cv-sections.md) | Public site: render full CV | cv-public-vanilla | todo | | T-201 | |
 | [T-402](T-402-public-react-cv-sections.md) | Public site (React): render full CV sections | cv-public-react | todo | | T-201 | |
-| [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | todo | | all above | |
+| [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | todo | | all above **+ T-105, T-014, T-403, T-404** | |
 
 ### Parallelization notes (read before claiming)
 
@@ -25,10 +25,11 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 - **Wave 2:** T-201 and T-301 — both may *start* against the contract (mocked upstreams) during wave 1; their final verification needs wave 1 merged.
 - **Wave 3:** T-401 and T-402 after T-201 (different repos — run them in parallel); T-501 strictly last.
 - T-103 is the highest-risk API task (composite key, upsert, 409) — assign it to the strongest agent or start it first.
+- **T-105 was depended on by nothing until 2026-08-17.** It is the only task making Experience contract-compliant on ordering, yet it appeared in no `depends_on` anywhere — so the milestone could have been declared verified with one of four sections served in arbitrary row order. It is now in T-501's. It still does not block T-201 (that is deliberate — see T-105), so it belongs in wave 1 alongside T-102/T-103/T-104.
 
-### Recent structural changes (context — no M2 work started yet)
+### Recent structural changes (context — M2 is one task in)
 
-The four-section milestone is untouched (every task above is genuinely `todo`), but some repos changed since the board was written — read before claiming:
+~~The four-section milestone is untouched (every task above is genuinely `todo`)~~ — **stale, corrected 2026-08-17.** That parenthetical sat directly under a note recording T-101 as merged, and above a table whose first row reads `done`; it dates from before T-101 landed on 2026-08-09. M2 is **one of eleven tasks complete**. Some repos changed since the board was written — read before claiming:
 
 - **cv-bff-node is now TypeScript** (strict, ts-jest/tsc). T-201's route and tests are `.ts`, type the aggregate payload, and `npm run typecheck` is a gate.
 - **cv-admin-react is hexagonal TypeScript** (`domain ← application ← composition → infrastructure`). T-301 follows the repo CLAUDE.md's "adding a section resource" recipe (entity/port → adapter → store factory → composition root → form/pages) — there is no flat `src/api/client.js`.
@@ -58,6 +59,8 @@ The four-section milestone is untouched (every task above is genuinely `todo`), 
 | [T-011](T-011-budget-credit-alarm.md) | Budget alarm that fires on credit burn, not on the invoice | cv-infra | done | infrastructure-engineer | — | [#13](https://github.com/erfeamor/cv-infra/pull/13) |
 | [T-012](T-012-aws-endgame-decision.md) | **Decide Paid-vs-teardown before the Free-plan window closes** | cv-project (meta) | todo | | — | **due 2026-11-01** |
 | [T-020](T-020-cost-model-correction.md) | Correct the stale cost model; stop the budget alarm crying wolf | cv-project (meta) + cv-infra | todo | | — | |
+| [T-023](T-023-meta-docs-stale-bff-smoke-path.md) | The documented E2E smoke command curls a path the BFF no longer serves | cv-project (meta) | todo | | — | |
+| [T-024](T-024-contract-skill-assignment-put-shape.md) | Contract: split the skill-assignment PUT's request body from its response | cv-project (meta) | todo | | — | |
 
 **Cost model is stale as of 2026-08-14 — the documented figures understate real burn by a third.** `cv-infra/CLAUDE.md` and T-010's runway both encode *~$0.92/day ≈ $28/month*. The 2026-08-08 `t3.micro`→`t3.small` resize of the CI host (T-002, deliberate, for Maven headroom) took the real rate to **~$1.23/day ≈ $37.30/month**, verified against the August cost export and `describe-instances`. Consequences: the credits deplete **~25% sooner in elapsed time**, which moves T-012's date; and the `$30` monthly budget is now **structurally exceeded (~124%)**, so its 100/120% thresholds will fire every month from September — an alarm that always fires stops being a signal. Note [cv-infra#14](https://github.com/erfeamor/cv-infra/pull/14) deliberately refused to raise that limit, so this needs a decision rather than a bump. **T-014 may push it further** — its own watch-outs say the domain-service box may need `t3.small` for RAM, another +$8.62/month → ~$46. [T-019](T-019-ci-host-on-demand.md) is the largest available offset (~$17.24/month).
 
@@ -91,7 +94,7 @@ It stayed unfiled because the IaC asserts the opposite: `cv-infra/compute.tf:1` 
 
 Deploying it is **not** just adding a container. Two blockers are contract-level, which is why T-013 leads: the BFF serves `GET /api/v1/people/:id` on the **same path** CloudFront already routes to Java (`src/app.ts:26`), and it gates *all* of `/api/v1` behind `requireAuth()` when `AUTH_ENABLED=true` (`src/app.ts:22-25`), which would 401 every anonymous visitor.
 
-One task per repo, strictly sequential — each task's `depends_on` enforces the order, so exactly one is claimable at a time. **This is the board line for all six; claim here.**
+One task per repo. The **numbered** rows are strictly sequential and their `depends_on` enforces the order; the unnumbered rows hang off the chain and are claimable independently once their own dependency is met. **This is the board line for all seven; claim here.** (Corrected 2026-08-17: this said "exactly one is claimable at a time", which stopped being true when T-202 merged — T-204 became claimable alongside T-014, and T-404 now joins it.)
 
 | # | ID | Title | Repo | Status | Owner | Depends on | PR |
 |---|----|-------|------|--------|-------|------------|----|
@@ -102,6 +105,9 @@ One task per repo, strictly sequential — each task's `depends_on` enforces the
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed | cv-project (meta) | todo | | T-014, T-403 | |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
 | — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call | cv-bff-node | todo | | T-202 | |
+| — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF | cv-public-react | todo | | T-014 | |
+
+**[T-022](T-022-domain-service-origin-bypasses-cloudfront.md) should be done before T-014, and that was invisible on this board until 2026-08-17.** Both tasks argue it — T-014's ruling 1 and T-022's dev-loop notes — but neither the chain table nor its prose mentioned T-022, and T-014 is the task everyone is told to claim next. It is **not** a `depends_on` edge in either direction (deliberately: neither blocks the other). The argument is that T-022 applies the *same* managed-prefix-list fix to port 8080 that T-014's ruling 1 mandates for port 3000, so doing it first means T-014 follows an established pattern instead of inventing one, and the reviewer sees one consistent approach across both ports. T-022 is also cheap (in-place SG change, `risk: normal`, easily reverted) and closes a live unauthenticated `/v3/api-docs` disclosure that grows automatically with every M2 resource that lands.
 
 **T-013 and T-202 both merged 2026-08-13** ([#22](https://github.com/erfeamor/curriculum/pull/22), [cv-bff-node#4](https://github.com/erfeamor/cv-bff-node/pull/4)). The contract settles the edge path (`/bff/*`, prefix carried to the origin), the two-route anonymous allowlist, and `/metrics`; the BFF now implements them and `/api/v1` is gone from that repo.
 
@@ -134,3 +140,31 @@ Personas and risk (assigned per the adapter's capability→repo map; each task f
   - **One new trap arrived with the fix**, filed as **[T-021](T-021-mysql-password-rotation-persistent-datadir.md)**: because the datadir now survives, `mysql:8.4` skips initialization and keeps its original credentials, so rotating `var.db_password` makes Flyway fail auth, aborts the bootstrap under `set -e`, and leaves the box with **no domain-service container at all**. Anyone editing `db_password` before T-021 lands should expect that.
 - **T-403 was not part of the original ask.** It surfaced while verifying the BFF gap; without it T-014 delivers a BFF that nothing in AWS consumes.
 - **Deadline context:** anything meant to be demonstrated live must exist before the T-012 dates (credits **~2026-11-17** at the real burn rate — re-derived 2026-08-14, was ~2026-12-20; Free-plan window 2027-01-12). If T-012 resolves to teardown-and-rebuild, this chain must be **in Terraform before teardown** or the rebuild will not reproduce it.
+
+## Board consistency sweep — 2026-08-17
+
+A read of all 37 task files against each other and against the contract. **No status changed and no work was done** — this is drift repair. Recorded rather than silently applied, per the convention this board already follows for the T-002 and T-014 board-line corrections.
+
+**Four unowned items filed as tasks.** Each had been handed from one task file to another and never landed:
+
+| New | What it was | Where it was lost |
+|---|---|---|
+| [T-023](T-023-meta-docs-stale-bff-smoke-path.md) | `CLAUDE.md:37` and `README.md:247` still document the E2E smoke as `curl localhost:3000/api/v1/people/1` — a path T-202 deleted from the BFF on 2026-08-13 | T-015 is gated behind T-014; T-016 notices it in passing; T-202 is in another repo |
+| [T-024](T-024-contract-skill-assignment-put-shape.md) | The contract clarification T-103's DoR ruling 1 promised ("a follow-up docs PR clarifies this wording") | promised at refinement, never opened, held by no task |
+| [T-404](T-404-public-react-point-at-deployed-bff.md) | Pointing cv-public-react's Vercel `BFF_URL` at the deployed BFF | T-402 → "tracked at T-501"; T-403 → "handle it at T-501"; T-501 → silent |
+| — | The meta `CLAUDE.md`'s stale `~$28/mo` | folded into **T-020 §3**, which named only `cv-infra/CLAUDE.md` and T-010 |
+
+**Six contradictions corrected in place**, each struck rather than deleted:
+
+1. **T-401 and T-402 still specified `GET /api/v1/people/:id/cv`** — the pre-T-013 path. T-013's review caught this exact drift in T-201 and fixed it *only there*; the other two consumers of the same endpoint were missed for four days. Both now read `/bff/api/v1`.
+2. **T-501's step 2 curled the same dead path**, so the milestone's own end-to-end verification would have 404'd.
+3. **T-004 §3 and T-021 contradicted each other on `db_password`.** T-004 offers rotation as an open decision; T-021 says rotating it aborts the bootstrap and leaves the box with no domain-service container. Neither file referenced the other. Cross-linked both ways.
+4. **T-014's numbering**: "six rulings" against seven, a pointer to "ruling 7's correction" that belongs to ruling 1, and a baseline capture citing "criterion 4" (the criterion T-018 superseded) instead of 6.
+5. **T-014's `user_data_replace_on_change` watch-out still said the apply destroys MySQL** — superseded by T-018, but only two sections further down, so a reader who stopped at the watch-outs got the opposite answer. Struck at the watch-out itself.
+6. **This board claimed "every task above is genuinely `todo`"** in the M2 section, directly beneath its own note that T-101 had merged.
+
+**Three stale premises struck**: T-012's threshold dates (24 Sep / 15 Nov / 20 Dec, derived at the superseded $0.92/day, inside the file that re-derives everything else at $1.23/day) · T-004's "do before applying T-002" (T-002 applied 2026-08-09) · T-016's "T-014 gates on T-001" (that edge was removed 2026-08-13) · T-009's housekeeping request that T-007 already fulfilled.
+
+**Frontmatter hygiene**: `security_review: required` normalized to `true` in five files (two vocabularies for one boolean) · T-011's `pr:` filled from its checkpoint, per board rule 6 · T-009 given the missing `pr:` key · T-010's DoD branch name reconciled with its frontmatter · T-101's checkpoint `stage: pr` → `done`.
+
+**Left alone deliberately.** T-201, T-301, T-401, T-402 and T-501 carry no `risk` or `security_review`. Assigning them is a stage-0 refinement output, not a board edit — inventing values here would manufacture ratified-looking decisions nobody made. They get them when they are refined.

@@ -8,7 +8,7 @@ branch: feat/jenkins-on-ci-host
 pr: https://github.com/erfeamor/cv-infra/pull/11
 depends_on: []
 risk: high
-security_review: required
+security_review: true
 checkpoint:
   stage: pr
   repo: cv-infra

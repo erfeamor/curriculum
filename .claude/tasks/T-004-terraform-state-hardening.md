@@ -8,7 +8,7 @@ branch: chore/tf-state-hardening
 pr:
 depends_on: []
 risk: normal
-security_review: required
+security_review: true
 ---
 
 ## Why this exists
@@ -25,9 +25,9 @@ And the file is **`-rw-rw-r--` (0664)** — group- and world-readable — while 
 
 It is gitignored (`.gitignore:2 *.tfstate`), so nothing reaches the repo. The exposure is local-disk only. But it means the usual advice — "keep secrets out of `tfvars`, pass them as `TF_VAR_…`" — only half-works: **the state captures them regardless of how they were supplied.**
 
-Applying **T-002** adds two more secrets to this file (`jenkins-admin-password`, `github-pat`), so the permissions fix should land first.
+~~Applying **T-002** adds two more secrets to this file (`jenkins-admin-password`, `github-pat`), so the permissions fix should land first.~~ **Stale, corrected 2026-08-17: T-002 applied on 2026-08-09**, so `jenkins-admin-password` and `github-pat` are already in this state file at `0664`. The sequencing argument has expired; the fix has not. It is now remediation of an existing exposure rather than prevention of a new one, which makes Part 3's rotation question weigh more, not less.
 
-## Part 1 — immediate, do before applying T-002
+## Part 1 — immediate (was: "do before applying T-002" — that window closed on 2026-08-09)
 
 ```bash
 chmod 600 /home/erfeamor/work/curriculum/cv-infra/terraform.tfstate*
@@ -63,6 +63,7 @@ The secrets have been sitting in a world-readable file. On a single-user laptop 
 
 - `db_password`, `drone_rpc_secret`, `drone_github_client_secret` — rotate, or accept?
 - Rotating means: new value in SSM via Terraform, then restart whatever consumes it (the Drone containers read theirs at boot; the domain service reads the DB password at boot).
+- 🚨 **`db_password` cannot simply be rotated today — see [T-021](T-021-mysql-password-rotation-persistent-datadir.md) (added 2026-08-17).** Since T-018 put MySQL's datadir on a dedicated volume, the container skips initialization on reattach and keeps its **original** credentials while the bootstrap reads the new one from SSM: Flyway fails auth, `set -euo pipefail` aborts, and the box comes up with **no domain-service container at all** — plus the nightly backup silently stops. So if this task's rotation decision is "rotate", **T-021 must land first** or the rotation is applied into an outage. Deciding "accept, do not rotate `db_password` yet" is a legitimate answer here and costs nothing; the other two secrets have no such constraint.
 - Note T-002's finding N8/R8: the Jenkins container's config hash now folds in the fetched secrets, so a rotated secret triggers a container recreate rather than leaving a stale value live. Drone has no equivalent — a rotation there needs a manual restart.
 
 ## Acceptance criteria

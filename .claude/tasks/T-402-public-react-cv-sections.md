@@ -11,9 +11,11 @@ depends_on: [T-201]
 
 ## Goal
 
-Extend cv-public-react beyond the person head to render experience, education, skills, and projects from the BFF aggregate `GET /api/v1/people/:id/cv`, following the repo's hexagonal + ISR conventions. The app already fetches the full aggregate and types it; today only `PersonHeader` is rendered. This is the React/ISR counterpart of T-401 (cv-public-vanilla).
+Extend cv-public-react beyond the person head to render experience, education, skills, and projects from the BFF aggregate `GET /bff/api/v1/people/:id/cv`, following the repo's hexagonal + ISR conventions.
 
-> **Note (2026-08-12) — not a blocking dependency, but read before claiming.** The BFF this app fetches from is **not deployed to AWS** (**T-014** deploys it; **T-013** → **T-202** settle its public path and anonymous-read semantics first). Local work is unaffected — `BFF_URL` defaults to `localhost:3000` in `src/composition/container.ts:23` — but the Vercel deployment has no reachable BFF to point at, so "done" here means *renders locally / in preview against a local BFF*, not *renders in production*. Pointing Vercel's `BFF_URL` at the deployed edge path is a project-setting change tracked at T-501, not a code change in this repo.
+> **Path corrected 2026-08-17** — same correction as [T-401](T-401-public-cv-sections.md). This task said `/api/v1/people/:id/cv` until now; T-013 (2026-08-13) moved the BFF's public surface behind the `/bff` prefix and T-202 implemented it, so `/api/v1` is gone from `cv-bff-node`. The prefix is not stripped at the edge. Only `BFF_URL`'s base changes here — the fetch itself already lives in the adapter. The app already fetches the full aggregate and types it; today only `PersonHeader` is rendered. This is the React/ISR counterpart of T-401 (cv-public-vanilla).
+
+> **Note (2026-08-12) — not a blocking dependency, but read before claiming.** The BFF this app fetches from is **not deployed to AWS** (**T-014** deploys it; **T-013** → **T-202** settle its public path and anonymous-read semantics first). Local work is unaffected — `BFF_URL` defaults to `localhost:3000` in `src/composition/container.ts:23` — but the Vercel deployment has no reachable BFF to point at, so "done" here means *renders locally / in preview against a local BFF*, not *renders in production*. Pointing Vercel's `BFF_URL` at the deployed edge path is **[T-404](T-404-public-react-point-at-deployed-bff.md)** (re-pointed 2026-08-17 — this said "tracked at T-501", which never picked it up).
 
 > Section components + tests can be built against the contract immediately (the `Cv` type + a fixture); only the live check needs T-201 (the BFF aggregate) deployed.
 
