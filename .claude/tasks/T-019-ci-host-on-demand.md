@@ -2,13 +2,38 @@
 id: T-019
 title: "Stop paying for an idle CI host: start it on demand, stop it when quiet"
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: infrastructure-engineer
 branch: feat/ci-host-on-demand
 pr:
 depends_on: []
 risk: normal
 security_review: true
+checkpoint:
+  stage: H1
+  note: "Stage 0 refinement done 2026-08-19; §4 was ratified the same day (build it) and §§1-3 are ruled on below, PENDING H1 RATIFICATION. Nothing is implemented yet — T-019's own DoR §1 forbids writing code before the replay design is chosen."
+  repo: cv-infra
+  branch: feat/ci-host-on-demand
+  worktree: none      # cv-infra has a local Terraform backend; it cannot be worked from a worktree (same as T-014/T-018)
+  developer: infrastructure-engineer
+  reviewers: [code-review, infrastructure-engineer, security-review]
+  risk: normal
+  security_review: true
+  review_round: 0
+  premises_reverified: |
+    2026-08-19 against cv-infra@774a9fc, and this is where refinement earned its keep:
+    - aws_eip.drone CONFIRMED (ci.tf:50), server_host derived from it (ci.tf:44, :87). The
+      load-bearing assumption holds — the public IP survives stop/start.
+    - The box is ALREADY STOPPED (since 2026-08-14 08:12 GMT), so this task's premise that it
+      "runs 24/7" is false and the $17.24/mo is already saved. See the H1 ruling at the top.
+    - Jenkins jobs are multibranchPipelineJob via JCasC + job-dsl with NO periodic trigger
+      configured (jenkins-provision.sh:101, :135) — they are driven purely by the GitHub
+      webhook at /jenkins/github-webhook/. This is the fact that decides ruling 1.
+    - user_data measured at 15,796 / 16,384 B = 96.4%, headroom 588 B — TIGHTER than T-009's
+      95.7%. Anything this task adds to a template competes with that.
+    - No GitHub webhook secret exists anywhere in the repo (T-005 planned one and it was never
+      built), so ruling 3's HMAC validation has nothing to validate against yet. See ruling 4.
+    - tests/plan.tftest.hcl: mock_provider, 77 assertions. New data sources need mocks.
 ---
 
 > ## H1 RATIFIED 2026-08-19 — build it. And two premises below have changed.
@@ -92,6 +117,56 @@ So the CI host costs roughly **$5–6/month stopped versus ~$23/month running**.
 **3. Function URL authentication — do not skip this.** See the security note below.
 
 **4. ~~Automate at all, or just stop it by hand?~~ SETTLED at H1 on 2026-08-19: automate.** ~~Manual `aws ec2 stop-instances` saves the **identical** $17.24/month with zero new infrastructure, zero IAM, and nothing to break. The Lambda buys convenience, not savings… **A defensible H1 outcome is to close this task in favour of a documented manual habit.**~~ The reasoning was sound and lost to a fact it did not have: the manual habit was *already in force* (stopped 2026-08-14) and it silently blocks M2, whose three backend tasks require Jenkins green. The choice was never "save $17.24 twice" — it is between a host that is up when work needs it, and a human remembering both transitions correctly every time for five months. The Lambda's failure modes are real and are what §§1–3 above exist to settle; they are now accepted rather than avoided.
+
+## Definition of Ready — refined 2026-08-19, rulings PENDING H1
+
+§4 was ratified separately (build it). These settle §§1–3, each against a fact from the repo rather than a preference.
+
+### Ruling 1 — replay: give the Jenkins jobs a periodic scan; the Lambda stays a pure doorbell
+
+**The deciding fact:** the two Jenkins jobs are `multibranchPipelineJob`s (`jenkins-provision.sh:101`, `:135`) with **no trigger block at all**. They act on the GitHub webhook and nothing else. But a multibranch pipeline also *scans* its SCM on a `periodicFolderTrigger`, and a scan finds any branch whose head moved while Jenkins was down — which is exactly the replay problem, already solved by the plugin.
+
+**Ruling:** add `triggers { periodicFolderTrigger { interval('5m') } }` to both jobs. The Lambda then never has to store, queue, or forward a payload: it starts the box and returns 200, Jenkins boots, the first scan picks up whatever was pushed, and the build runs. DoR §1's option 1 ("Jenkins polls SCM on startup — a checkbox"), confirmed feasible against the actual job config rather than assumed.
+
+Rejected — **SQS + drain on boot** (option 2) and **Lambda retries against the API** (option 3): both exist to move a payload the periodic scan makes unnecessary, and each adds a component that fails looking like "CI is broken", which this task's §4 warns about explicitly.
+
+**The cost of this ruling, stated plainly: it does not cover Drone.** Drone is webhook-only — no SCM polling — so a push to `cv-admin-react` while the box is down starts the box and then builds nothing. Accepted deliberately: the ratified reason for building this task is that M2's backend wave needs Jenkins, and `cv-admin-react`'s task (T-301) is waves away. **Documented, not silently dropped** — the Drone half wants its own decision at T-301, and forcing a payload-forwarding design now would buy a repo nobody is working in.
+
+### Ruling 2 — idle detection: ask the CI systems, do not infer from CPU
+
+§2 requires the queue empty **and** no executor busy. A CPU-threshold rule would be far simpler and is **rejected**: a Maven build that is pulling dependencies or waiting on Docker sits near-idle for minutes and would be killed mid-run, which is the one failure this task must not have.
+
+**Ruling:** an EventBridge schedule every 5 minutes invokes a *reaper* Lambda, which reads Jenkins `/api/json` (queue) and `/computer/api/json` (`busyExecutors`), plus Drone's build list. **N = 4 consecutive idle checks (~20 minutes)** before stopping — long enough that a gap between pipeline stages never trips it. Immediately before `StopInstances` it re-checks once more, which is the answer to §2's "what happens to a build that starts during the shutdown window": the window is closed by a fresh read, not by the age of an old one.
+
+The reaper needs Jenkins' admin password, so its role gets `ssm:GetParameter` on that **one** parameter. Note this is a *separate identity* from the instance profile — it narrows rather than widens the picture T-005 is worried about.
+
+### Ruling 3 — Function URL: `NONE` + HMAC, because GitHub cannot sign SigV4
+
+**Ruling:** `authorization_type = "NONE"` is not a shortcut here, it is the only option — GitHub webhooks cannot produce SigV4. The authentication is therefore entirely in the handler and is **mandatory**: validate `X-Hub-Signature-256` (HMAC-SHA256 over the raw body) with a constant-time compare against a secret from SSM, reject anything that is not a `POST`, and ignore payloads whose repository is not on a small allowlist. Anything failing returns 401/403 and **starts no instance**.
+
+IAM: `ec2:StartInstances`/`ec2:StopInstances` scoped by resource ARN to `i-073e5284ca2a1ceed` only — never `Resource: "*"` — and no `TerminateInstances`, `ModifyInstanceAttribute`, or `RunInstances` anywhere in the policy.
+
+### Ruling 4 — the webhook secret does not exist yet, and this task creates it
+
+**Found during refinement:** nothing in `cv-infra` defines a GitHub webhook secret. [T-005](T-005-ci-secret-blast-radius.md) lists adding one under "also worth doing here" and it was never built, so ruling 3 currently has nothing to validate against.
+
+**Ruling:** this task introduces it — a new `SecureString` SSM parameter plus a new manual step in `ci.tf`'s header list (set the same value in each GitHub webhook). It is genuinely this task's dependency rather than scope creep: without it the Function URL is the cost-DoS endpoint the security note describes. **T-005 should drop that bullet** rather than build it twice.
+
+### Ruling 5 — `user_data` headroom is 588 bytes, and ruling 1 spends some of it
+
+Measured 2026-08-19: `drone-user-data.sh` + `jenkins-provision.sh` render to **15,796 B of EC2's 16,384** — **96.4%**, tighter than the 95.7% [T-009](T-009-user-data-size-ceiling.md) recorded. Ruling 1's two trigger blocks cost roughly 120 B, taking it to ~97.1%.
+
+**Ruling:** it fits, but **measure the real render before applying and record the figure in the PR**. If it does not fit, **do T-009 first** — do not trim explanatory comments again, which is the toll T-009 exists to stop paying. Everything else this task builds (Lambda, IAM, schedule, Function URL) lives outside `user_data` and costs nothing against this limit.
+
+### Ruling 6 — the GitHub webhooks must be re-pointed by hand, and nothing works until they are
+
+The hooks currently point at the EIP (`ci.tf` header, manual step 5). While the box is stopped, **that endpoint answers nothing and GitHub simply records a failed delivery** — which is why a doorbell has to live somewhere always-on.
+
+**Ruling:** the webhooks move to the Function URL, as a manual step added to `ci.tf`'s existing list. Sequence: apply → re-point the hooks → verify with a real push. Until the re-point happens the automation is inert, and that is invisible from Terraform — so it belongs in the acceptance criteria, not in a comment.
+
+### Ruling 7 — start the box by hand now; do not wait for this task
+
+M2's backend wave is blocked today (T-102/T-103/T-104 all require Jenkins green). This task will take an apply and a verification cycle. **Start the instance manually in the meantime** — the automation's job is to stop it again afterwards, and nothing here depends on it having stayed off.
 
 ## Security — why `security_review: true`
 
