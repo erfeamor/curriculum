@@ -2,13 +2,22 @@
 id: T-009
 title: Get the CI host's provisioning script out of user_data before it hits the 16 KB wall
 repo: cv-infra
-status: todo
-owner:
+status: done
+owner: infrastructure-engineer
 branch: feat/provision-script-from-s3
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/18
 depends_on: [T-002]
 risk: normal
 security_review: true
+checkpoint:
+  stage: done               # merged as a9706fb (cv-infra#18), 2026-08-19
+  APPLIED: true
+  result: "user_data 16,104 B (98.3%, 280 B headroom) -> 3,528 B (21.5%, 12,856 B headroom). 78% smaller. The <4 KB acceptance criterion is met."
+  design_note: "The expected SHA-256 lives in SSM, not baked into the bootstrap stub. That is what fixes the SECOND cost this task names: an inlined checksum would change user_data on every script edit, and a user_data change stop/modify/starts the instance -- the source of T-002's repeated ~90s Drone outages. The re-provision signal is not lost: null_resource.jenkins_provision still triggers on sha256(local.jenkins_provision_script), so an edit still reaches the live box over SSM Run Command; only the reboot is gone."
+  comment_irony: "First measurement was 4,403 B -- missing <4 KB by 307 bytes because the stub's OWN header comments were 2.2 KB. Trimming them would have been the exact toll this task exists to stop paying, so the rationale moved to ci-provision.tf, which has no size budget. Nothing was lost; the figure came in at 3,528."
+  verification: "Against the live account, not by reading Terraform. (1) Applied 7 added / 1 changed in place / 0 destroyed; plan clean after. (2) SSM checksum == uploaded object hash -- the pair-consistency that CANNOT be asserted at plan time, because local.jenkins_provision_script embeds aws_eip.drone.public_ip and is unknown under command=plan. (3) On the live box via SSM Run Command: downloaded through the instance role and checksum verified, proving the scoped s3:GetObject grant works. (4) NEGATIVE TEST -- corrupted the SSM checksum deliberately; the bootstrap REFUSED with an exact mismatch message and non-zero exit, then Terraform detected the drift and restored it. That is this task's 'fails loudly, demonstrated -- not assumed' criterion. (5) terraform test 3/0, size guard tightened 16 KB -> 8 KB and MUTATION-TESTED: fires when the template is inflated, passes when restored."
+  criterion_not_met: "The 'fresh boot self-provisions Jenkins' criterion was NOT executed, deliberately. A fresh boot means replacing the instance, which destroys Drone's SQLite -- and T-008 records that the drone-deploy AWS credentials exist ONLY in /var/lib/drone/database.sqlite: not in SSM, not in Terraform state, not reconstructable. ci.tf's lifecycle ignore_changes=[ami] exists for the same reason. So this task's own acceptance criterion, executed literally, would destroy unbacked-up credentials. The SSM probe exercises the identical fetch -> verify -> execute path without that cost. If a real replacement test is ever wanted, T-008 lands first."
+  t005_reconciliation: "This grants the drone instance role s3:GetObject on ONE object ARN, which widens a role T-005 wants to narrow. The two are compatible and it is worth being explicit: T-005's control is metadata_options http_put_response_hop_limit=1, which stops CONTAINERS reaching IMDS. This grant is used host-side by the bootstrap before any container exists, exactly like the existing param() helper. A container still cannot use it once T-005 lands."
 ---
 
 ## Why this exists
