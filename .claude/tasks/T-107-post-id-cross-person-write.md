@@ -2,9 +2,41 @@
 id: T-107
 title: "POST with a client-supplied id overwrites another person's row (person, experience)"
 repo: cv-domain-service
-status: todo
-owner:
+status: done
+owner: backend-developer
 branch: fix/reject-client-supplied-id
+pr: https://github.com/erfeamor/cv-domain-service/pull/6
+checkpoint:
+  stage: done               # merged as 1327bf6 (cv-domain-service#6), 2026-08-20
+  dor_answers: |
+    §1 Person IS exposed the same way, minus the cross-person dimension (no parent), so the
+       damage is an unauthorised overwrite of an arbitrary person record. Same 400.
+    §2 Reject with 400, matching what T-102 shipped for education.
+    §3 LOCAL guards via a shared common/ClientSuppliedIds — one home for the rule and its
+       explanation, called from all three controllers. @JsonProperty(access = READ_ONLY) was
+       CONSIDERED AND DECLINED, and the reasoning is recorded in that class: it protects a new
+       resource whose author never read the rule, which is a real advantage, but it discards a
+       supplied id in SILENCE, so a client that sent one believing it was updating gets a 201 for
+       a different row and no signal it was wrong. Design rule 4 puts client mistakes in the 400
+       family. The cost of the choice is that it must be CALLED — hence the DoR notes added to
+       T-103 and T-104.
+  proof: |
+    Demonstrated against live MySQL 8.4, not argued. Guard temporarily removed, then restored.
+      POST /api/v1/people/2/experiences with the id of a row owned by person 3:
+        before   id=1  person_id=3  company=VictimCo  role=Staff Engineer
+        request  201, body {"id":1,"company":"PWNED",...}
+        after    id=1  person_id=2  company=PWNED     role=owned
+        GET /people/3/experiences -> []      <- the victim's CV entry is gone
+      Guard restored: same request 400, row untouched. Person and education verified identically,
+      each asserted against the ROW and not just the status code (T-107 acceptance criterion).
+  test_replaced: |
+    ExperienceControllerTest.clientSuppliedIdInThePostBodyIsIgnored asserted 201 with the client's
+    id "ignored" AND PASSED — this is why the defect survived three weeks in master. Its comment
+    claimed "the entity exposes no id mutator, so Jackson ignores it"; Jackson does not. It passed
+    because givenSaveReturnsWithId(5L) stubs save() to return id 5 whatever it receives, so the
+    assertion measured the mock. Replaced, with the old body kept in a comment where it stood.
+  gates: "mvn -B test 65 passed 0 failures · checkstyle 0 violations · both new tests confirmed RED first (201 where 400 required) · Jenkins SUCCESS on rebuild"
+  ci_note: "PR-6 build #1 failed with 'No build record could be located' — T-026's cold-start defect, REPRODUCED (the reaper had stopped the box at 09:59:17 and this push woke it). Not related to this change: a rebuild on the warm box went green. Third data point, recorded in T-026."
 depends_on: []
 risk: high
 security_review: true

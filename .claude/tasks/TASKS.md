@@ -12,7 +12,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-104](T-104-project-resource.md) | Project resource in the domain API | cv-domain-service | todo (H1 done) | | — | |
 | [T-105](T-105-experience-ordering-retrofit.md) | Retrofit contract ordering onto the merged Experience resource | cv-domain-service | todo | | T-006 | |
 | [T-106](T-106-restrict-openapi-and-actuator-exposure.md) | Stop serving the OpenAPI spec and Prometheus metrics anonymously | cv-domain-service | done (**Jenkins green**) | backend-developer | — | [#4](https://github.com/erfeamor/cv-domain-service/pull/4) |
-| [T-107](T-107-post-id-cross-person-write.md) | **POST with a client-supplied id overwrites another person's row** (person, experience) | cv-domain-service | todo | | — | |
+| [T-107](T-107-post-id-cross-person-write.md) | **POST with a client-supplied id overwrites another person's row** (person, experience) | cv-domain-service | done (**exploit + fix proven live**) | backend-developer | — | [#6](https://github.com/erfeamor/cv-domain-service/pull/6) |
 | [T-151](T-151-dev-seeds-cv-sections.md) | Dev seed data for CV sections | cv-database | todo | | — | |
 | [T-201](T-201-bff-cv-aggregate.md) | BFF: aggregated public CV endpoint | cv-bff-node | todo | | T-101…T-104, T-006 | |
 | [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |
@@ -284,3 +284,28 @@ That is precisely the write `findByIdAndPersonId` scopes PUT and DELETE against 
 **Context, recorded so nobody either panics or relaxes too far:** `/api/v1/**` requires a valid Cognito JWT in the deployed config, and since [T-022](T-022-domain-service-origin-bypasses-cloudfront.md) the origin is reachable only through CloudFront. So this is an *authenticated* attack and today the only credentials are the owner's. It becomes materially worse the moment the demo has a second user.
 
 **The failure class, in a new costume.** [T-020](T-020-cost-model-correction.md) was a stale *number*. The T-002 board line was a stale *status*. This was a stale *severity assessment* — written down once in words that undersold it, then honoured by every later reader, including the person implementing the resource it undermined. The flag was not ignored. It was believed.
+
+## T-107: the exploit reproduced, and the reason it survived (2026-08-20)
+
+Fixed in person and experience ([cv-domain-service#6](https://github.com/erfeamor/cv-domain-service/pull/6)); education was already done in T-102. **Demonstrated against live MySQL 8.4 rather than argued** — guard temporarily removed, then restored:
+
+```
+POST /api/v1/people/2/experiences  {"id":<row owned by person 3>, "company":"PWNED", ...}
+
+  before    id=1  person_id=3  company=VictimCo  role=Staff Engineer
+  response  201,  {"id":1,"company":"PWNED",...}
+  after     id=1  person_id=2  company=PWNED     role=owned
+  GET /people/3/experiences  ->  []
+```
+
+The victim's row was reassigned to the caller and their CV entry disappeared. Guard restored: `400`, row untouched — verified for all three resources against the row itself, which is what T-107's acceptance criterion demanded.
+
+**Why it survived three weeks in `master`, and this is the part worth keeping.** T-101 shipped a test called `clientSuppliedIdInThePostBodyIsIgnored`. It asserted `201` with the id "ignored", **and it passed**. Its comment explained why: *"the entity exposes no id mutator, so Jackson ignores it."* Jackson does not ignore it. The test passed because `givenSaveReturnsWithId(5L)` stubs `save()` to return an entity with id 5 whatever it receives — **the assertion measured the mock, not the code.**
+
+So the sequence was: QA flagged the risk in words that undersold it → the implementer wrote a test that appeared to close it → the test passed → every later reader, including the one implementing T-102 against this very file as a template, took the question as answered. **A green test asserting the safe-looking behaviour is worse than no test**, because it answers the question before anyone thinks to ask it. The old body is kept in a comment where it stood.
+
+**The decision, recorded as a decision.** `@JsonProperty(access = READ_ONLY)` would have closed this structurally — a new resource inherits protection whether or not its author knows the rule. It was **declined**: it discards a supplied id in silence, so a client that sent one believing it was updating gets a `201` for a different row and no signal it was wrong, and T-102 had already shipped `400`. Two behaviours across sibling resources would be worse than either. The price of that choice is that the guard must be *called* — so **[T-103](T-103-skills-catalog-and-assignments.md) and [T-104](T-104-project-resource.md) now carry it in their DoR**, including the instruction to confirm the test fails first.
+
+**Severity in context:** `/api/v1/**` requires a valid Cognito JWT and, since [T-022](T-022-domain-service-origin-bypasses-cloudfront.md), the origin is reachable only through CloudFront. This is an authenticated attack and today the only credentials are the owner's. It becomes real the moment the demo has a second user — which is what an admin UI with logins (T-301) implies.
+
+**[T-026](T-026-first-build-after-cold-start-fails.md) reproduced while landing T-107.** The reaper stopped the box at 09:59:17; T-107's push woke it; `PR-6#1` failed with the identical `No build record … could be located` and an empty `Lint` stage; a rebuild on the warm box went green. **Three for three on the pattern** — cold start fails, warm start succeeds — so it is now reproducible on demand rather than an anecdote, and cheap to bisect. It cost this task one spurious red build and a manual retrigger, which is exactly the papercut T-026 predicts for every developer's first push after an idle period.
