@@ -67,6 +67,18 @@ T-102's PR was pushed a few hours later to the **same repo**, with the box **alr
 
 That is one control, not a proof, but it narrows the hypothesis list above: candidates 1 and 2 (boot-time re-provisioning racing the scan; Jenkins mid-initialisation) survive it, and "first build of a new PR job is fragile in general" does not.
 
+**REPRODUCED 2026-08-20, same signature, same conditions** — T-107's push woke the box from `stopped` (the reaper had stopped it at 09:59:17) and `cv-domain-service/PR-6#1` failed identically: `No build record cv-domain-service/PR-6#1 could be located`, with the `Lint` stage opened and closed having executed nothing. A manually triggered rebuild on the now-warm box went green.
+
+Three data points, and the pattern is exact:
+
+| push | box state at push | first build |
+|---|---|---|
+| T-106 | **cold** (started by the doorbell seconds earlier) | **FAILED** |
+| T-102 | already running | SUCCESS |
+| T-107 | **cold** (reaper had stopped it at 09:59:17) | **FAILED** |
+
+This is no longer an anecdote — it is **reproducible on demand**: stop the box, push, watch the first build die. That also makes it cheap to bisect, which the acceptance criteria below assume.
+
 ## Acceptance criteria
 
 - [ ] The cause is identified from evidence (Jenkins log at boot, SSM command invocation history for the instance, `docker logs jenkins`), and written down — not inferred from this file's guesses.

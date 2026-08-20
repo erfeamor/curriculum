@@ -35,7 +35,8 @@ checkpoint:
     claimed "the entity exposes no id mutator, so Jackson ignores it"; Jackson does not. It passed
     because givenSaveReturnsWithId(5L) stubs save() to return id 5 whatever it receives, so the
     assertion measured the mock. Replaced, with the old body kept in a comment where it stood.
-  gates: "mvn -B test 65 passed 0 failures · checkstyle 0 violations · both new tests confirmed RED first (201 where 400 required)" 
+  gates: "mvn -B test 65 passed 0 failures · checkstyle 0 violations · both new tests confirmed RED first (201 where 400 required) · Jenkins SUCCESS on rebuild"
+  ci_note: "PR-6 build #1 failed with 'No build record could be located' — T-026's cold-start defect, REPRODUCED (the reaper had stopped the box at 09:59:17 and this push woke it). Not related to this change: a rebuild on the warm box went green. Third data point, recorded in T-026."
 depends_on: []
 risk: high
 security_review: true
