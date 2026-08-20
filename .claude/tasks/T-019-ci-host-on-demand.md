@@ -2,10 +2,10 @@
 id: T-019
 title: "Stop paying for an idle CI host: start it on demand, stop it when quiet"
 repo: cv-infra
-status: in_review
+status: done
 owner: infrastructure-engineer
 branch: feat/ci-host-on-demand
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/17   # filled in 2026-08-20 — was blank while the URL sat in checkpoint.pr only (board rule 6, the same bug this sweep fixed in T-011 three days earlier)
 depends_on: []
 risk: normal
 security_review: true
@@ -37,7 +37,23 @@ checkpoint:
     2. CIKeepAlive -- the documented manual override -- was queued for removal
        by the next plan. Terraform would have stripped it silently, mid-demo.
        Now under lifecycle.ignore_changes.
-  remaining: "ONE manual step, and the automation is inert until it happens: re-point the GitHub webhooks at the Function URL with the secret (ci.tf manual step 5). Until then a real push does not reach the doorbell and the box must be started by hand. T-019's 'proven with a real push' criterion is NOT yet met -- the doorbell path is proven with a signed synthetic payload."
+  SUPERSEDED_remaining: "ONE manual step, and the automation is inert until it happens: re-point the GitHub webhooks at the Function URL with the secret (ci.tf manual step 5). Until then a real push does not reach the doorbell and the box must be started by hand. T-019's 'proven with a real push' criterion is NOT yet met -- the doorbell path is proven with a signed synthetic payload."
+  remaining: |
+    CORRECTED 2026-08-20 against GitHub and the live account. The note above was stale in
+    its premise and right in its conclusion, for a different reason:
+      - THE MANUAL STEP WAS DONE. Both Jenkins repos point at the doorbell:
+        cv-domain-service and cv-database -> https://5jw5mezcgcwzhx4zasjmlnd6340gczrd
+        .lambda-url.eu-west-3.on.aws/, active=true, last delivery OK. The automation
+        is NOT inert; nothing has to be started by hand.
+      - THE CRITERION IS STILL UNMET, but only this much: the hook delivery history
+        holds exactly one event, "2026-08-19T09:39:19Z ping status=OK code=200". No
+        PUSH has ever reached the doorbell, so "the build actually runs" is unproven.
+        The NEXT push to either Jenkins repo is the proof -- T-102 supplies it for free.
+      - Also still open: the billing-week criterion (rate at/near $0.6837/day WITH
+        builds running through the automation). Needs elapsed time, not work.
+    Merged as bd65353 (cv-infra#17), so this task is `done` by board rule 6. The two
+    criteria above are recorded here rather than held open as a status, because a task
+    parked in `in_review` after its PR merged is what this board keeps having to fix.
   note: "Stage 0 refinement done 2026-08-19; §4 was ratified the same day (build it) and §§1-3 are ruled on below, PENDING H1 RATIFICATION. Nothing is implemented yet — T-019's own DoR §1 forbids writing code before the replay design is chosen."
   repo: cv-infra
   branch: feat/ci-host-on-demand
@@ -193,7 +209,7 @@ The hooks currently point at the EIP (`ci.tf` header, manual step 5). While the 
 
 ### Ruling 7 — start the box by hand now; do not wait for this task
 
-M2's backend wave is blocked today (T-102/T-103/T-104 all require Jenkins green). This task will take an apply and a verification cycle. **Start the instance manually in the meantime** — the automation's job is to stop it again afterwards, and nothing here depends on it having stayed off.
+~~M2's backend wave is blocked today (T-102/T-103/T-104 all require Jenkins green). This task will take an apply and a verification cycle. **Start the instance manually in the meantime** — the automation's job is to stop it again afterwards, and nothing here depends on it having stayed off.~~ **Stale, struck 2026-08-20.** The apply landed on 2026-08-19 and the webhooks are re-pointed, so nothing needs starting by hand: a push to `cv-domain-service` or `cv-database` now wakes the box by itself. M2's backend wave is **unblocked**.
 
 ## Security — why `security_review: true`
 

@@ -8,6 +8,7 @@ branch: feat/experience-resource
 pr: https://github.com/erfeamor/cv-domain-service/pull/3
 depends_on: []
 risk: normal
+security_review: false   # promoted 2026-08-20: the value already existed at checkpoint.security_review and was missing at top level, where the board and the driver read it. Same shape as T-011's pr: bug. Value unchanged — this is not a new ruling.
 checkpoint:
   stage: done               # corrected 2026-08-17 — read "pr" while the task was done and the merge recorded below
   repo: cv-domain-service

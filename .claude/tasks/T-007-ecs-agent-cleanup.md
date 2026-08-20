@@ -8,6 +8,7 @@ branch: chore/remove-ecs-agent
 pr:
 depends_on: [T-002]
 risk: low
+security_review: false   # added 2026-08-20 (hygiene): the key was missing entirely while `risk` was set. Value per adapter §5 — the diff touches none of its security paths; A1 forces /security-review anyway if the real diff disagrees, so this is a stage-0 default, not a ruling.
 ---
 
 ## Why this exists

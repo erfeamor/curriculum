@@ -2,12 +2,12 @@
 id: T-024
 title: "Contract: the skill-assignment PUT row is the one place a request body reads as a response"
 repo: cv-project (meta)
-status: in_review
+status: done
 owner: tech-product-owner
 branch: docs/contract-skill-put-shape
 pr: https://github.com/erfeamor/curriculum/pull/41
 checkpoint:
-  stage: pr
+  stage: done               # merged as 3a45f94 (curriculum#41), 2026-08-20
   note: |
     Implemented 2026-08-20 in the same session as the board sweep, on its own branch per
     board rule 2. Scope held to docs/api-contract.md exactly as written — no code.
