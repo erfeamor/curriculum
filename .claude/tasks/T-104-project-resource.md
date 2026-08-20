@@ -122,7 +122,7 @@ T-107 chose a called guard over a structural `@JsonProperty(access = READ_ONLY)`
 - `repo_url` → `repoUrl` naming-strategy check.
 - Scoped repository method for DoR 2.
 - Watch for unrequested `repoUrl` format validation at review — it would narrow the contract without a contract change.
-- Client-supplied `"id": 999` in a POST body: flag, don't block, don't fix here.
+- ~~Client-supplied `"id": 999` in a POST body: flag, don't block, don't fix here.~~ **STRUCK 2026-08-20 — this instruction is wrong and it is the one that cost three weeks.** It is not an id override, it is an authenticated cross-person write, proven against live MySQL in [T-107](T-107-post-id-cross-person-write.md). **Block on it**: see §"Carry the T-107 guard" above, which is this file's binding instruction. Kept struck rather than deleted because the sentence itself is the artefact — it was believed by every reader of T-101 and T-102, including the one implementing against it.
 
 ## Definition of done
 

@@ -38,7 +38,7 @@ checkpoint:
        by the next plan. Terraform would have stripped it silently, mid-demo.
        Now under lifecycle.ignore_changes.
   SUPERSEDED_remaining: "ONE manual step, and the automation is inert until it happens: re-point the GitHub webhooks at the Function URL with the secret (ci.tf manual step 5). Until then a real push does not reach the doorbell and the box must be started by hand. T-019's 'proven with a real push' criterion is NOT yet met -- the doorbell path is proven with a signed synthetic payload."
-  remaining: |
+  SUPERSEDED_remaining_2: |
     CORRECTED 2026-08-20 against GitHub and the live account. The note above was stale in
     its premise and right in its conclusion, for a different reason:
       - THE MANUAL STEP WAS DONE. Both Jenkins repos point at the doorbell:
@@ -54,6 +54,26 @@ checkpoint:
     Merged as bd65353 (cv-infra#17), so this task is `done` by board rule 6. The two
     criteria above are recorded here rather than held open as a status, because a task
     parked in `in_review` after its PR merged is what this board keeps having to fix.
+  remaining: |
+    CORRECTED AGAIN 2026-08-20, later the same day. The block above predicted its own
+    proof ("the NEXT push -- T-102 supplies it for free") and then the proof ARRIVED and
+    was never written back here. It is stale; this is what is true:
+      - "A PUSH STARTS THE HOST, AND THE BUILD ACTUALLY RUNS" IS MET. T-106's push at
+        08:11:58Z (delivery 200) hit the doorbell, StartInstances took
+        i-073e5284ca2a1ceed stopped -> running, the multibranch scan found PR-4 and a
+        build started at 08:12:45Z. Builds #2 and #3 ran all four stages green in ~97s
+        (checkstyle 0 violations, 35 tests, image tagged). Proven by a real push, not a
+        synthetic payload -- which is exactly what the criterion demanded.
+      - THE HONEST ASTERISK: build #1, the one the automation itself triggered, FAILED
+        47s after the instance started ("No build record cv-domain-service/PR-4#1 could
+        be located"). The identical commit then passed twice. So the criterion is met by
+        build #3, not by the build the doorbell caused. Filed as
+        T-026-first-build-after-cold-start-fails.md, reproduced 3-for-3 since.
+      - STILL GENUINELY OPEN, and the only thing that is: the billing-week criterion --
+        the rate at or near $0.6837/day WITH builds running through the automation.
+        Applied 2026-08-19, so this needs ~6 more days of elapsed time, not work.
+    The lesson this file keeps demonstrating: a note that says "X will prove this" has to
+    be revisited when X happens, or it goes on asserting the opposite of the record.
   note: "Stage 0 refinement done 2026-08-19; §4 was ratified the same day (build it) and §§1-3 are ruled on below, PENDING H1 RATIFICATION. Nothing is implemented yet — T-019's own DoR §1 forbids writing code before the replay design is chosen."
   repo: cv-infra
   branch: feat/ci-host-on-demand
