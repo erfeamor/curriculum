@@ -2,10 +2,31 @@
 id: T-024
 title: "Contract: the skill-assignment PUT row is the one place a request body reads as a response"
 repo: cv-project (meta)
-status: todo
-owner:
+status: in_review
+owner: tech-product-owner
 branch: docs/contract-skill-put-shape
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/41
+checkpoint:
+  stage: pr
+  note: |
+    Implemented 2026-08-20 in the same session as the board sweep, on its own branch per
+    board rule 2. Scope held to docs/api-contract.md exactly as written — no code.
+  decisions: |
+    - The table gained a REQUEST BODY column rather than a note below it. A note would have
+      left the `Returns` cell still saying `body { "proficiency": ... }`, which is the exact
+      string that caused the ambiguity; the column makes the two bodies structurally
+      impossible to conflate.
+    - The four bullets below the table state what was previously inferable: response shape
+      equals the GET element shape, 200 on both upsert branches with no 201, and the
+      deliberate PUT/DELETE divergence on an absent link. All four match T-103's DoR
+      rulings 1, 2, 5 and 6 — this task moved them into the contract, it did not re-decide
+      them.
+    - T-103 has NOT merged (status `todo`), so the "verify the shipped behaviour" acceptance
+      criterion does not apply. It now builds from the contract, which was the point.
+  review_round: 0
+  security_review: false   # markdown only
+  code_review: "deliberately skipped — /code-review has no purchase on a markdown-only diff, same as T-006 and T-013 recorded"
+
 depends_on: []
 risk: normal
 security_review: false
