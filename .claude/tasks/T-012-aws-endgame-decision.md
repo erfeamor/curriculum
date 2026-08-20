@@ -8,6 +8,7 @@ branch: chore/aws-endgame-decision
 pr:
 depends_on: []
 risk: high
+security_review: false   # added 2026-08-20 (hygiene): the key was absent entirely, here and in the checkpoint. This task decides a billing posture and ships a written decision, not a diff — no adapter §5 security path. A/B/C's follow-up work gets its own tasks and its own flags.
 due: 2026-11-01          # re-dated 2026-08-14 — was 2026-12-20, which is AFTER the credits run out at the real burn rate
 deadline: 2027-01-12     # the Free-plan window; no longer the binding constraint, see below
 ---
