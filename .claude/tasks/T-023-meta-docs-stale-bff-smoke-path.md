@@ -41,11 +41,12 @@ So the drift sat in the most-read file in the workspace for four days with no ow
 
 ## Scope
 
-Two files, one path each. Deliberately small — resist widening it into T-015's territory.
+**Three files, one path each** (this said "two" until 2026-08-20; the bullet list below always had three entries, and the third was verified present that day — see it). Deliberately small — resist widening it into T-015's territory.
 
 - `CLAUDE.md:37` — the smoke command in § Commands.
 - `README.md:247` — the same command in the local-development section (note this one is annotated *"vanilla-site path"*, which makes it doubly wrong: `cv-public-vanilla` calls the BFF, and T-403 will bake the `/bff` base URL into its bundle).
-- Check `README.es.md` for the Spanish counterpart of the same line, and any other file that curls port 3000.
+- `README.es.md:247` — the Spanish counterpart, **confirmed present 2026-08-20**, not a maybe: `curl http://localhost:3000/api/v1/people/1   # ruta del sitio público: BFF → servicio de dominio → MySQL`. Same dead path, same misleading annotation. Fix it in the same PR — the two READMEs are maintained in parallel and half-fixing them is how the next sweep finds this again.
+- Any other file that curls port 3000. A `grep -rn "3000/api/v1"` on 2026-08-20 returned exactly these three lines and nothing else.
 
 ## Acceptance criteria
 

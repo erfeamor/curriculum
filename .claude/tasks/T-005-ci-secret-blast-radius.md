@@ -54,7 +54,7 @@ Renaming an `aws_ssm_parameter` is a destroy-and-recreate. Sequence it so the pr
 
 ## Also worth doing here
 
-- **A GitHub webhook secret.** The `/jenkins/github-webhook/` endpoint is unauthenticated today — anyone can trigger a branch re-scan. Not an exposure (builds still only run repo code, and fork PRs are excluded by T-002's pinned traits) but it is free noise-suppression and a cheap authenticity check.
+- ~~**A GitHub webhook secret.** The `/jenkins/github-webhook/` endpoint is unauthenticated today — anyone can trigger a branch re-scan. Not an exposure (builds still only run repo code, and fork PRs are excluded by T-002's pinned traits) but it is free noise-suppression and a cheap authenticity check.~~ **DONE ELSEWHERE — dropped from this task 2026-08-20.** [T-019](T-019-ci-host-on-demand.md)'s ruling 4 found this bullet, noted it had never been built, and **built it**: a `SecureString` SSM parameter, with the doorbell Lambda validating `X-Hub-Signature-256` by constant-time compare before it will start anything. T-019 said explicitly that *"T-005 should drop that bullet rather than build it twice"*, and nothing here recorded that until now. **Do not re-implement it**; if this task touches the secret at all it is only to fold it into the `/cv-project/dev/ci/*` naming scheme above.
 - **Pin `jenkins/jenkins:lts-jdk17` to a digest** rather than a floating tag — raised as non-blocking in T-002's `/security-review`.
 
 ## Explicitly out of scope
