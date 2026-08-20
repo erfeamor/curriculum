@@ -11,7 +11,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-103](T-103-skills-catalog-and-assignments.md) | Skill catalog + person-skill assignments | cv-domain-service | todo (H1 done) | | — | |
 | [T-104](T-104-project-resource.md) | Project resource in the domain API | cv-domain-service | todo (H1 done) | | — | |
 | [T-105](T-105-experience-ordering-retrofit.md) | Retrofit contract ordering onto the merged Experience resource | cv-domain-service | todo | | T-006 | |
-| [T-106](T-106-restrict-openapi-and-actuator-exposure.md) | Stop serving the OpenAPI spec and Prometheus metrics anonymously | cv-domain-service | todo | | — | |
+| [T-106](T-106-restrict-openapi-and-actuator-exposure.md) | Stop serving the OpenAPI spec and Prometheus metrics anonymously | cv-domain-service | in_review (**Jenkins green**) | backend-developer | — | [#4](https://github.com/erfeamor/cv-domain-service/pull/4) |
 | [T-151](T-151-dev-seeds-cv-sections.md) | Dev seed data for CV sections | cv-database | todo | | — | |
 | [T-201](T-201-bff-cv-aggregate.md) | BFF: aggregated public CV endpoint | cv-bff-node | todo | | T-101…T-104, T-006 | |
 | [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |
@@ -63,6 +63,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-023](T-023-meta-docs-stale-bff-smoke-path.md) | The documented E2E smoke command curls a path the BFF no longer serves | cv-project (meta) | todo | | — | |
 | [T-024](T-024-contract-skill-assignment-put-shape.md) | Contract: split the skill-assignment PUT's request body from its response | cv-project (meta) | done | tech-product-owner | — | [#41](https://github.com/erfeamor/curriculum/pull/41) |
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution | cv-infra + cv-domain-service | todo | | T-022 | |
+| [T-026](T-026-first-build-after-cold-start-fails.md) | First Jenkins build after a cold start fails (`No build record could be located`) | cv-infra | todo | | T-019 | |
 
 **Cost model is stale as of 2026-08-14 — the documented figures understate real burn by a third.** `cv-infra/CLAUDE.md` and T-010's runway both encode *~$0.92/day ≈ $28/month*. The 2026-08-08 `t3.micro`→`t3.small` resize of the CI host (T-002, deliberate, for Maven headroom) took the real rate to **~$1.23/day ≈ $37.30/month**, verified against the August cost export and `describe-instances`. Consequences: the credits deplete **~25% sooner in elapsed time**, which moves T-012's date; and the `$30` monthly budget is now **structurally exceeded (~124%)**, so its 100/120% thresholds will fire every month from September — an alarm that always fires stops being a signal. Note [cv-infra#14](https://github.com/erfeamor/cv-infra/pull/14) deliberately refused to raise that limit, so this needs a decision rather than a bump. **T-014 may push it further** — its own watch-outs say the domain-service box may need `t3.small` for RAM, another +$8.62/month → ~$46. [T-019](T-019-ci-host-on-demand.md) is the largest available offset (~$17.24/month).
 
@@ -227,3 +228,21 @@ A second pass over all 40 task files, this time **verified against the live syst
 **T-022's own claim is corrected on the task**: `/v3/api-docs` is unreachable **directly**, not unreachable from the internet. That distinction is the entire content of finding 2, and stating it the strong way is how it would have been forgotten.
 
 **One acceptance criterion is outstanding and is not being quietly counted as met**: the admin UI loading its people list with a real Cognito JWT needs an interactive login. The anonymous 401 is strong evidence the path is intact; it is not the same check.
+
+## T-019's last criterion is MET — and using it found a defect (2026-08-20)
+
+**The doorbell fired on a real push, for the first time.** T-106's PR to `cv-domain-service` supplied it, exactly as predicted:
+
+```
+push 08:11:58Z (delivery 200) -> doorbell -> ec2:StartInstances
+  -> i-073e5284ca2a1ceed  stopped -> running
+  -> Jenkins boots, multibranch scan finds PR-4, build starts 08:12:45Z
+```
+
+So T-019's *"a push to a watched repo starts the CI host"* is **proven end to end**, no longer by synthetic payload. Its companion criterion — *"and the build actually runs"* — is **also met**: builds #2 and #3 ran all four stages green in ~97s (checkstyle 0 violations, 35 tests, image tagged).
+
+**But build #1 — the one the automation itself triggered — failed**, 47 seconds after the instance started, with `No build record cv-domain-service/PR-4#1 could be located` and a `Lint` stage that opened and closed without executing anything. The identical commit then passed twice. Filed as **[T-026](T-026-first-build-after-cold-start-fails.md)**.
+
+**Why that matters beyond one red build:** every first push after an idle period gets a red X whose fix is "push again", and it will be blamed on whatever code was pushed — it briefly looked like T-106 had broken CI. It is also the honest asterisk on T-019's criterion: *met by build #3, not by the build the automation triggered.*
+
+This is the healthy outcome of T-019, not an argument against it. **The value of "prove it with a real push" was precisely this** — the synthetic payload proved the doorbell, and only a real push could have found what happens to the build on the other side of the boot.

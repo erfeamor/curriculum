@@ -2,10 +2,29 @@
 id: T-106
 title: "Stop serving the OpenAPI spec and Prometheus metrics to anonymous callers"
 repo: cv-domain-service
-status: todo
-owner:
+status: in_review
+owner: backend-developer
 branch: fix/restrict-openapi-actuator
-pr:
+pr: https://github.com/erfeamor/cv-domain-service/pull/4
+checkpoint:
+  stage: pr
+  dor_answers: |
+    §1 Disable, or authenticate? AUTHENTICATE. Disabling springdoc would need a new env toggle
+       to keep local dev usable; requiring auth reuses the AUTH_ENABLED toggle that already
+       exists and keeps the endpoints available to anyone holding a token.
+    §2 Which profile is "deployed"? NONE, and none was needed. The container sets no
+       SPRING_PROFILES_ACTIVE (cv-infra/templates/domain-service-user-data.sh) and AUTH_ENABLED
+       already draws the deployed/local line. Adding a profile would have been a second way to
+       say the same thing plus a cross-repo user_data change.
+  correction: |
+    THIS TASK'S PREMISE WAS HALF WRONG AND THE FIX DEPENDED ON IT. It said nothing scrapes
+    /actuator/prometheus. True of AWS; FALSE of the dev stack — cv-observability's
+    prometheus.yml:6 scrapes it at host.docker.internal:8080. What saves the local stack is
+    that docker-compose.dev.yml runs AUTH_ENABLED=false, which takes the permitAll branch
+    BEFORE this matcher. A test now pins that branch so a later tightening cannot break it.
+  gates: "mvn -B test 35 passed 0 failures · mvn -B checkstyle:check 0 violations · Jenkins CI SUCCESS (build #3, all four stages, image tagged)"
+  tests: "New SecurityConfigTest exercises the filter chain, which the controller tests switch off with addFilters=false — nothing covered this matcher before. The four new assertions were confirmed to FAIL against the old matcher (404 = permitted) before the fix went in."
+  ci_note: "Build #1 FAILED with 'No build record could be located' — a cold-start race in T-019's on-demand flow, NOT this change. Same commit passed as #2 and #3. Filed as T-026."
 depends_on: []
 risk: normal
 security_review: true
