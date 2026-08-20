@@ -33,6 +33,15 @@ This is the task that closes the gap. `cv-bff-node` has no registry, no runtime 
 
 The intended approach is the domain service's, per the meta README backlog — *"backend services still deployed manually"*: build image → push to ECR → run it as a container on the existing EC2 box. This task builds the target; T-203 automates the push.
 
+## Two things T-022 established that change ruling 1 (added 2026-08-20)
+
+[T-022](T-022-domain-service-origin-bypasses-cloudfront.md) applied the prefix-list pattern to port 8080 for real, and measuring it turned up two facts ruling 1 was written without:
+
+1. **You cannot put a second prefix-list rule on `aws_security_group.domain_service`.** An AWS-managed prefix list counts against the *"inbound rules per security group"* quota (**60**) as its **entry count**, not as one rule. The CloudFront list held **46 entries** on 2026-08-20. One reference fits with 14 to spare; two (46 + 46 = 92) exceed the quota and **the apply fails**. So port 3000 needs its **own security group** for the BFF — which is cleaner anyway, and is a change to this task's scope §3, not a detail.
+2. **The prefix list proves "a CloudFront distribution", not "our distribution"** — it is shared by every CloudFront customer. T-022's `/security-review` raised this as a MEDIUM finding and it applies identically to port 3000. Filed as [T-025](T-025-verify-requests-come-from-our-cloudfront.md); read it before deciding how much this task should carry. It does **not** block this task — ruling 1 is still strictly better than `0.0.0.0/0`.
+
+Ruling 1 stands. Its mechanism is proven and its wording just needs the extra security group.
+
 ## Scope
 
 **1. Registry** — `aws_ecr_repository.bff_node` + lifecycle policy in `registry.tf`, mirroring `domain_service`. The header comment there budgets against ECR's 500 MB; a `node:20-alpine` runtime image is ~50-60 MB compressed, so two retained tags fit comfortably. Keep `force_delete = true` for parity.
