@@ -2,12 +2,12 @@
 id: T-107
 title: "POST with a client-supplied id overwrites another person's row (person, experience)"
 repo: cv-domain-service
-status: in_review
+status: done
 owner: backend-developer
 branch: fix/reject-client-supplied-id
 pr: https://github.com/erfeamor/cv-domain-service/pull/6
 checkpoint:
-  stage: pr
+  stage: done               # merged as 1327bf6 (cv-domain-service#6), 2026-08-20
   dor_answers: |
     §1 Person IS exposed the same way, minus the cross-person dimension (no parent), so the
        damage is an unauthorised overwrite of an arbitrary person record. Same 400.
