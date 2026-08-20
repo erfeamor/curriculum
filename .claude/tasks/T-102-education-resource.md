@@ -147,7 +147,7 @@ T-101's four ratified rulings apply **unchanged**; QA confirmed no contract basi
 
 - `field_of_study` → `fieldOfStudy` is this resource's highest-risk naming-strategy spot — must be exercised by **both** P1 and the live-MySQL check.
 - Scoped repository method for DoR 2; `person/` has no analogous ownership check to copy.
-- A client-supplied `"id": 999` in a POST body must not override the generated id. `PersonController.create` has the same exposure — flag, don't block, don't fix here.
+- ~~A client-supplied `"id": 999` in a POST body must not override the generated id. `PersonController.create` has the same exposure — flag, don't block, don't fix here.~~ **SUPERSEDED 2026-08-20** (the frontmatter has said so since the code review; the body bullet had not). The impact was understated: it is an authenticated cross-person write, not an id override. Fixed for education in this task; person and experience in [T-107](T-107-post-id-cross-person-write.md).
 
 ## Definition of done
 
