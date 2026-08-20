@@ -2,12 +2,12 @@
 id: T-022
 title: "The domain service is directly reachable on :8080, bypassing CloudFront — and leaks its OpenAPI spec"
 repo: cv-infra
-status: in_review
+status: done
 owner: infrastructure-engineer
 branch: fix/scope-domain-service-ingress
 pr: https://github.com/erfeamor/cv-infra/pull/20
 checkpoint:
-  stage: applied-and-verified
+  stage: done               # merged as da17414 (cv-infra#20), 2026-08-20
   applied: "2026-08-20. Plan was 0 to add, 1 to change, 0 to destroy — in-place SG modification, no instance replacement, so DoR §4 is answered and T-021's db_password precondition does not apply. A second apply reported No changes (idempotent)."
   dor_answers: |
     §1 Does anything legitimately call 8080 directly? NO — established by evidence, not assumption:
