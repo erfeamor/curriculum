@@ -56,6 +56,17 @@ It also **silently weakens T-019's own acceptance criterion**. *"A build that ne
 
 **Establish which before changing anything.** All three have different fixes and two of them are one-liners.
 
+## A control, added 2026-08-20 — it points at *cold start*, not at first builds
+
+T-102's PR was pushed a few hours later to the **same repo**, with the box **already running**. Its first build **succeeded**. Two data points now:
+
+| push | box state | first build |
+|---|---|---|
+| T-106 (`fix/restrict-openapi-actuator`) | **cold** — started by the doorbell seconds earlier | **FAILED**, `No build record ... could be located` |
+| T-102 (`feat/education-resource`) | already running | **SUCCESS** |
+
+That is one control, not a proof, but it narrows the hypothesis list above: candidates 1 and 2 (boot-time re-provisioning racing the scan; Jenkins mid-initialisation) survive it, and "first build of a new PR job is fragile in general" does not.
+
 ## Acceptance criteria
 
 - [ ] The cause is identified from evidence (Jenkins log at boot, SSM command invocation history for the instance, `docker logs jenkins`), and written down — not inferred from this file's guesses.
