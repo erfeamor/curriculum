@@ -55,6 +55,14 @@ Global skill catalog and person-scoped skill assignments per [docs/api-contract.
 8. **Check order on assignments:** person existence → skill existence → (DELETE only) assignment existence. When more than one is absent, the person check wins, and the 404 body must not disclose which id missed.
 9. **No `DELETE /api/v1/skills/{id}`** — the contract defines no catalog delete. Adding one is scope creep.
 
+## Carry the T-107 guard — added 2026-08-20, do not skip
+
+`ClientSuppliedIds.reject(entity.getId())` must be the **first line** of this resource's `create()`, as it now is in person, experience and education ([T-107](T-107-post-id-cross-person-write.md), [cv-domain-service#6](https://github.com/erfeamor/cv-domain-service/pull/6)).
+
+Without it, a POST body carrying an `id` makes Spring Data's `save()` take `merge()` instead of `persist()` and **overwrites that row**, reassigning it to the caller and answering `201` with the victim's id. Proven against live MySQL, not theorised. `id` looks un-bindable — private field, no setter — and Jackson binds it anyway.
+
+T-107 chose a called guard over a structural `@JsonProperty(access = READ_ONLY)` deliberately, and this note is the price of that choice: the protection does not arrive by itself. **Include a test, and confirm it fails before the guard goes in** — the version of this that shipped in T-101 was a test asserting the *permissive* behaviour, which passed because it mocked `save()`.
+
 ## Acceptance criteria
 
 - [ ] `GET/POST /api/v1/skills`; POST duplicate name → **409 via the exception catch path**.
