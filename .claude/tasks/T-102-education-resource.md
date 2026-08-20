@@ -2,15 +2,39 @@
 id: T-102
 title: Education resource in the domain API
 repo: cv-domain-service
-status: todo
-owner:
+status: in_review
+owner: backend-developer
 branch: feat/education-resource
-pr:
+pr: https://github.com/erfeamor/cv-domain-service/pull/5
 depends_on: []
 risk: normal
 security_review: false   # promoted 2026-08-20: the value already existed at checkpoint.security_review and was missing at top level, where the board and the driver read it. Same shape as T-011's pr: bug. Value unchanged — this is not a new ruling.
 checkpoint:
-  stage: H1
+  stage: pr                 # implemented 2026-08-20 from the H1 checkpoint, as the reset_note directed
+  a1: "mvn -B test 61 passed 0 failures (education adds 26) · mvn -B checkstyle:check 0 violations · mvn -B package -DskipTests clean"
+  jenkins: "PR-5 build #1 SUCCESS on the code commit (ac64985). A test-only follow-up commit (b25ba628, the C7 tightening below) was awaiting the multibranch scan at hand-off — SCM-scan latency is inherent to T-019 ruling 1, not a failure."
+  stage4: |
+    RUN 2026-08-20 against live MySQL 8.4, slot 1 (ports +20: mysql 3326, domain-service 8100),
+    per the task's own QA plan. 18 of 18 checks passed. Stack torn down with -v afterwards.
+      - THE SERVICE BOOTED AT ALL, which is the headline: ddl-auto: validate against the real
+        V1 schema means a field_of_study/fieldOfStudy mismatch would have failed startup.
+      - real schema confirmed: id, person_id, institution, degree, field_of_study, start_date,
+        end_date — exactly the plan's list
+      - fieldOfStudy round-tripped over the wire AND read back from the physical column by SQL
+      - ordering with two rows sharing a startDate: MIT,tied-a,tied-b,UNED == DESC then id ASC
+      - cross-person PUT and DELETE both 404 with the victim row verifiably untouched (DoR 2)
+      - unknown person 404, absent id DELETE 404 (DoR 1), missing institution 400
+      - full CRUD round trip 201/200/200/204 with no leftover row
+      - cascade delete against the real InnoDB FK: 4 rows -> 0
+  stage4_finding: |
+    Stage 4 found a defect in the UNIT TEST, not in the code — which is the argument for running
+    it. C7 asserted jsonPath("$.fieldOfStudy").doesNotExist() for omitted optionals and passed.
+    The live body is {"fieldOfStudy":null,...,"endDate":null} — the fields ARE present. jsonPath
+    treats a JSON null as absent, so C7 was green for the wrong reason, and would have stayed
+    green under @JsonInclude(NON_NULL), which WOULD break the contract's "absent optionals
+    serialize as null". Tightened to assert key count plus a null value (commit b25ba628).
+  flagged_not_fixed: "A client-supplied \"id\": 999 in a POST body is not rejected. PersonController.create and ExperienceController.create have the identical exposure — the test plan says flag, don't block, don't fix here."
+
   reset_note: "Claim reset 2026-08-09: status was in_progress with owner backend-developer, but NO implementation existed — worktree sat at master's tip (d78ef27) with 0 changed files and no remote branch. The stale claim blocked re-pickup under board rule 1 ('if owner: is already set, pick another task'), parking three of the five wave-1 tasks behind a status that was not true. NOTE this is NOT a fresh todo: stage H1 is real — refinement and the DoR/test plan in this file were completed and ratified, so whoever picks it up starts at implementation, not refinement. The local worktree and branch still exist and are reusable."
   repo: cv-domain-service
   branch: feat/education-resource

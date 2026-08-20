@@ -7,7 +7,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-101](T-101-experience-resource.md) | Experience resource in the domain API | cv-domain-service | done | backend-developer | — | [#3](https://github.com/erfeamor/cv-domain-service/pull/3) |
-| [T-102](T-102-education-resource.md) | Education resource in the domain API | cv-domain-service | todo (H1 done) | | — | |
+| [T-102](T-102-education-resource.md) | Education resource in the domain API | cv-domain-service | in_review (**A1 + stage-4 QA green**) | backend-developer | — | [#5](https://github.com/erfeamor/cv-domain-service/pull/5) |
 | [T-103](T-103-skills-catalog-and-assignments.md) | Skill catalog + person-skill assignments | cv-domain-service | todo (H1 done) | | — | |
 | [T-104](T-104-project-resource.md) | Project resource in the domain API | cv-domain-service | todo (H1 done) | | — | |
 | [T-105](T-105-experience-ordering-retrofit.md) | Retrofit contract ordering onto the merged Experience resource | cv-domain-service | todo | | T-006 | |
@@ -246,3 +246,17 @@ So T-019's *"a push to a watched repo starts the CI host"* is **proven end to en
 **Why that matters beyond one red build:** every first push after an idle period gets a red X whose fix is "push again", and it will be blamed on whatever code was pushed — it briefly looked like T-106 had broken CI. It is also the honest asterisk on T-019's criterion: *met by build #3, not by the build the automation triggered.*
 
 This is the healthy outcome of T-019, not an argument against it. **The value of "prove it with a real push" was precisely this** — the synthetic payload proved the doorbell, and only a real push could have found what happens to the build on the other side of the boot.
+
+## T-102 implemented — M2 is two of eleven (2026-08-20)
+
+Picked up **at implementation**, not refinement, as its `reset_note` directed — the H1 checkpoint from 2026-08-04 was real and was used as written. [cv-domain-service#5](https://github.com/erfeamor/cv-domain-service/pull/5).
+
+Structural twin of T-101 as specified: same package shape, same four rulings, same no-DTO trade-off. **It ships with contract ordering built in** (`findByPersonIdOrderByStartDateDescIdAsc`), which is the thing [T-105](T-105-experience-ordering-retrofit.md) still has to retrofit onto Experience — Education never had the gap.
+
+**Stage-4 QA ran against live MySQL 8.4 on slot 1, and it earned its keep.** 18/18 checks passed, but the reason to run it was the `field_of_study` → `fieldOfStudy` mapping that H2 cannot police, and the strongest evidence is simply that **the service booted**: `ddl-auto: validate` against the real V1 schema fails at startup on a naming-strategy slip.
+
+**It also found a defect — in the test, not the code.** C7 asserted `jsonPath("$.fieldOfStudy").doesNotExist()` for omitted optionals and passed, while the live body is `{"fieldOfStudy":null,...}` — the field *is* present. `jsonPath` treats a JSON null as absent, so C7 was green for the wrong reason and would have stayed green under `@JsonInclude(NON_NULL)`, which **would** break the contract's *"absent optionals serialize as `null`"*. Tightened to assert key count plus a null value. A unit test that passes for the wrong reason is worse than a missing one, and only the live stack showed the difference.
+
+**A control for [T-026](T-026-first-build-after-cold-start-fails.md):** T-102's first push landed on an *already-running* box and its first build succeeded, where the cold-start push earlier the same morning failed on its first build. That is one data point, not a proof, but it points at cold start specifically rather than at first-builds generally — recorded there.
+
+**Still open on this task:** `/code-review` has not run, and the test-only follow-up commit was awaiting Jenkins' multibranch scan at hand-off. The DoD's *"`/code-review` + QA coverage pass converged"* is therefore **not** satisfied yet — the task is `in_review`, not `done`.
