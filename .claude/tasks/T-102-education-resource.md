@@ -11,7 +11,7 @@ risk: normal
 security_review: false   # promoted 2026-08-20: the value already existed at checkpoint.security_review and was missing at top level, where the board and the driver read it. Same shape as T-011's pr: bug. Value unchanged — this is not a new ruling.
 checkpoint:
   stage: pr                 # implemented 2026-08-20 from the H1 checkpoint, as the reset_note directed
-  a1: "mvn -B test 61 passed 0 failures (education adds 26) · mvn -B checkstyle:check 0 violations · mvn -B package -DskipTests clean"
+  a1: "mvn -B test 64 passed 0 failures (education adds 26) · mvn -B checkstyle:check 0 violations · mvn -B package -DskipTests clean"
   jenkins: "PR-5 build #1 SUCCESS on the code commit (ac64985). A test-only follow-up commit (b25ba628, the C7 tightening below) was awaiting the multibranch scan at hand-off — SCM-scan latency is inherent to T-019 ruling 1, not a failure."
   stage4: |
     RUN 2026-08-20 against live MySQL 8.4, slot 1 (ports +20: mysql 3326, domain-service 8100),
@@ -33,7 +33,25 @@ checkpoint:
     treats a JSON null as absent, so C7 was green for the wrong reason, and would have stayed
     green under @JsonInclude(NON_NULL), which WOULD break the contract's "absent optionals
     serialize as null". Tightened to assert key count plus a null value (commit b25ba628).
-  flagged_not_fixed: "A client-supplied \"id\": 999 in a POST body is not rejected. PersonController.create and ExperienceController.create have the identical exposure — the test plan says flag, don't block, don't fix here."
+  code_review: |
+    RUN 2026-08-20. One HIGH, two LOW. All three fixed in cbe077f rather than deferred.
+    HIGH — the superseded item below was WRONG ABOUT ITS OWN IMPACT, which is why it had sat
+    unfixed since refinement. A client-supplied id in a POST body is not an id override: it is an
+    authenticated CROSS-PERSON WRITE. Jackson's INFER_PROPERTY_MUTATORS binds the private id
+    despite there being no setter (verified empirically: getId() == 999), a non-null id makes
+    save() take merge() instead of persist(), and create() has already set the owning person to
+    the caller's — so the UPDATE reassigns another person's row to the caller and returns 201
+    with the victim's id. Exactly the write findByIdAndPersonId scopes PUT and DELETE against,
+    through the one verb with no row to scope to. Test confirmed RED (201 where 400 required)
+    before the fix.
+    LOW — no @Size(max = 150) against V1's VARCHAR(150): ddl-auto: validate does not check
+    lengths and H2 builds varchar(255), so an over-long value passed every test and would fail on
+    real MySQL with error 1406 as a 500, where design rule 4 requires 400. Fixed, tested at 151
+    and at the 150 boundary.
+    LOW — C8 asserted neither fieldOfStudy nor startDate, the two lines most easily dropped from
+    the PUT copy block; the suite stayed green while PUT silently stopped replacing this
+    aggregate's highest-risk field. Both now asserted.
+  SUPERSEDED_flagged_not_fixed: "A client-supplied \"id\": 999 in a POST body is not rejected. PersonController.create and ExperienceController.create have the identical exposure — the test plan says flag, don't block, don't fix here. SUPERSEDED 2026-08-20 by the code review above: fixed here for education because the impact was understated; the person and experience instances are filed as T-107."
 
   reset_note: "Claim reset 2026-08-09: status was in_progress with owner backend-developer, but NO implementation existed — worktree sat at master's tip (d78ef27) with 0 changed files and no remote branch. The stale claim blocked re-pickup under board rule 1 ('if owner: is already set, pick another task'), parking three of the five wave-1 tasks behind a status that was not true. NOTE this is NOT a fresh todo: stage H1 is real — refinement and the DoR/test plan in this file were completed and ratified, so whoever picks it up starts at implementation, not refinement. The local worktree and branch still exist and are reusable."
   repo: cv-domain-service

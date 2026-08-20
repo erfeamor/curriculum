@@ -12,6 +12,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-104](T-104-project-resource.md) | Project resource in the domain API | cv-domain-service | todo (H1 done) | | — | |
 | [T-105](T-105-experience-ordering-retrofit.md) | Retrofit contract ordering onto the merged Experience resource | cv-domain-service | todo | | T-006 | |
 | [T-106](T-106-restrict-openapi-and-actuator-exposure.md) | Stop serving the OpenAPI spec and Prometheus metrics anonymously | cv-domain-service | done (**Jenkins green**) | backend-developer | — | [#4](https://github.com/erfeamor/cv-domain-service/pull/4) |
+| [T-107](T-107-post-id-cross-person-write.md) | **POST with a client-supplied id overwrites another person's row** (person, experience) | cv-domain-service | todo | | — | |
 | [T-151](T-151-dev-seeds-cv-sections.md) | Dev seed data for CV sections | cv-database | todo | | — | |
 | [T-201](T-201-bff-cv-aggregate.md) | BFF: aggregated public CV endpoint | cv-bff-node | todo | | T-101…T-104, T-006 | |
 | [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |
@@ -260,3 +261,26 @@ Structural twin of T-101 as specified: same package shape, same four rulings, sa
 **A control for [T-026](T-026-first-build-after-cold-start-fails.md):** T-102's first push landed on an *already-running* box and its first build succeeded, where the cold-start push earlier the same morning failed on its first build. That is one data point, not a proof, but it points at cold start specifically rather than at first-builds generally — recorded there.
 
 **Still open on this task:** `/code-review` has not run, and the test-only follow-up commit was awaiting Jenkins' multibranch scan at hand-off. The DoD's *"`/code-review` + QA coverage pass converged"* is therefore **not** satisfied yet — the task is `in_review`, not `done`.
+
+## T-102's code review found a cross-person write, and this board had it mislabelled (2026-08-20)
+
+`/code-review` on [cv-domain-service#5](https://github.com/erfeamor/cv-domain-service/pull/5) returned one HIGH and two LOW. All three are fixed in that PR (`cbe077f`).
+
+**The HIGH is the one worth reading, because this board had already seen it and waved it through.** T-102's test plan carried it as a coverage risk, in these words:
+
+> *A client-supplied `"id": 999` in a POST body must not override the generated id. `PersonController.create` has the same exposure — flag, don't block, don't fix here.*
+
+That is wrong about the impact, and the wrongness is what carried it unfixed through refinement, implementation **and** stage-4 QA. It is not an id override. It is an **authenticated cross-person write**:
+
+1. `Education.id` is a private field with no setter — which reads as un-bindable. Jackson's `INFER_PROPERTY_MUTATORS` binds it anyway (verified empirically, not argued: `getId() == 999`).
+2. A non-null id makes Spring Data's `save()` take `merge()` instead of `persist()`.
+3. `create()` has already set the owning person to the **caller's**.
+4. Net statement: `UPDATE education SET person_id = <caller>, … WHERE id = 999` — **another person's row is overwritten and handed to the caller, with `201` and the victim's id in the response.**
+
+That is precisely the write `findByIdAndPersonId` scopes PUT and DELETE against (DoR ruling 2), arriving through the one verb with no existing row to scope to. **Fixed inside T-102** rather than deferred: shipping new code carrying a known cross-person write, because a task file said "flag, don't block", would be following process off a cliff. The test was confirmed **red first** — `201` where `400` is required.
+
+**`PersonController` and `ExperienceController` have it identically and are already on `master`** — filed as **[T-107](T-107-post-id-cross-person-write.md)**, `risk: high`. Its DoR asks whether the answer is three local guards or one global one (`@JsonProperty(access = READ_ONLY)`, or disabling `INFER_PROPERTY_MUTATORS`), because the global answer would also cover **T-103 and T-104 before they are written** — otherwise those two arrive with the same hole and need the same retrofit.
+
+**Context, recorded so nobody either panics or relaxes too far:** `/api/v1/**` requires a valid Cognito JWT in the deployed config, and since [T-022](T-022-domain-service-origin-bypasses-cloudfront.md) the origin is reachable only through CloudFront. So this is an *authenticated* attack and today the only credentials are the owner's. It becomes materially worse the moment the demo has a second user.
+
+**The failure class, in a new costume.** [T-020](T-020-cost-model-correction.md) was a stale *number*. The T-002 board line was a stale *status*. This was a stale *severity assessment* — written down once in words that undersold it, then honoured by every later reader, including the person implementing the resource it undermined. The flag was not ignored. It was believed.
