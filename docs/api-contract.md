@@ -1,6 +1,6 @@
 # API contract — CV section resources (v1)
 
-Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF public edge path, anonymous reads, `/metrics` exposure) · **2026-08-13 — T-006** (collection ordering). Changes require a PR to this file plus sign-off in the task that consumes it. All tasks in `.claude/tasks/` targeting the domain model implement *this* document — when in doubt, this file wins over any task prose.
+Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF public edge path, anonymous reads, `/metrics` exposure) · **2026-08-13 — T-006** (collection ordering) · **2026-08-20 — T-024** (skill-assignment PUT: request body split from response body). Changes require a PR to this file plus sign-off in the task that consumes it. All tasks in `.claude/tasks/` targeting the domain model implement *this* document — when in doubt, this file wins over any task prose.
 
 ## Design rules
 
@@ -90,13 +90,20 @@ Catalog (global):
 
 Assignments (person-scoped):
 
-| Verb | Path | Returns |
-|---|---|---|
-| GET | `/api/v1/people/{personId}/skills` | 200, array of `{ skillId, name, category, proficiency }` |
-| PUT | `/api/v1/people/{personId}/skills/{skillId}` | 200, body `{ "proficiency": "ADVANCED" }` — upsert |
-| DELETE | `/api/v1/people/{personId}/skills/{skillId}` | 204 |
+| Verb | Path | Request body | Returns |
+|---|---|---|---|
+| GET | `/api/v1/people/{personId}/skills` | — | 200, array of `{ skillId, name, category, proficiency }` |
+| PUT | `/api/v1/people/{personId}/skills/{skillId}` | `{ "proficiency": "ADVANCED" }` | 200, the assignment — `{ skillId, name, category, proficiency }` |
+| DELETE | `/api/v1/people/{personId}/skills/{skillId}` | — | 204 |
 
 `proficiency` ∈ `BEGINNER | INTERMEDIATE | ADVANCED | EXPERT` (matches the `person_skill` enum in cv-database).
+
+**The assignment PUT, spelled out** (amended 2026-08-20, T-024). The `Returns` column previously carried `200, body { "proficiency": "ADVANCED" } — upsert`, conflating the request with the response: it was the only cell in this document showing a request body inline, and read literally it made PUT return a different shape than GET on the same resource. It is now two columns, and the semantics are stated rather than inferred:
+
+- **Request body** is `{ "proficiency": ... }` alone. `personId` and `skillId` come from the path and must not be repeated in the body.
+- **Response body** is the **same shape the GET returns for one element** — `{ skillId, name, category, proficiency }`, the joined view including the catalog's `name` and `category`. A GET and a PUT on one resource return the same shape; nothing here asks for two answers.
+- **`200` on both branches.** PUT is an upsert: it returns `200` whether it created the assignment or updated an existing one. There is deliberately **no `201` variant** — unlike `POST /api/v1/skills`, which is explicitly `201`. Absence of a 201 in this table is now a stated rule, not an inference.
+- Unknown `personId` **or** unknown `skillId` → `404` (design rule 4). A person and skill that both exist with no assignment linking them is not an unknown id: PUT **creates** it and returns `200`, while DELETE returns `404` because there is no existing resource to remove. The two verbs diverge on "absent" on purpose.
 
 ## BFF (cv-bff-node)
 
