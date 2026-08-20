@@ -7,7 +7,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-101](T-101-experience-resource.md) | Experience resource in the domain API | cv-domain-service | done | backend-developer | — | [#3](https://github.com/erfeamor/cv-domain-service/pull/3) |
-| [T-102](T-102-education-resource.md) | Education resource in the domain API | cv-domain-service | in_review (**A1 + stage-4 QA green**) | backend-developer | — | [#5](https://github.com/erfeamor/cv-domain-service/pull/5) |
+| [T-102](T-102-education-resource.md) | Education resource in the domain API | cv-domain-service | done (**A1 + stage-4 QA + review**) | backend-developer | — | [#5](https://github.com/erfeamor/cv-domain-service/pull/5) |
 | [T-103](T-103-skills-catalog-and-assignments.md) | Skill catalog + person-skill assignments | cv-domain-service | todo (H1 done) | | — | |
 | [T-104](T-104-project-resource.md) | Project resource in the domain API | cv-domain-service | todo (H1 done) | | — | |
 | [T-105](T-105-experience-ordering-retrofit.md) | Retrofit contract ordering onto the merged Experience resource | cv-domain-service | todo | | T-006 | |
@@ -260,7 +260,7 @@ Structural twin of T-101 as specified: same package shape, same four rulings, sa
 
 **A control for [T-026](T-026-first-build-after-cold-start-fails.md):** T-102's first push landed on an *already-running* box and its first build succeeded, where the cold-start push earlier the same morning failed on its first build. That is one data point, not a proof, but it points at cold start specifically rather than at first-builds generally — recorded there.
 
-**Still open on this task:** `/code-review` has not run, and the test-only follow-up commit was awaiting Jenkins' multibranch scan at hand-off. The DoD's *"`/code-review` + QA coverage pass converged"* is therefore **not** satisfied yet — the task is `in_review`, not `done`.
+**Closed out:** `/code-review` ran and its three findings were fixed in the PR (see the section below); all three commits on the branch built green on Jenkins. **Merged as `42abe91`.** M2 is now **two of eleven**.
 
 ## T-102's code review found a cross-person write, and this board had it mislabelled (2026-08-20)
 

@@ -2,7 +2,7 @@
 id: T-102
 title: Education resource in the domain API
 repo: cv-domain-service
-status: in_review
+status: done
 owner: backend-developer
 branch: feat/education-resource
 pr: https://github.com/erfeamor/cv-domain-service/pull/5
@@ -10,9 +10,9 @@ depends_on: []
 risk: normal
 security_review: false   # promoted 2026-08-20: the value already existed at checkpoint.security_review and was missing at top level, where the board and the driver read it. Same shape as T-011's pr: bug. Value unchanged — this is not a new ruling.
 checkpoint:
-  stage: pr                 # implemented 2026-08-20 from the H1 checkpoint, as the reset_note directed
+  stage: done               # merged as 42abe91 (cv-domain-service#5), 2026-08-20; implemented from the H1 checkpoint, as the reset_note directed
   a1: "mvn -B test 64 passed 0 failures (education adds 26) · mvn -B checkstyle:check 0 violations · mvn -B package -DskipTests clean"
-  jenkins: "PR-5 build #1 SUCCESS on the code commit (ac64985). A test-only follow-up commit (b25ba628, the C7 tightening below) was awaiting the multibranch scan at hand-off — SCM-scan latency is inherent to T-019 ruling 1, not a failure."
+  jenkins: "Three builds, all SUCCESS: #1 on the code commit (ac64985), #2 on the C7 tightening (b25ba628), #3 on the code-review fixes (cbe077f). Every commit on this branch was built green before merge."
   stage4: |
     RUN 2026-08-20 against live MySQL 8.4, slot 1 (ports +20: mysql 3326, domain-service 8100),
     per the task's own QA plan. 18 of 18 checks passed. Stack torn down with -v afterwards.
