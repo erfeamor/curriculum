@@ -2,12 +2,12 @@
 id: T-106
 title: "Stop serving the OpenAPI spec and Prometheus metrics to anonymous callers"
 repo: cv-domain-service
-status: in_review
+status: done
 owner: backend-developer
 branch: fix/restrict-openapi-actuator
 pr: https://github.com/erfeamor/cv-domain-service/pull/4
 checkpoint:
-  stage: pr
+  stage: done               # merged as 4f38f77 (cv-domain-service#4), 2026-08-20
   dor_answers: |
     §1 Disable, or authenticate? AUTHENTICATE. Disabling springdoc would need a new env toggle
        to keep local dev usable; requiring auth reuses the AUTH_ENABLED toggle that already
