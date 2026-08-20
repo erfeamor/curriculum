@@ -2,10 +2,53 @@
 id: T-022
 title: "The domain service is directly reachable on :8080, bypassing CloudFront — and leaks its OpenAPI spec"
 repo: cv-infra
-status: todo
-owner:
+status: in_review
+owner: infrastructure-engineer
 branch: fix/scope-domain-service-ingress
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/20
+checkpoint:
+  stage: applied-and-verified
+  applied: "2026-08-20. Plan was 0 to add, 1 to change, 0 to destroy — in-place SG modification, no instance replacement, so DoR §4 is answered and T-021's db_password precondition does not apply. A second apply reported No changes (idempotent)."
+  dor_answers: |
+    §1 Does anything legitimately call 8080 directly? NO — established by evidence, not assumption:
+       - the DEPLOYED admin bundle (s3://cv-project-frontend-dev/admin/assets/index-C5mlE1U5.js)
+         calls a RELATIVE "/api/v1/people", so it goes through CloudFront. It contains no raw
+         IP and no :8080 endpoint (the two "8080" hits are inside the React version string
+         18.3.1-next-f1338f8080). This was the real silent-outage risk and it is clear.
+       - cv-observability is NOT deployed in AWS: observability.tf holds only CloudWatch log
+         groups, and no prometheus/scrape/9090 reference exists in any .tf or template.
+       - the BFF (T-014) will reach the domain service container-to-container on the cv docker
+         network, never through this security group.
+       - local dev is a different network entirely.
+    §2 Prefix-list quota: the list held 46 entries on 2026-08-20 against a 60-rule inbound
+       quota. ONE reference fits with 14 to spare. TWO DO NOT (46+46=92) — see the T-014 note.
+    §3 Description left untouched (ForceNew, no create_before_destroy); a comment now says so
+       and a test assertion pins the string.
+    §4 In-place, confirmed in the plan. No instance replacement.
+  verification: |
+    By request from outside AWS, before and after.
+    BEFORE:  :8080/v3/api-docs 200 (full springdoc doc) · /actuator/health 200 · /api/v1/people/1 401
+    AFTER:   all three TIME OUT on :8080
+    EDGE (unchanged, before and after): cf /api/v1/people/1 401 · cf /v3/api-docs 403 · cf /admin/ 200
+    The 401 through CloudFront is the proof the origin is still reachable from the edge — an
+    unreachable origin returns 502/504, not 401.
+    NOT VERIFIED: the admin UI loading its people list with a real Cognito JWT. That needs an
+    interactive login and is the one acceptance criterion still outstanding. The anonymous 401
+    is strong evidence the path is intact but it is not the same check.
+  gates: "terraform fmt -check -recursive clean · terraform validate Success · terraform test 4 passed, 0 failed. The new assertions were proven non-vacuous by temporarily re-adding cidr_blocks 0.0.0.0/0 and confirming the guard fails."
+  security_review: |
+    RUN 2026-08-20 (forced by adapter §5 — security_group ingress). ONE MEDIUM finding, no HIGH.
+    Finding: com.amazonaws.global.cloudfront.origin-facing is shared by EVERY CloudFront
+    customer, so the SG now authenticates "some distribution", not ours. An attacker can point
+    their own distribution at 15.236.195.130:8080 and still read /v3/api-docs, because the 403
+    on that path is a behaviour of OUR distribution, not of the origin. frontend.tf sends no
+    shared-secret header and the origin validates nothing.
+    Disposition: NOT fixed here. Both halves live in other repos or exceed these acceptance
+    criteria (board rule 3), and this task's own body already said springdoc hardening belongs
+    in its own task. Filed as T-025 (shared-secret origin header, cv-infra + cv-domain-service)
+    and T-106 (stop serving the spec and metrics anonymously, cv-domain-service).
+    This is a residual gap in the approach, NOT a regression: the change strictly narrows an
+    exposure that was 0.0.0.0/0, and the direct-to-EIP path is genuinely closed.
 depends_on: []
 risk: normal
 security_review: true
@@ -82,3 +125,14 @@ PR open against `master` from `fix/scope-domain-service-ingress`, gates green, a
 - **Sequencing:** doing this **before** [T-014](T-014-deploy-bff-to-aws.md) is cheaper — T-014's ruling 1 then follows an existing pattern instead of inventing one, and the reviewer sees one consistent approach across both ports. It is not a hard dependency in either direction.
 - **Do not fold this into T-014.** That was the explicit decision at T-014's refinement: a deployment task should not silently re-scope a pre-existing exposure it happened to notice.
 - The exposure is **pre-existing and predates the BFF work** — it is not a regression introduced by any recent task. It stayed invisible for the same reason the BFF gap did: the admin works, so nobody looked at what else answered.
+
+## Follow-ups filed from this task's security review (2026-08-20)
+
+The forced `/security-review` returned one MEDIUM finding: **the CloudFront origin-facing prefix list is shared by all CloudFront customers**, so scoping to it proves a request came from CloudFront, not from *our* distribution. An attacker's own distribution still reaches this origin and still reads `/v3/api-docs`.
+
+Neither remedy belongs in this PR — one is cross-repo, the other is in `cv-domain-service`, and this task's own scope section said so before the review existed:
+
+- **[T-025](T-025-verify-requests-come-from-our-cloudfront.md)** — shared-secret `custom_header` on the origin, validated by the Java app. Closes the bypass *class*: every edge control, not just this one path.
+- **[T-106](T-106-restrict-openapi-and-actuator-exposure.md)** — stop `permitAll`-ing `/v3/api-docs`, `/swagger-ui/**` and `/actuator/prometheus`. Closes *this* disclosure cheaply, and is the whole answer if T-025 is declined at its H1.
+
+**What this task did and did not achieve, stated plainly:** the direct-to-EIP path is closed and proven closed. The claim *"`/v3/api-docs` becomes unreachable from the internet"* in the scope section above is **too strong** — it is unreachable *directly*. Reaching it now requires standing up a CloudFront distribution, which is a real cost increase for an attacker and no kind of guarantee.
