@@ -66,7 +66,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution | cv-infra + cv-domain-service | todo | | T-022 | |
 | [T-026](T-026-first-build-after-cold-start-fails.md) | First Jenkins build after a cold start fails (`No build record could be located`) | cv-infra | todo | | T-019 | |
 | [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) | Contract: the ordering note prescribes SQL syntax for a JPQL context (**T-104 hits it next**) | cv-project (meta) | todo | | — | |
-| [T-028](T-028-qa-env-generator-worktree-build-context.md) | QA stack builds `master`, not the worktree under test (**silent false pass**) | cv-project (meta) | todo | | — | |
+| [T-028](T-028-qa-env-generator-worktree-build-context.md) | QA stack builds `master`, not the worktree under test (**silent false pass**) | cv-project (meta) | done (**bind mounts too; T-151's failure mode closed**) | infrastructure-engineer | — | [#49](https://github.com/erfeamor/curriculum/pull/49) |
 
 **Cost model is stale as of 2026-08-14 — the documented figures understate real burn by a third.** `cv-infra/CLAUDE.md` and T-010's runway both encode *~$0.92/day ≈ $28/month*. The 2026-08-08 `t3.micro`→`t3.small` resize of the CI host (T-002, deliberate, for Maven headroom) took the real rate to **~$1.23/day ≈ $37.30/month**, verified against the August cost export and `describe-instances`. Consequences: the credits deplete **~25% sooner in elapsed time**, which moves T-012's date; and the `$30` monthly budget is now **structurally exceeded (~124%)**, so its 100/120% thresholds will fire every month from September — an alarm that always fires stops being a signal. Note [cv-infra#14](https://github.com/erfeamor/cv-infra/pull/14) deliberately refused to raise that limit, so this needs a decision rather than a bump. **T-014 may push it further** — its own watch-outs say the domain-service box may need `t3.small` for RAM, another +$8.62/month → ~$46. [T-019](T-019-ci-host-on-demand.md) is the largest available offset (~$17.24/month).
 
@@ -375,3 +375,31 @@ T-103 was greenfield and got lucky: QA proved provenance by observing that `GET 
 **Nobody retriggered it.** Pushing the branch and opening the PR fire two separate webhook deliveries, so build #2 ran on the warm box unattended. GitHub's status API keeps only the latest state per context, so **the PR renders green and the failure is invisible** unless someone reads the full status history. T-026's *"every developer's first push after an idle period gets a red X"* is therefore too strong for the normal push-then-PR workflow — and unchanged for a push to an existing branch, where the red stands and gets blamed on the code. Corrected in the task; the diagnostic signature is untouched.
 
 A caution now written into T-026: **`gh pr checks` will report `pass` while a failed build sits in the history**, so anyone verifying the eventual fix through it will "confirm" a fix that never ran.
+
+## T-028 merged — the QA stack now builds and mounts the tree under test (2026-08-21)
+
+Merged as `74be2c8` ([#49](https://github.com/erfeamor/curriculum/pull/49)), five commits, `scripts/` only, **33 tests wired into `scripts/test-all.sh`**.
+
+**The defect it closes, restated because the fix is easy to under-read:** `docker-compose.dev.yml` wires every repo from the **main checkout**, which sits on `master`, while every dev-loop task runs on a **worktree**. Stage-4 QA was therefore capable of exercising code that did not contain the change under test — and it **fails toward a false pass**: an additive task 404s loudly, but a *modifying* task answers plausibly on every endpoint while QA signs off on a binary without the change.
+
+### The most important thing this task learned is that its own model was wrong
+
+The first implementation handled `build:` contexts, which is what [T-028's DoR ruling 3](T-028-qa-env-generator-worktree-build-context.md) told it to handle. `/code-review` found that ruling **incomplete on a repo this task explicitly cross-links**: `flyway` bind-mounts `./cv-database/sql` and `grafana` bind-mounts `./cv-observability/grafana/provisioning`, neither is a build context, and neither was ever visible to the matcher.
+
+So [T-151](T-151-dev-seeds-cv-sections.md) would have seeded from **master's SQL**, its non-idempotent seeds would have duplicated exactly as before, and the generator would have printed *"no service repointed: task repo 'cv-database' is not built by docker-compose.dev.yml"* — **which reads as "nothing to do here".** The identical silent false pass, surviving the fix, wearing reassuring output. Now proven closed end to end, with the mount source inspected live **and** the seeded row read back (`T-028-BIND-PROBE` vs master's `Terraform`).
+
+### Three corrections that outlive the code
+
+1. **This task's AC1 was wrong** — *"a bring-up whose service reports code only present on the branch"* encodes the **additive** tell that T-103 passed by luck, and contradicted the modifying-task criterion directly below it. Struck. **That is the third acceptance criterion in two days found wrong by the person implementing against it**, after T-103's `@Transactional` boundary and T-104's inherited *"flag, don't block"*. The specifications, not the implementations, are this board's weak link — and all three were caught only because the implementer was told the spec was open to challenge.
+2. **A guard was believed to cover a case it did not.** `/code-review` offered `git rev-parse --show-toplevel` as closing `--worktree ~/work/curriculum/cv-domain-service`. It does not: the main product checkout **is** a valid work-tree root. Only the branch check catches it. Corrected in the record because an inherited belief that a guard covers a case it doesn't is exactly how T-107's cross-person write survived three weeks behind a green test.
+3. **A stale handler, not a wrong one.** The `try/except` was correct when written and went stale when the function beside it grew a new failure mode — so a `WorktreeError` escaped as a raw traceback. Fixed by *widening* the block rather than adding a second handler, so a future raiser is covered by construction. QA found it at stage 4; none of the 32 tests reached that path.
+
+### Two consequences the board now owns
+
+**[Board hygiene is load-bearing.](T-103-skills-catalog-and-assignments.md)** `checkpoint.worktree` now makes a repoint **mandatory** — a closed task still declaring a path makes every later bring-up for it exit 1. That is deliberate (loud, overridable with `--no-worktree-check`), but **"clear `checkpoint.worktree` at close-out" is now a convention with a tool depending on it.** T-103's entry is cleared accordingly; do the same at every close-out.
+
+**Mount provenance is permanently weaker than build-label provenance.** Build labels are an image property and survive teardown; a bind mount leaves no trace beyond `docker inspect .Mounts`, which exists **only while the stack is up** and cannot be reconstructed. QA's adopted rule: for any bind-mount-only task (`cv-database`, `cv-observability`), sign-off requires **both** the `.Mounts` capture **and** an independent behavioural check. The pairing is the proof. **[T-151](T-151-dev-seeds-cv-sections.md) is the first task this binds.**
+
+### The check that proved the check
+
+T-103 began exiting 0 where it had exited 1, immediately after the driver cleared its `checkpoint.worktree` — indistinguishable from the guard having silently broken. QA ran the identical invocation against a scratch copy of the **old** board file: exit 1, same message. Same code, same task, same missing worktree; only the board content differed. **The check works; the board changed.** Recorded because "the signal agrees with itself" is this task's whole subject, and the driver's own edit was the likeliest place for it to recur.

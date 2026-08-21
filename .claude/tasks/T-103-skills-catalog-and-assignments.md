@@ -61,7 +61,9 @@ checkpoint:
   reset_note: "Claim reset 2026-08-09: status was in_progress with owner backend-developer, but NO implementation existed — worktree sat at master's tip (d78ef27) with 0 changed files and no remote branch. The stale claim blocked re-pickup under board rule 1 ('if owner: is already set, pick another task'), parking three of the five wave-1 tasks behind a status that was not true. NOTE this is NOT a fresh todo: stage H1 is real — refinement and the DoR/test plan in this file were completed and ratified, so whoever picks it up starts at implementation, not refinement. The local worktree and branch still exist and are reusable."
   repo: cv-domain-service
   branch: feat/skills-resource
-  worktree: /home/erfeamor/work/cvdl-worktrees/T-103
+  worktree: none      # cleared at close-out 2026-08-21. It WAS /home/erfeamor/work/cvdl-worktrees/T-103, removed after the merge.
+                      # Clearing it is now load-bearing, not tidiness: T-028 makes checkpoint.worktree a HARD REQUIREMENT --
+                      # a closed task still declaring a path makes every later bring-up for it exit 1. Convention: clear this at close-out.
   pr:
   developer: backend-developer
   reviewers: [code-review, quality-assurance]
