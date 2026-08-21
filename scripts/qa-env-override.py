@@ -324,12 +324,11 @@ def mount_exposures(compose: dict, repo: str):
     return found
 
 
-def declared_branch(task: str, tasks_dir: Path = TASKS_DIR):
-    """(branch, task_file) from the board's frontmatter, or (None, None).
+def board_frontmatter(task: str, tasks_dir: Path = TASKS_DIR):
+    """(frontmatter dict, task_file) for a board entry, or (None, None).
 
-    Finding 2: labels that merely agree with the tree they were stamped from are
-    self-consistent, not corroborating. The board says which branch the task is
-    supposed to be on; comparing against it is an exact check, not a heuristic.
+    The board is authoritative about the task but must never be *required*: the
+    generator has to stay usable for ad-hoc stacks with no board entry at all.
     """
     try:
         candidates = sorted(tasks_dir.glob(f"{task}-*.md")) + \
@@ -341,13 +340,58 @@ def declared_branch(task: str, tasks_dir: Path = TASKS_DIR):
         if not text.startswith("---"):
             continue
         try:
-            front = yaml.safe_load(text.split("---", 2)[1]) or {}
+            front = yaml.safe_load(text.split("---", 2)[1])
         except yaml.YAMLError:
             continue
-        branch = front.get("branch")
-        if branch and str(branch).strip():
-            return str(branch).strip(), path
+        if isinstance(front, dict):
+            return front, path
     return None, None
+
+
+def declared_branch(task: str, tasks_dir: Path = TASKS_DIR):
+    """(branch, task_file) from the board's frontmatter, or (None, None).
+
+    Finding 2: labels that merely agree with the tree they were stamped from are
+    self-consistent, not corroborating. The board says which branch the task is
+    supposed to be on; comparing against it is an exact check, not a heuristic.
+    """
+    front, path = board_frontmatter(task, tasks_dir)
+    if not front:
+        return None, None
+    branch = front.get("branch")
+    if branch and str(branch).strip():
+        return str(branch).strip(), path
+    return None, None
+
+
+# Values of checkpoint.worktree that mean "this task legitimately has none".
+_NO_WORKTREE = {"none", "null", "n/a", "-", ""}
+
+
+def declared_worktree(task: str, tasks_dir: Path = TASKS_DIR):
+    """(declared path, task_file) when the board says this task runs on a
+    worktree, else (None, task_file | None).
+
+    Three states, and the difference matters:
+      * `checkpoint.worktree: /path/...`  → a repoint is REQUIRED. Exiting 0 with
+        "no service repointed" here is the reassuring-message failure mode this
+        whole task exists to remove, one level up.
+      * `checkpoint.worktree: none`       → a real configuration (cv-infra cannot
+        be worked from a worktree), not an omission. Proceed silently.
+      * no entry, no checkpoint, no key    → invent nothing. The tool must stay
+        usable outside the board.
+    """
+    front, path = board_frontmatter(task, tasks_dir)
+    if not front:
+        return None, None
+    checkpoint = front.get("checkpoint")
+    value = checkpoint.get("worktree") if isinstance(checkpoint, dict) else None
+    if value is None:
+        return None, path
+    text = str(value).strip()
+    if text.lower() in _NO_WORKTREE:
+        return None, path
+    return text, path
 
 
 def provenance_labels(task: str, ident: dict) -> dict:
@@ -496,6 +540,12 @@ def main(argv=None):
                          "the `branch:` field of the task's board file, when it "
                          "declares one. A worktree left on master resolves, "
                          "builds and stamps labels that agree with themselves")
+    ap.add_argument("--no-worktree-check", action="store_true",
+                    help="skip the board's worktree requirement (stale board "
+                         "entry, or a deliberate main-checkout run)")
+    ap.add_argument("--tasks-dir", default=str(TASKS_DIR),
+                    help=f"the task board read for `branch:` and "
+                         f"`checkpoint.worktree` (default: {TASKS_DIR})")
     ap.add_argument("--no-branch-check", action="store_true",
                     help="skip the expected-branch check (detached HEAD, "
                          "throwaway probes, tasks whose board entry is stale)")
@@ -548,7 +598,7 @@ def main(argv=None):
         if args.expect_branch:
             expect_branch, expect_source = args.expect_branch, "--expect-branch"
         else:
-            declared, task_file = declared_branch(args.task)
+            declared, task_file = declared_branch(args.task, Path(args.tasks_dir))
             if declared:
                 expect_branch, expect_source = declared, f"{task_file.name} frontmatter"
     if ident and expect_branch and ident["branch"] != expect_branch:
@@ -615,9 +665,28 @@ def main(argv=None):
                 f"change to that path")
     note = "\n       ".join(notes)
 
-    if args.require_worktree and not (build_report or mount_report):
-        sys.exit(f"qa-env-override: --require-worktree: nothing was repointed.\n"
-                 f"       {note}")
+    # A repoint can be required by the caller (--require-worktree) or by the
+    # board itself. The board case is the one that matters: the pipeline's
+    # documented invocation is `--task --slot` with no flags, so a requirement
+    # that only a flag can express is closed on paper and open in practice.
+    board_worktree, board_file = (None, None)
+    if not args.no_worktree_check:
+        board_worktree, board_file = declared_worktree(args.task, Path(args.tasks_dir))
+    if not (build_report or mount_report):
+        if board_worktree:
+            sys.exit(
+                f"qa-env-override: {args.task} declares a worktree but nothing "
+                f"was repointed.\n"
+                f"       {board_file.name} declares checkpoint.worktree: "
+                f"{board_worktree}\n"
+                f"       {note}\n"
+                f"       Refusing: this stack would exercise the MAIN CHECKOUT "
+                f"(master) and QA would sign off on a binary without the change.\n"
+                f"       Pass --worktree PATH, or --no-worktree-check if the "
+                f"board entry is stale.")
+        if args.require_worktree:
+            sys.exit(f"qa-env-override: --require-worktree: nothing was repointed.\n"
+                     f"       {note}")
 
     header = (
         f"# GENERATED by scripts/qa-env-override.py — do not edit by hand.\n"
@@ -703,6 +772,7 @@ def main(argv=None):
             "worktree": ident,
             "worktree_note": wt_note,
             "expect_branch": expect_branch,
+            "board_worktree": board_worktree,
             "build": build_report,
             "mounts": mount_rewrites,
             "unrepointed_exposures": (

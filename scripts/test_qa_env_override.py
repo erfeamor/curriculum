@@ -296,5 +296,79 @@ class CommandLine(unittest.TestCase):
                          [f"{wt}/sql:/flyway/sql:ro"])
 
 
+class BoardWorktreeRequirement(unittest.TestCase):
+    """checkpoint.worktree drives the requirement, because the pipeline's
+    documented invocation carries no flags — a check nobody remembers to run is
+    worth nothing. But a missing board entry must never invent one."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.tasks = Path(self.tmp.name) / "tasks"
+        self.tasks.mkdir(parents=True)
+        self.root = Path(self.tmp.name) / "worktrees"
+        self.root.mkdir()
+        self.addCleanup(self.tmp.cleanup)
+
+    def board(self, task, frontmatter):
+        (self.tasks / f"{task}-x.md").write_text(f"---\n{frontmatter}---\nbody\n")
+
+    def run_cli(self, *args):
+        return subprocess.run(
+            [sys.executable, str(SCRIPT), "--stdout", "--slot", "9",
+             "--tasks-dir", str(self.tasks), "--worktree-root", str(self.root), *args],
+            capture_output=True, text=True, cwd=str(REPO_ROOT))
+
+    # --- unit: the three states -----------------------------------------
+    def test_declared_path_is_a_requirement(self):
+        self.board("T-500", "checkpoint:\n  worktree: /wt/T-500\n")
+        value, path = qeo.declared_worktree("T-500", self.tasks)
+        self.assertEqual(value, "/wt/T-500")
+        self.assertEqual(path.name, "T-500-x.md")
+
+    def test_none_is_a_configuration_not_an_omission(self):
+        self.board("T-501", "checkpoint:\n  worktree: none   # cv-infra, local backend\n")
+        self.assertIsNone(qeo.declared_worktree("T-501", self.tasks)[0])
+
+    def test_no_checkpoint_key_and_no_entry_invent_nothing(self):
+        self.board("T-502", "id: T-502\nbranch: feat/x\n")           # no checkpoint
+        self.assertEqual(qeo.declared_worktree("T-502", self.tasks)[0], None)
+        self.board("T-503", "id: T-503\ncheckpoint:\n  stage: implement\n")  # no key
+        self.assertIsNone(qeo.declared_worktree("T-503", self.tasks)[0])
+        self.assertEqual(qeo.declared_worktree("T-999", self.tasks), (None, None))
+
+    def test_malformed_checkpoint_does_not_raise(self):
+        self.board("T-504", "checkpoint: implement\n")   # scalar, not a mapping
+        self.assertIsNone(qeo.declared_worktree("T-504", self.tasks)[0])
+
+    # --- CLI: the states that must differ in exit code -------------------
+    def test_state_1_declared_but_nothing_repointed_is_fatal(self):
+        self.board("T-500", "checkpoint:\n  worktree: /wt/T-500\n")
+        r = self.run_cli("--task", "T-500")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("T-500-x.md declares checkpoint.worktree: /wt/T-500", r.stderr)
+        self.assertIn("MAIN CHECKOUT", r.stderr)
+
+    def test_state_1_is_satisfied_by_an_actual_repoint(self):
+        make_repo(self.root / "T-500", "git@github.com:erfeamor/cv-database.git",
+                  branch="feat/x")
+        self.board("T-500", "branch: feat/x\ncheckpoint:\n  worktree: "
+                            f"{self.root / 'T-500'}\n")
+        r = self.run_cli("--task", "T-500")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("repointed mount flyway", r.stderr)
+
+    def test_state_2_and_3_exit_zero(self):
+        self.board("T-501", "checkpoint:\n  worktree: none\n")
+        self.assertEqual(self.run_cli("--task", "T-501").returncode, 0)
+        self.board("T-502", "id: T-502\n")
+        self.assertEqual(self.run_cli("--task", "T-502").returncode, 0)
+        self.assertEqual(self.run_cli("--task", "T-999").returncode, 0)  # no entry
+
+    def test_opt_out_flag(self):
+        self.board("T-500", "checkpoint:\n  worktree: /wt/T-500\n")
+        r = self.run_cli("--task", "T-500", "--no-worktree-check")
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
