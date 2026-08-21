@@ -237,7 +237,16 @@ def rewrite_mount_source(source: str, repo: str, worktree: Path):
     if repo not in parts:
         return None, "does not point into the task repo"
     tail = parts[parts.index(repo) + 1:]
-    return str(worktree.joinpath(*tail)), "repointed"
+    target = worktree.joinpath(*tail)
+    if not target.exists():
+        # Docker would create this as an empty root-owned directory and the
+        # service would come up looking healthy with nothing in it — a seed-less
+        # flyway run passes for the same reason a master build does.
+        raise WorktreeError(
+            f"bind mount {source} maps to {target}, which does not exist in the "
+            f"worktree.\n       The compose file and the repo layout disagree; "
+            f"mounting it would give the stack an empty directory.")
+    return str(target), "repointed"
 
 
 def match_mount_services(compose: dict, repo: str, worktree: Path):

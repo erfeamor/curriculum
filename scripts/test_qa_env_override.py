@@ -83,16 +83,35 @@ class BuildContextDiscovery(unittest.TestCase):
 class MountRewriting(unittest.TestCase):
     WT = Path("/wt/T-151")
 
+    def setUp(self):
+        # rewrite_mount_source checks the target exists; give it a real tree.
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.WT = Path(self._tmp.name)
+        for sub in ("sql", "grafana/provisioning"):
+            (self.WT / sub).mkdir(parents=True, exist_ok=True)
+
     def test_rewrites_only_the_host_side(self):
         new, reason = qeo.rewrite_mount_source("./cv-database/sql", "cv-database", self.WT)
-        self.assertEqual(new, "/wt/T-151/sql")
+        self.assertEqual(new, str(self.WT / "sql"))
         self.assertEqual(reason, "repointed")
+
+    def test_missing_target_in_the_worktree_is_fatal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            wt = Path(tmp)
+            (wt / "sql").mkdir()
+            self.assertEqual(
+                qeo.rewrite_mount_source("./cv-database/sql", "cv-database", wt)[0],
+                str(wt / "sql"))
+            with self.assertRaises(qeo.WorktreeError) as cm:
+                qeo.rewrite_mount_source("./cv-database/seeds", "cv-database", wt)
+            self.assertIn("does not exist in the worktree", str(cm.exception))
 
     def test_absolute_source(self):
         new, _ = qeo.rewrite_mount_source(
             "/home/u/work/curriculum/cv-observability/grafana/provisioning",
             "cv-observability", self.WT)
-        self.assertEqual(new, "/wt/T-151/grafana/provisioning")
+        self.assertEqual(new, str(self.WT / "grafana/provisioning"))
 
     def test_named_volume_and_unrelated_and_interpolated(self):
         self.assertIsNone(qeo.rewrite_mount_source("cv-dev-mysql-data", "cv-database", self.WT)[0])
@@ -107,7 +126,7 @@ class MountRewriting(unittest.TestCase):
         """A repo with no build context is still under test when it is mounted."""
         services, rewrites, _ = qeo.match_mount_services(DEV_COMPOSE, "cv-database", self.WT)
         self.assertEqual(sorted(services), ["flyway"])
-        self.assertEqual(services["flyway"], ["/wt/T-151/sql:/flyway/sql:ro"])
+        self.assertEqual(services["flyway"], [f"{self.WT}/sql:/flyway/sql:ro"])
         self.assertEqual(rewrites[0]["from"], "./cv-database/sql")
 
     def test_regression_finding_1_cv_observability(self):
@@ -115,7 +134,7 @@ class MountRewriting(unittest.TestCase):
         self.assertEqual(sorted(services), ["grafana"])
         # the named volume and the container path are untouched
         self.assertIn("cv-dev-grafana-data:/var/lib/grafana", services["grafana"])
-        self.assertIn("/wt/T-151/grafana/provisioning:/etc/grafana/provisioning:ro",
+        self.assertIn(f"{self.WT}/grafana/provisioning:/etc/grafana/provisioning:ro",
                       services["grafana"])
 
     def test_long_form_mount(self):
@@ -125,7 +144,7 @@ class MountRewriting(unittest.TestCase):
             {"type": "volume", "source": "data", "target": "/var"},
         ]}}}
         services, _, _ = qeo.match_mount_services(compose, "cv-database", self.WT)
-        self.assertEqual(services["s"][0]["source"], "/wt/T-151/sql")
+        self.assertEqual(services["s"][0]["source"], str(self.WT / "sql"))
         self.assertEqual(services["s"][0]["target"], "/sql")
         self.assertTrue(services["s"][0]["read_only"])
         self.assertEqual(services["s"][1]["source"], "data")
