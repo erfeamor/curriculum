@@ -27,6 +27,12 @@ for dir in "$ROOT_DIR"/cv-*; do
   test_repo "$dir"
 done
 
+# The meta repo has no product code, but scripts/ carries the QA-stack generator
+# whose failure mode is silent (T-028) — so its tests run here too.
+echo "=== Test: cv-project (meta tooling) ==="
+(cd "$ROOT_DIR" && python3 -m unittest discover -s scripts -p 'test_*.py' -q) \
+  || FAILED+=("cv-project meta tooling")
+
 if [ "${#FAILED[@]}" -gt 0 ]; then
   echo "Tests failed in: ${FAILED[*]}"
   exit 1
