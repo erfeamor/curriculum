@@ -42,6 +42,24 @@ Finished: FAILURE
 
 **Every developer's first push after an idle period gets a red X**, and the fix is "push again" — which nobody will know. It converts T-019's win (the box is up when work needs it) into a papercut that looks like a broken pipeline, and it will be blamed on whatever code happened to be pushed. T-106's PR was the first thing through and it briefly looked like T-106 had broken CI.
 
+**Narrowed 2026-08-21 by T-103 — the fourth reproduction, and the first one that MASKED ITSELF.** T-103's PR ([cv-domain-service#7](https://github.com/erfeamor/cv-domain-service/pull/7)) reproduced the defect exactly, on a box the reaper had stopped at 12:24 the previous day:
+
+```
+06:45:54  error    .../PR-7/1/   "This commit cannot be built"
+06:47:42  success  .../PR-7/2/   "This commit looks good"
+```
+
+**Nobody had to retrigger anything.** Pushing the branch and opening the PR fire *two separate webhook deliveries* — `push` at 06:44:50 and `pull_request` at 06:45:13 — and the second one triggered build #2 on the now-warm box ~90 seconds later. Build #1 died, build #2 passed, unattended.
+
+Two consequences, and they pull in opposite directions:
+
+- **The severity claim above is too strong for the normal workflow.** GitHub's status API keeps only the *latest* state per context, so the PR renders **green** and the failure is invisible unless someone reads the commit's full status history. Anyone whose habit is push-then-immediately-open-a-PR never sees a red X at all. That is most PRs on this board, which is a better explanation than "nobody noticed until T-106" for why a defect this reproducible went unfiled for so long.
+- **It is *worse* for the case the paragraph above describes**, i.e. a push to an existing branch with no PR event behind it. There the red stands, and it is still blamed on the code.
+
+So the papercut is real but **conditional on the shape of the push**, not universal. Fix the defect on the same terms — but drop "every developer's first push" from the argument for prioritising it, because it is not what the evidence shows. **The diagnostic signature is unchanged** (`No build record … could be located`, `Lint` opening and closing having executed nothing), so nothing about the hypothesis below is affected.
+
+**A caution for whoever verifies the fix:** `gh pr checks` reports only the latest status per context and will show `pass` while a failed build sits in the history. Verify against `gh api repos/:owner/:repo/commits/:sha/statuses`, which lists every transition, or you will "confirm" a fix that never ran.
+
 It also **silently weakens T-019's own acceptance criterion**. *"A build that needs the host actually completes end to end while the automation owns the lifecycle"* is now met — by build #3 — but was **not** met by the build the automation itself triggered.
 
 ## What is probably happening — a hypothesis, not a diagnosis

@@ -2,15 +2,62 @@
 id: T-103
 title: Skill catalog + person-skill assignments
 repo: cv-domain-service
-status: todo
-owner:
+status: done
+owner: backend-developer
 branch: feat/skills-resource
-pr:
+pr: https://github.com/erfeamor/cv-domain-service/pull/7
 depends_on: []
 risk: high
 security_review: false   # promoted 2026-08-20: already at checkpoint.security_review, missing at top level where the board and the driver read it. Value unchanged, not a new ruling.
 checkpoint:
-  stage: H1
+  stage: done
+  stage1: |
+    Implemented 2026-08-20 on feat/skills-resource, worktree cvdl-worktrees/T-103,
+    commit 9662745. 13 files: skill/ (Skill, SkillController, SkillRepository) and
+    personskill/ (PersonSkill, PersonSkillId, PersonSkillRepository,
+    PersonSkillController, Proficiency), plus 4 test classes.
+    A1 GREEN, run by the driver: checkstyle 0 violations, 102 tests / 0 failures
+    (37 new), package OK.
+  stage1_incident: |
+    The developer agent DIED mid-run (API connection lost) BEFORE reporting and
+    before committing. The tree was complete and A1-green on disk. The driver
+    verified the work independently rather than trusting a report it never got,
+    then committed the tree (pipeline: committing an already-written tree is
+    driver work, not a spawn). Nothing was re-implemented; one spawn consumed.
+  stage1_verified_by_driver: |
+    Claims the dead agent could not make were checked empirically instead:
+      - T-107 GUARD RED-FIRST: PROVEN, not believed. Guard commented out ->
+        rejectsAClientSuppliedIdInsteadOfMergingOverAnExistingCatalogRow fails
+        "expected:<400> but was:<201>" (the exact vulnerability signature, and the
+        only failure in the class); guard restored -> 9/9 green. This is the check
+        T-101 skipped, and its test asserts verify(never()).save(any()) as well as
+        the status -- the half T-101's version lacked.
+      - SC6 IS THE CATCH-PATH VERSION: save() stubbed to throw
+        DataIntegrityViolationException with no pre-check stubbed; expects 409.
+        Not a duplicate-POST test.
+      - DoR 5/6 asymmetry: two distinct tests, sa4 (PUT unlinked -> 200 creates)
+        and sa13 (DELETE unlinked -> 404 not idempotent 204).
+      - Ordering: explicit @Query with CASE WHEN category IS NULL THEN 1 ELSE 0
+        (NULLs last) and ps.id.skillId as tiebreaker.
+      - @Transactional on the upsert and the delete.
+      - SkillControllerTest declares NO PersonRepository mock, so adding a
+        person-check to the global catalog fails context startup (DoR 7 enforced
+        structurally rather than by review vigilance).
+  a1: "GREEN 2026-08-20 (driver-run): checkstyle:check 0, test 102/0/0, package OK. Risk re-check: high stands; diff touches no adapter-listed security path (no auth/secrets/IAM/CI, SecurityConfig untouched) so /security-review is NOT forced -- matches security_review: false."
+  stage_history: "H1 ratified 2026-08-04 (refinement + DoR + test plan). Claimed at stage 1 on 2026-08-20 by /dev-loop, entering at implementation per reset_note -- refinement deliberately NOT re-run."
+  premises_moved_since_H1: |
+    Three things changed this task's inputs AFTER its H1 was ratified on 2026-08-04.
+    All three are already written into the body; listed here so the developer does not
+    have to infer which parts of a 16-day-old DoR still hold:
+      1. T-024 merged 2026-08-20 -- DoR ruling 1 is now CONTRACT TEXT in
+         docs/api-contract.md Sec.Skills. Build from the contract; the ruling is only
+         the record of where it came from. Rulings 1, 2, 5, 6 are all contract now.
+      2. T-107 merged 2026-08-20 -- ClientSuppliedIds.reject() must be the first line
+         of the catalog create(). See "Carry the T-107 guard". Confirm the test is RED
+         before the guard goes in.
+      3. T-006 added the ordering criterion 2026-08-13, after H1. Two ordered
+         collections, nullable category sorting NULLs-last against MySQL's default,
+         and the tiebreaker is skillId not id.
   reset_note: "Claim reset 2026-08-09: status was in_progress with owner backend-developer, but NO implementation existed — worktree sat at master's tip (d78ef27) with 0 changed files and no remote branch. The stale claim blocked re-pickup under board rule 1 ('if owner: is already set, pick another task'), parking three of the five wave-1 tasks behind a status that was not true. NOTE this is NOT a fresh todo: stage H1 is real — refinement and the DoR/test plan in this file were completed and ratified, so whoever picks it up starts at implementation, not refinement. The local worktree and branch still exist and are reusable."
   repo: cv-domain-service
   branch: feat/skills-resource
@@ -20,12 +67,83 @@ checkpoint:
   reviewers: [code-review, quality-assurance]
   risk: high
   security_review: false
-  review_round: 0
+  review_round: 1
+  review_round_1: |
+    Two reviewers, converged, 2026-08-20.
+    /code-review (high effort): 1 MEDIUM + 1 LOW. It booted the FULL app context
+    (no test in this repo does) and drove the real endpoints, and decompiled
+    Hibernate 6.5.2 to settle two claims empirically rather than by argument.
+      MEDIUM (ACCEPTED AS BLOCKING by PO): the upsert create branch is not
+        race-safe and its javadoc asserts that it is. 500 under a lost race where
+        the contract mandates 200. See the struck acceptance criterion above.
+      LOW: Skill.name @Column omits length=100 -> Hibernate renders varchar(255)
+        against V1's VARCHAR(100). Does NOT fail ddl-auto: validate (verified:
+        AbstractSchemaValidator compares type names only, never calls
+        hasMatchingLength), so nothing misbehaves today; the cost is entity-derived
+        DDL silently widening the column.
+    quality-assurance (coverage lens): NO HIGH findings, ready for stage 3.
+      All 37 tests map 1:1 onto SC1-SC6 / SA1-SA14 / P1-P7 + both ordering cases.
+      Explicitly cleared of the two historical false-green patterns: the T-101
+      mock-fabricates-the-response shape (controller tests use willAnswer passthrough)
+      and the T-102 C7 doesNotExist()-on-a-JSON-null shape (category asserted with
+      value(nullValue())).
+      LOW: DoR 8's check order has no executable test.
+    PO ruling on scope: the contract-prose defect the implementer found (the
+    ordering note prescribes SQL for a JPQL context) is filed as T-027, NOT fixed
+    in this PR (board rule 3). T-104 is its next victim.
+  stage4: |
+    CLEAN, 2026-08-21, live MySQL 8.4 on slot 2. ~90 requests, ZERO 500s anywhere.
+    Every plan bullet PASS; no defects; no bounce-back to the developer.
+      - Native ENUM: all four values round-trip; raw column read via
+        SELECT proficiency, proficiency+0 -> EXPERT / ordinal 4, no drift.
+        Invalid value -> 400 against the real stack.
+      - Duplicate name over HTTP -> 201 then 409, no flush caveat.
+      - CONCURRENT duplicate POST stressed to 8-way (plan asked 2): exactly one
+        201, seven 409s, no 500, one row. The catch path is wired in the running
+        config, not just against a mock.
+      - Upsert round trip PUT/GET/PUT/GET/DELETE/GET all as specified.
+      - Cascade both directions against the real InnoDB FK, verified with two
+        people sharing one skill; catalog row survives person delete.
+      - DELETE of a never-linked pair -> 404, not 204 (DoR 6).
+      - ORDERING with two category=NULL rows: Backend -> Frontend -> Infra ->
+        (Aaa-NoCategory, Zzz-NoCategory). NULLs LAST despite MySQL sorting NULL
+        lowest, with name ASC holding inside the null group.
+      - Isolation: every catalog row traced to seed or to this session. No
+        cross-slot leakage in the one resource that would show it.
+      - NEW PROBE (not in the original plan, added because the race fix postdates
+        it): 10 parallel PUTs x 6 rounds on unlinked pairs -> 60/60 200s, exactly
+        one row per pair, 54 recovered Duplicate entry violations in the log,
+        zero escaped 500s. Independently reproduces the developer's 54 EXACTLY
+        rather than accepting the reported number.
+    Build provenance CONFIRMED: GET /api/v1/skills answered 200 on bring-up, and
+    that endpoint does not exist on master at all -- proving the QA stack built
+    from the worktree, not the main checkout.
+    Stack torn down, volumes removed; verified independently by the driver.
+  stage4_env_trap: |
+    docker-compose.dev.yml builds domain-service from ./cv-domain-service, the MAIN
+    CHECKOUT, which sits on master. Every worktree-based task is therefore invisible
+    to the documented QA bring-up command: the stack would have built master, every
+    skills endpoint would have 404'd, and the run would have reported a false failure
+    -- or passed against the wrong binary. Worked around with a third compose file,
+    docker-compose.override.cvdl_t-103.build.yml, repointing the build context at the
+    worktree. THIS IS AN ADAPTER GAP (section 6 isolates ports and volumes but assumes
+    the code under test lives in the main checkout) and it will hit T-104 and T-151
+    identically. Folded into the next board sync.
+  review_note_worth_keeping: |
+    SC6 turned out to be stronger than the test plan asked for, and structurally so:
+    SkillRepository has no findByName method AT ALL, so a pre-check implementation
+    would not merely be untested -- it would not compile. Likewise SkillControllerTest
+    declares no PersonRepository mock, so adding a person-existence check to the global
+    catalog (a DoR 7 violation) fails context startup. Two rulings enforced by
+    construction rather than by reviewer vigilance, which is the durable form.
+  commit: 83c59ce
+  merged: "2026-08-21 as 2e54394 (squash, PR #7). H2 accepted by the human. Worktree removed, branch deleted local+origin. M2 is now THREE of eleven."
+  pr_opened: "2026-08-20, PR #7, after review round 1 converged. Two commits: 9662745 (implementation) + 83c59ce (race-recovery fix, @Column length, DoR 8 verifies)."
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
   env_slot: 2
-  updated: 2026-08-04
+  updated: 2026-08-20
 ---
 
 ## Goal
@@ -69,7 +187,7 @@ T-107 chose a called guard over a structural `@JsonProperty(access = READ_ONLY)`
 - [ ] `GET /api/v1/people/{personId}/skills` → 200, array of `{skillId, name, category, proficiency}` — no `id`, no `personId`, no nested skill object.
 - [ ] `PUT /api/v1/people/{personId}/skills/{skillId}` upserts with body `{"proficiency": ...}`; 200 on both branches; invalid enum → 400; missing `proficiency` → 400.
 - [ ] `DELETE` assignment → 204; unknown person or skill → 404; unlinked pair → 404.
-- [ ] The upsert read-then-write is inside a single `@Transactional` boundary.
+- [ ] ~~The upsert read-then-write is inside a single `@Transactional` boundary.~~ **This criterion is NECESSARY BUT NOT SUFFICIENT, and stating it this way was a mistake — corrected 2026-08-20 at review round 1.** A single transaction does **not** serialize insert-if-absent: two concurrent PUTs on the same unlinked pair both read empty, both insert, and the loser dies on the composite PK. Because the id is pre-populated in the constructor, `save()` takes `merge()`, so the INSERT defers to **commit — after the handler returns** — and the `DataIntegrityViolationException` escapes as a **500** where the contract mandates 200 on both branches. The criterion is now: **the transaction is present AND the create branch recovers from a lost race** (catch + re-read), matching what `SkillController.create` already does for the identical hazard. The implementation satisfied the criterion as written while carrying the defect the criterion was meant to prevent — which is why it is struck rather than ticked.
 - [ ] DoR rulings 1–9 each covered by a test or verified at review.
 - [ ] **Ordering (added 2026-08-13 by T-006, after this task's H1):** both collections are ordered in their repository queries — the catalog `GET /api/v1/skills` by `name` ASC then `id` ASC (derived method is fine; `skill.name` is `NOT NULL UNIQUE`). The person assignments `GET .../people/{personId}/skills` by `category` ASC with **uncategorized last**, then `name` ASC, then **`skillId` ASC**. Two traps here, both found in T-006's review:
   - `skill.category` is **nullable**, and MySQL sorts NULL lowest — so the natural query puts uncategorized skills *first*, the opposite of the contract. Needs an explicit `@Query` (`ORDER BY category IS NULL, category ASC, name ASC, skill_id ASC`); a derived method name cannot express it.

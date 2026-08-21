@@ -33,6 +33,9 @@ It returns rows in whatever order MySQL produces. That is exactly the defect T-0
 - Prefer the derived-query form (`findByPersonIdOrderByStartDateDescIdAsc`) over an `@Query`; it is the idiom already used in this package and it cannot drift from the entity's column mapping.
 - `startDate` is `NOT NULL` on `experience` (unlike `project.start_date`), so **the NULL-placement rule does not apply here.** Do not add `IS NULL` handling — it would be dead code that implies a nullability the schema does not have.
 
+
+> **Before stage-4 QA: the generated stack builds `master`, not your worktree** — see [T-028](T-028-qa-env-generator-worktree-build-context.md). Until that lands, add a build-context override pointing at your worktree, and *prove* which tree you built rather than assuming it. **This task is the exact case the current provenance check cannot catch**: every endpoint you touch already exists on `master`, so a stack built from the wrong tree answers plausibly and QA would verify the *unretrofitted* ordering.
+
 ## Acceptance criteria
 
 - [ ] `GET /api/v1/people/{personId}/experiences` returns `startDate` DESC, then `id` ASC.

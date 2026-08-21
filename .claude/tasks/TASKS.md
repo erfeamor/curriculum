@@ -8,7 +8,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 |----|-------|------|--------|-------|------------|----|
 | [T-101](T-101-experience-resource.md) | Experience resource in the domain API | cv-domain-service | done | backend-developer | — | [#3](https://github.com/erfeamor/cv-domain-service/pull/3) |
 | [T-102](T-102-education-resource.md) | Education resource in the domain API | cv-domain-service | done (**A1 + stage-4 QA + review**) | backend-developer | — | [#5](https://github.com/erfeamor/cv-domain-service/pull/5) |
-| [T-103](T-103-skills-catalog-and-assignments.md) | Skill catalog + person-skill assignments | cv-domain-service | todo (H1 done) | | — | |
+| [T-103](T-103-skills-catalog-and-assignments.md) | Skill catalog + person-skill assignments | cv-domain-service | done (**stage-4 QA clean, race proven live**) | backend-developer | — | [#7](https://github.com/erfeamor/cv-domain-service/pull/7) |
 | [T-104](T-104-project-resource.md) | Project resource in the domain API | cv-domain-service | todo (H1 done) | | — | |
 | [T-105](T-105-experience-ordering-retrofit.md) | Retrofit contract ordering onto the merged Experience resource | cv-domain-service | todo | | T-006 | |
 | [T-106](T-106-restrict-openapi-and-actuator-exposure.md) | Stop serving the OpenAPI spec and Prometheus metrics anonymously | cv-domain-service | done (**Jenkins green**) | backend-developer | — | [#4](https://github.com/erfeamor/cv-domain-service/pull/4) |
@@ -65,6 +65,8 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-024](T-024-contract-skill-assignment-put-shape.md) | Contract: split the skill-assignment PUT's request body from its response | cv-project (meta) | done | tech-product-owner | — | [#41](https://github.com/erfeamor/curriculum/pull/41) |
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution | cv-infra + cv-domain-service | todo | | T-022 | |
 | [T-026](T-026-first-build-after-cold-start-fails.md) | First Jenkins build after a cold start fails (`No build record could be located`) | cv-infra | todo | | T-019 | |
+| [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) | Contract: the ordering note prescribes SQL syntax for a JPQL context (**T-104 hits it next**) | cv-project (meta) | todo | | — | |
+| [T-028](T-028-qa-env-generator-worktree-build-context.md) | QA stack builds `master`, not the worktree under test (**silent false pass**) | cv-project (meta) | todo | | — | |
 
 **Cost model is stale as of 2026-08-14 — the documented figures understate real burn by a third.** `cv-infra/CLAUDE.md` and T-010's runway both encode *~$0.92/day ≈ $28/month*. The 2026-08-08 `t3.micro`→`t3.small` resize of the CI host (T-002, deliberate, for Maven headroom) took the real rate to **~$1.23/day ≈ $37.30/month**, verified against the August cost export and `describe-instances`. Consequences: the credits deplete **~25% sooner in elapsed time**, which moves T-012's date; and the `$30` monthly budget is now **structurally exceeded (~124%)**, so its 100/120% thresholds will fire every month from September — an alarm that always fires stops being a signal. Note [cv-infra#14](https://github.com/erfeamor/cv-infra/pull/14) deliberately refused to raise that limit, so this needs a decision rather than a bump. **T-014 may push it further** — its own watch-outs say the domain-service box may need `t3.small` for RAM, another +$8.62/month → ~$46. [T-019](T-019-ci-host-on-demand.md) is the largest available offset (~$17.24/month).
 
@@ -323,8 +325,53 @@ A third sweep, run after T-102, T-106, T-107 and T-022 all landed within hours o
 5. **[T-025](T-025-verify-requests-come-from-our-cloudfront.md)'s H1 was framed against a premise that had already shipped.** It priced [T-106](T-106-restrict-openapi-and-actuator-exposure.md) as a *"cheaper alternative worth pricing at H1"* — but T-106 is `done` and merged, so the leak that motivated T-025 is closed and the cheap half is not an option to weigh. **H1 now decides a genuinely narrower question**, written into the file: is the residual *bypass class* worth a shared secret today, given [T-014](T-014-deploy-bff-to-aws.md) is about to put a second port behind the same weak proof? Left `todo` — this is a reframing, not a decision.
 6. **The M2 parallelization note still described T-102 as *"reached H1 and stopped, no code was written"***, and the deployment-gap section still recommended doing T-022 before T-014 as pending work. Both landed. Wave 1 is now **T-103, T-104, T-151**.
 
-**Housekeeping:** [README.md](README.md)'s infra range read `T-001…T-024`; it runs to T-026, and those two are among the more actionable items on the board. The stale-branch problem was **repo-wide, not one repo**: 25 local branches across all eight siblings, plus ~25 more on `origin`. Merge status was taken from **GitHub, not from `git`** — `git branch --merged` reports nothing here because every PR is squash-merged, and `git merge-tree` over-reports because `master` has since edited the same files; both would have been read as "unmerged work" by anyone doing this by eye. `gh pr list --state all` settles it: **every branch in every repo maps to a MERGED PR — 47 PRs, zero open, zero closed-unmerged.** The 25 local branches are deleted, each checked against that list by name first. **The `origin` copies are NOT yet deleted** — that push was blocked by this machine's permission policy and is left for the human, deliberately not worked around. Same false "work in flight" signal the previous sweep removed stale worktrees to kill.
+**Housekeeping:** [README.md](README.md)'s infra range read `T-001…T-024`; it runs to T-026, and those two are among the more actionable items on the board. The stale-branch problem was **repo-wide, not one repo**: 25 local branches across all eight siblings, plus ~25 more on `origin`. Merge status was taken from **GitHub, not from `git`** — `git branch --merged` reports nothing here because every PR is squash-merged, and `git merge-tree` over-reports because `master` has since edited the same files; both would have been read as "unmerged work" by anyone doing this by eye. `gh pr list --state all` settles it: **every branch in every repo maps to a MERGED PR — ~~47 PRs~~, zero open, zero closed-unmerged.** The 25 local branches are deleted, each checked against that list by name first. ~~**The `origin` copies are NOT yet deleted** — that push was blocked by this machine's permission policy and is left for the human, deliberately not worked around.~~ Same false "work in flight" signal the previous sweep removed stale worktrees to kill.
+
+  **Corrected within the hour, and the correction is the point.** Two of the three factual claims above were wrong before the ink dried — in a paragraph belonging to a sweep *about* claims that go stale unread:
+
+  - **The count was wrong.** "47 PRs" counted the meta repo's PRs, not the product repos' — the repos the sentence is about. Verified figures: **51 PRs across the eight product repos, 47 in the meta repo, 98 in the workspace, and all 98 merged** — zero open, zero closed-unmerged, workspace-wide.
+  - **The scope was wrong.** The sweep audited the eight *sibling* repos and silently skipped the meta repo it was written in, which held **8 stale local branches of its own**. Total local: **33, not 25.**
+  - **The `origin` claim expired.** The push was authorized explicitly and the branches are gone: **31 remote branches deleted** (2 meta + 29 product), verified against `GET /repos/:owner/:repo/branches` rather than local tracking refs, which lie after a delete elsewhere. **All nine repos now hold `master` and nothing else**, local and remote.
+
+  Every deletion remains recoverable — each branch had a merged PR, and GitHub keeps a *Restore branch* button on it.
 
 **Left alone deliberately.** Every `done` task on this board has its acceptance checkboxes **unticked** — T-001, T-009, T-018, T-019, T-022, T-102, T-106, T-107, all of them. That is consistent board-wide, so it is convention rather than drift and this sweep did not "fix" it. It is worth naming once, because it is *why* item 3 could happen: with the boxes decorative, the fact that a criterion is met can only live in prose, and prose is what this board keeps failing to propagate. Making them load-bearing would be a protocol change ([README.md](README.md)), not a board edit.
 
 **The pattern, once more, now with a shorter fuse.** The previous sweep found facts that went stale over *days*. Items 1, 3 and 6 here went stale in **hours** — T-104's contradiction was authored the same day as the section that contradicts it. Velocity is what changed, not the failure mode: the board is now moving fast enough that a task file can be internally inconsistent before anyone reads it twice.
+
+## T-103 merged — M2 is three of eleven, and the review found the acceptance criterion wrong (2026-08-21)
+
+Picked up **at implementation** per its `reset_note`, as T-102 was — the H1 checkpoint from 2026-08-04 was real and was used as written. Merged as `2e54394` ([cv-domain-service#7](https://github.com/erfeamor/cv-domain-service/pull/7)). The catalog/assignment split, the composite key, the upsert and the 409 all landed as specified.
+
+**Three premises had moved since that H1 and were recorded in the checkpoint before a line was written** — T-024 turned DoR rulings 1/2/5/6 into contract text, T-107 added the guard, T-006 added ordering. A 16-day-old DoR is not uniformly current, and saying which parts aged is cheaper than letting the implementer infer it.
+
+**The most valuable output of this task is not the resource. It is that T-103's own acceptance criterion was wrong**, and the implementation satisfied it *exactly* while carrying the defect the criterion existed to prevent:
+
+> ~~The upsert read-then-write is inside a single `@Transactional` boundary.~~
+
+A single transaction does **not** serialize insert-if-absent. Two concurrent PUTs on an unlinked pair both read empty, both insert, and because the id is pre-populated `save()` takes `merge()` — so the INSERT defers to commit **after the handler returns**, and the violation escapes as a **500** where the contract mandates 200. `/code-review` (high effort) found it by booting the full application context, which no test in that repo does, and by decompiling Hibernate 6.5.2 rather than arguing from plausibility. Struck and corrected on the task: *transaction present **and** the create branch recovers from a lost race*. **That test plan is the template T-104 inherits**, which is the whole reason this matters beyond one PR.
+
+**The PO's prescribed fix was wrong and the developer said so with evidence.** "Catch around the save and re-read" cannot work: after a flush failure the session is unusable and the transaction is rollback-only, and with annotation-based `@Transactional` the exception is not catchable in the method at all. Proven with a throwaway probe, not asserted. The shipped fix runs each attempt through a `TransactionTemplate` and retries once in a fresh transaction. Recorded because the disagreement was resolved *before* H2 rather than discovered after it — which is what the gate is for.
+
+**Proven under real concurrency, twice, independently.** Developer: 6 rounds × 10 parallel PUTs → 60/60 `200`, 54 recovered `Duplicate entry` violations, zero escapes. Stage-4 QA reproduced **exactly 54** rather than accepting the number, and stressed the catalog's concurrent POST to 8-way (the plan asked for 2) → one `201`, seven `409`s, no 500. ~90 requests, zero 500s anywhere.
+
+**Two rulings ended up enforced structurally rather than by vigilance**, which is the durable form and worth copying: `SkillRepository` has **no `findByName` at all**, so a pre-check 409 would not compile; and `SkillControllerTest` declares **no `PersonRepository`**, so adding a person-check to the global catalog fails context startup (DoR 7).
+
+**Filed from this run, not folded in:** [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) (the contract's ordering note prescribes SQL for a JPQL context — **T-104 hits it next**) and [T-028](T-028-qa-env-generator-worktree-build-context.md) (below).
+
+### The QA stack was building `master` — [T-028](T-028-qa-env-generator-worktree-build-context.md)
+
+`docker-compose.dev.yml:50` builds from `./cv-domain-service`, the **main checkout**, while every dev-loop task runs on a **worktree**. The documented stage-4 bring-up therefore exercises code that does not contain the change. Worked around by hand for this run with a third compose file; filed because the workaround lives in a **gitignored** generated file that vanishes with the next cleanup.
+
+T-103 was greenfield and got lucky: QA proved provenance by observing that `GET /api/v1/skills` answered at all, since that endpoint does not exist on `master`. **A modifying task has no such tell** — it would answer plausibly on every endpoint and QA would sign off on a binary without the change. [T-105](T-105-experience-ordering-retrofit.md) is exactly that shape. T-104, T-151 and T-105 are annotated in place.
+
+### [T-026](T-026-first-build-after-cold-start-fails.md) reproduced a fourth time — and its own severity claim is now narrower
+
+```
+06:45:54  error    PR-7/1/   "This commit cannot be built"
+06:47:42  success  PR-7/2/   "This commit looks good"
+```
+
+**Nobody retriggered it.** Pushing the branch and opening the PR fire two separate webhook deliveries, so build #2 ran on the warm box unattended. GitHub's status API keeps only the latest state per context, so **the PR renders green and the failure is invisible** unless someone reads the full status history. T-026's *"every developer's first push after an idle period gets a red X"* is therefore too strong for the normal push-then-PR workflow — and unchanged for a push to an existing branch, where the red stands and gets blamed on the code. Corrected in the task; the diagnostic signature is untouched.
+
+A caution now written into T-026: **`gh pr checks` will report `pass` while a failed build sits in the history**, so anyone verifying the eventual fix through it will "confirm" a fix that never ran.

@@ -56,6 +56,9 @@ Natural keys: `experience` → company + role + start_date · `education` → in
 - Resolve `person_id` by email every time. Never hardcode a numeric id: it may pass in a fresh DB and break after a `reset.sh` cycle.
 - **Jenkins CI is not a signal here.** `Jenkinsfile` pins `FLYWAY_LOCATIONS` to `filesystem:/flyway/sql/migrations`; `dev-seeds` is not on that path, so a syntax error, an FK violation, or the duplicate-row bug above all pass CI green with no output. The verification below is the only check that will ever catch a seed regression — here or on any future edit to this file.
 
+
+> **Before stage-4 QA: the generated stack builds `master`, not your worktree** — see [T-028](T-028-qa-env-generator-worktree-build-context.md). Until that lands, add a build-context override pointing at your worktree, and *prove* which tree you built rather than assuming it.
+
 ## Acceptance criteria
 
 - [ ] ≥2 `experience` rows, **exactly one** with `end_date NULL` (the current job), and that row has the latest `start_date` of the set.
