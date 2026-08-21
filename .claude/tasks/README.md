@@ -39,6 +39,6 @@ Task IDs are grouped by layer: `T-0xx` design/meta/ops (incl. cv-infra) · `T-1x
 Two other tracks run alongside M2 and have carried most of the recent work — a reader sent only to M2 gets a misleading picture of where the project is:
 
 - **The public-path deployment chain** (T-013 → T-202 → T-014 → T-403 → T-015, plus T-203/T-204/T-404). `cv-bff-node` and `cv-public-vanilla` have never been deployed, so the entire public data path exists only on localhost. This **blocks T-501**, which cannot verify a milestone end-to-end through infrastructure that is absent.
-- **Infra & ops** (T-001…T-026). Security, durability, cost and docs debt. Two items here are time-boxed rather than merely open: **T-012** (Paid-vs-teardown) is due **2026-11-01**, and **T-020** holds the console read every date on this board is derived from.
+- **Infra & ops** (T-001…T-028). Security, durability, cost and docs debt. Two items here are time-boxed rather than merely open: **T-012** (Paid-vs-teardown) is due **2026-11-01**, and **T-020** holds the console read every date on this board is derived from.
 
 See [TASKS.md](TASKS.md) for all three, and read the sweep note at its foot before trusting any prose you find in a task file that has been open a while.

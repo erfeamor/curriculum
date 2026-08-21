@@ -64,6 +64,9 @@ Without it, a POST body carrying an `id` makes Spring Data's `save()` take `merg
 
 T-107 chose a called guard over a structural `@JsonProperty(access = READ_ONLY)` deliberately, and this note is the price of that choice: the protection does not arrive by itself. **Include a test, and confirm it fails before the guard goes in** — the version of this that shipped in T-101 was a test asserting the *permissive* behaviour, which passed because it mocked `save()`.
 
+
+> **Before stage-4 QA: the generated stack builds `master`, not your worktree** — see [T-028](T-028-qa-env-generator-worktree-build-context.md). Until that lands, add a build-context override pointing at your worktree, and *prove* which tree you built rather than assuming it.
+
 ## Acceptance criteria
 
 - [ ] `GET/POST /api/v1/people/{personId}/projects`, `PUT/DELETE .../{id}` per contract.
