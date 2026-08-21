@@ -284,6 +284,22 @@ class CommandLine(unittest.TestCase):
         self.assertIn("# Worktree repoint (T-028):", r.stdout)
         self.assertIn("MAIN CHECKOUT", r.stdout)
 
+    def test_missing_bind_source_reports_in_the_tools_own_voice(self):
+        """The guard raises from match_mount_services, one call outside the
+        original try — so it exited 1 with a raw traceback. Exit code alone
+        cannot detect that; assert the message shape."""
+        wt = make_repo(self.root / "cv-database",
+                       "git@github.com:erfeamor/cv-database.git")
+        subprocess.run(["rm", "-rf", str(wt / "sql")], check=True)
+        r = self.run_cli("--task", "T-151", "--slot", "9", "--stdout",
+                         "--worktree", str(wt), "--no-branch-check")
+        self.assertEqual(r.returncode, 1)
+        self.assertNotIn("Traceback", r.stderr)
+        self.assertTrue(r.stderr.startswith("qa-env-override: "),
+                        f"not the standard error form: {r.stderr!r}")
+        self.assertIn("does not exist in the worktree", r.stderr)
+        self.assertNotIn("services:", r.stdout)   # no override emitted
+
     def test_mounted_repo_is_repointed_end_to_end(self):
         wt = make_repo(self.root / "T-151", "git@github.com:erfeamor/cv-database.git",
                        branch="feat/whatever")

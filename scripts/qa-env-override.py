@@ -584,45 +584,52 @@ def main(argv=None):
     # Resolve the worktree, identify its repo from git, and repoint the compose
     # service whose build-context basename matches. Any failure here is fatal:
     # a stack that quietly builds master hands QA a false pass.
+    # One try around the whole resolve → identify → match region: the mount
+    # matcher raises WorktreeError too (a bind source missing from the worktree),
+    # and when it sat outside this block the guard escaped as a traceback —
+    # loud, but not actionable the way every sibling error is. The branch check's
+    # sys.exit below raises SystemExit, which passes through untouched.
     try:
         worktree, wt_note = resolve_worktree(
             args.task, args.worktree, Path(args.worktree_root).expanduser())
         ident = repo_identity(worktree) if worktree else None
+
+        # Finding 2: the branch the labels record is only self-consistent. The
+        # board declares which branch the task lives on; compare against it.
+        expect_branch, expect_source = None, None
+        if not args.no_branch_check:
+            if args.expect_branch:
+                expect_branch, expect_source = args.expect_branch, "--expect-branch"
+            else:
+                declared, task_file = declared_branch(args.task, Path(args.tasks_dir))
+                if declared:
+                    expect_branch, expect_source = (
+                        declared, f"{task_file.name} frontmatter")
+        if ident and expect_branch and ident["branch"] != expect_branch:
+            sys.exit(
+                f"qa-env-override: worktree branch mismatch\n"
+                f"       {ident['path']} is on {ident['branch']!r}, but {args.task} "
+                f"declares {expect_branch!r} ({expect_source}).\n"
+                f"       Refusing: the build would be stamped with provenance labels "
+                f"that agree with themselves while exercising the wrong tree.\n"
+                f"       Check out the branch, or pass --expect-branch/--no-branch-check.")
+
+        matched = match_build_services(base, ident["repo"]) if ident else []
+        build_target = None
+        if matched:
+            build_target = {
+                "services": matched,
+                "context": ident["path"],
+                "labels": provenance_labels(args.task, ident),
+            }
+
+        # Finding 1: repos the stack bind-mounts instead of building (cv-database
+        # via flyway, cv-observability via grafana) are just as much "under test".
+        mount_services, mount_rewrites, mount_exposed = (
+            match_mount_services(base, ident["repo"], worktree) if ident
+            else ({}, [], []))
     except WorktreeError as exc:
         sys.exit(f"qa-env-override: {exc}")
-
-    # Finding 2: the branch the labels record is only self-consistent. The board
-    # declares which branch the task lives on; compare against it.
-    expect_branch, expect_source = None, None
-    if not args.no_branch_check:
-        if args.expect_branch:
-            expect_branch, expect_source = args.expect_branch, "--expect-branch"
-        else:
-            declared, task_file = declared_branch(args.task, Path(args.tasks_dir))
-            if declared:
-                expect_branch, expect_source = declared, f"{task_file.name} frontmatter"
-    if ident and expect_branch and ident["branch"] != expect_branch:
-        sys.exit(
-            f"qa-env-override: worktree branch mismatch\n"
-            f"       {ident['path']} is on {ident['branch']!r}, but {args.task} "
-            f"declares {expect_branch!r} ({expect_source}).\n"
-            f"       Refusing: the build would be stamped with provenance labels "
-            f"that agree with themselves while exercising the wrong tree.\n"
-            f"       Check out the branch, or pass --expect-branch/--no-branch-check.")
-
-    matched = match_build_services(base, ident["repo"]) if ident else []
-    build_target = None
-    if matched:
-        build_target = {
-            "services": matched,
-            "context": ident["path"],
-            "labels": provenance_labels(args.task, ident),
-        }
-
-    # Finding 1: repos the stack bind-mounts instead of building (cv-database via
-    # flyway, cv-observability via grafana) are just as much "under test".
-    mount_services, mount_rewrites, mount_exposed = (
-        match_mount_services(base, ident["repo"], worktree) if ident else ({}, [], []))
 
     override, report, build_report, mount_report = build_override(
         base, offset, build_target, mount_services or None)
@@ -804,4 +811,10 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # Belt and braces: the try above covers every current raiser, but this class
+    # is meant to be actionable wherever it comes from, so nothing reaches the
+    # user as a traceback if a later raiser lands outside that block.
+    try:
+        raise SystemExit(main())
+    except WorktreeError as exc:
+        raise SystemExit(f"qa-env-override: {exc}")
