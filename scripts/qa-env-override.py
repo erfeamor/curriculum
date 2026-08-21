@@ -28,6 +28,28 @@ correct if the base compose gains or loses a service — nothing here is hardcod
 to the current five. A smoke command is emitted only when you name the endpoint to
 probe (`--smoke SERVICE:PATH`); the tool never guesses one, since the right check
 depends on the task, not the stack.
+
+Build context (T-028)
+---------------------
+The base compose builds each service from a fixed relative path (`./cv-domain-service`)
+— the MAIN CHECKOUT, which sits on `master`. A dev-loop task runs on a git worktree,
+so an un-repointed QA stack exercises code that does not contain the change under
+test: a false PASS whenever the task modifies behaviour that already exists.
+
+So this tool also repoints the build context at the worktree. The worktree→service
+match is derived, never tabulated: `git -C <worktree> remote get-url origin` yields
+the repo name (`cv-domain-service`), which is compared against the basename of each
+service's build context. A hard-coded service→repo map is exactly the kind of thing
+that drifted into this bug in the first place.
+
+Zero matches is legitimate (a cv-database/cv-infra/docs task builds no service) and
+is reported out loud — a silent zero is indistinguishable from the bug still being
+there. An explicitly passed `--worktree` that does not exist is a hard error: falling
+back quietly to the main checkout would recreate the defect.
+
+Provenance is emitted as build LABELS (task/branch/commit/worktree), so QA proves
+which tree was built with `docker inspect` — no service needs a /version endpoint,
+and it works for modifying tasks that have no distinguishing endpoint.
 """
 
 from __future__ import annotations
@@ -35,6 +57,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -45,6 +68,11 @@ except ModuleNotFoundError:
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PROJECT_PREFIX = "cvdl_"
+# Conventional home of dev-loop worktrees (a convention, not a guarantee — tasks
+# that declare `worktree: none` simply have no directory here).
+WORKTREE_ROOT = REPO_ROOT.parent / "cvdl-worktrees"
+# Namespace for the provenance labels stamped onto every repointed build.
+LABEL_NS = "com.cvproject.dev-loop"
 # Docker Compose project names: lowercase, must start alnum, then [a-z0-9_-].
 _SANITIZE = re.compile(r"[^a-z0-9_-]+")
 
@@ -72,6 +100,102 @@ def project_name(task: str) -> str:
     if not re.match(r"^[a-z0-9]", name):
         name = f"c{name}"
     return name
+
+
+class WorktreeError(Exception):
+    """Raised when a worktree cannot be resolved or identified. Always fatal:
+    silently carrying on would build `master` and hand QA a false pass."""
+
+
+def _git(path: Path, *args: str) -> str:
+    proc = subprocess.run(
+        ["git", "-C", str(path), *args],
+        capture_output=True, text=True,
+    )
+    if proc.returncode != 0:
+        raise WorktreeError(
+            f"git {' '.join(args)} failed in {path}: "
+            f"{(proc.stderr or proc.stdout).strip()}"
+        )
+    return proc.stdout.strip()
+
+
+def resolve_worktree(task: str, explicit: str | None, root: Path):
+    """Return (Path | None, note).
+
+    An explicit --worktree must exist: falling back to the main checkout because
+    the caller's path was wrong is precisely the failure this tool exists to stop.
+    With no --worktree we probe the conventional path and, only when it is absent,
+    fall back to the main checkout (reported as None, no build override).
+    """
+    if explicit is not None:
+        path = Path(explicit).expanduser()
+        if not path.is_dir():
+            raise WorktreeError(
+                f"--worktree path does not exist: {path}\n"
+                f"       refusing to fall back to the main checkout — that would "
+                f"build master and silently exercise the wrong code."
+            )
+        return path.resolve(), "explicit --worktree"
+    conventional = (root / task).expanduser()
+    if conventional.is_dir():
+        return conventional.resolve(), f"conventional path {conventional}"
+    return None, f"no worktree at {conventional}"
+
+
+def repo_identity(path: Path) -> dict:
+    """Identify the repo checked out at `path` from git itself (ruling 2).
+
+    The origin URL's basename is the repo name — the same string the compose
+    build context ends in — so no service→repo table is needed anywhere.
+    """
+    url = _git(path, "remote", "get-url", "origin")
+    name = url.rstrip("/").rsplit("/", 1)[-1]
+    if name.endswith(".git"):
+        name = name[:-4]
+    if not name:
+        raise WorktreeError(f"cannot derive a repo name from origin url {url!r} in {path}")
+    branch = _git(path, "rev-parse", "--abbrev-ref", "HEAD")
+    if branch == "HEAD":  # detached worktree — say so rather than label it "HEAD"
+        branch = "(detached)"
+    commit = _git(path, "rev-parse", "--short", "HEAD")
+    dirty = bool(_git(path, "status", "--porcelain"))
+    return {"repo": name, "path": str(path), "branch": branch,
+            "commit": commit, "dirty": dirty}
+
+
+def service_build_contexts(compose: dict) -> dict:
+    """{service: build context} for every buildable service, long or short form."""
+    out = {}
+    for name, svc in (compose.get("services") or {}).items():
+        build = (svc or {}).get("build")
+        if not build:
+            continue
+        context = build if isinstance(build, str) else build.get("context")
+        if context:
+            out[name] = str(context)
+    return out
+
+
+def match_build_services(compose: dict, repo: str) -> list:
+    """Services whose build-context basename equals the worktree's repo name."""
+    return sorted(
+        name for name, ctx in service_build_contexts(compose).items()
+        if Path(ctx.rstrip("/")).name == repo
+    )
+
+
+def provenance_labels(task: str, ident: dict) -> dict:
+    """Build labels that let `docker inspect` prove which tree produced an image.
+    Values are strings: Compose rejects non-string label values."""
+    return {
+        f"{LABEL_NS}.task": task,
+        f"{LABEL_NS}.repo": ident["repo"],
+        f"{LABEL_NS}.branch": ident["branch"],
+        f"{LABEL_NS}.commit": ident["commit"],
+        f"{LABEL_NS}.dirty": "true" if ident["dirty"] else "false",
+        f"{LABEL_NS}.worktree": ident["path"],
+    }
 
 
 def _parse_short(entry: str):
@@ -131,18 +255,38 @@ def remap_service_ports(ports, offset):
     return new_list, mappings
 
 
-def build_override(compose: dict, offset: int):
+def build_override(compose: dict, offset: int, build_target=None):
+    """(override_doc, port_report, build_report).
+
+    build_target is None (nothing to repoint) or
+    {"services": [...], "context": str, "labels": {...}} — the port remapping is
+    unconditional either way, so repointing a build never costs isolation.
+    """
     services = {}
     report = {}
     for name, svc in (compose.get("services") or {}).items():
-        ports = svc.get("ports")
+        ports = (svc or {}).get("ports")
         if not ports:
             continue
         new_list, mappings = remap_service_ports(ports, offset)
         if new_list:
             services[name] = {"ports": OverrideList(new_list)}
             report[name] = mappings
-    return {"services": services}, report
+
+    build_report = None
+    if build_target:
+        for name in build_target["services"]:
+            entry = services.setdefault(name, {})
+            entry["build"] = {
+                "context": build_target["context"],
+                "labels": dict(build_target["labels"]),
+            }
+        build_report = {
+            "services": list(build_target["services"]),
+            "context": build_target["context"],
+            "labels": dict(build_target["labels"]),
+        }
+    return {"services": services}, report, build_report
 
 
 def main(argv=None):
@@ -159,6 +303,16 @@ def main(argv=None):
     ap.add_argument("--smoke", metavar="SERVICE:PATH", default=None,
                     help="emit a smoke curl for this endpoint, e.g. "
                          "domain-service:/api/v1/people/1/experiences (no default)")
+    ap.add_argument("--worktree", metavar="PATH", default=None,
+                    help="git worktree under test; the compose service whose build "
+                         "context matches that repo is built from here instead of "
+                         "the main checkout (which sits on master). Default: "
+                         "<worktree-root>/<task> when it exists, otherwise the main "
+                         "checkout. An explicit path that does not exist is an "
+                         "error — never a silent fallback")
+    ap.add_argument("--worktree-root", default=str(WORKTREE_ROOT),
+                    help=f"where conventional per-task worktrees live "
+                         f"(default: {WORKTREE_ROOT})")
     ap.add_argument("--compose", default=str(REPO_ROOT / "docker-compose.dev.yml"),
                     help="base compose file (default: docker-compose.dev.yml)")
     ap.add_argument("--out-dir", default=str(REPO_ROOT),
@@ -186,7 +340,41 @@ def main(argv=None):
     # `docker compose up`, and slot 0 is already isolated.
     offset = (args.slot + 1) * args.offset_step
     base = yaml.safe_load(compose_path.read_text()) or {}
-    override, report = build_override(base, offset)
+
+    # --- build context (T-028) -------------------------------------------
+    # Resolve the worktree, identify its repo from git, and repoint the compose
+    # service whose build-context basename matches. Any failure here is fatal:
+    # a stack that quietly builds master hands QA a false pass.
+    try:
+        worktree, wt_note = resolve_worktree(
+            args.task, args.worktree, Path(args.worktree_root).expanduser())
+        ident = repo_identity(worktree) if worktree else None
+    except WorktreeError as exc:
+        sys.exit(f"qa-env-override: {exc}")
+
+    matched = match_build_services(base, ident["repo"]) if ident else []
+    build_target = None
+    if matched:
+        build_target = {
+            "services": matched,
+            "context": ident["path"],
+            "labels": provenance_labels(args.task, ident),
+        }
+
+    override, report, build_report = build_override(base, offset, build_target)
+
+    # Ruling 3: say which of the three outcomes happened, always. A silent zero
+    # is indistinguishable from the bug not being fixed.
+    if build_report:
+        stamp = f"{ident['branch']} @ {ident['commit']}" + (" +dirty" if ident["dirty"] else "")
+        note = (f"repointed {', '.join(matched)} → {ident['path']}  ({stamp})")
+    elif ident:
+        buildable = ", ".join(sorted(service_build_contexts(base))) or "none"
+        note = (f"no service repointed: task repo {ident['repo']!r} is not built by "
+                f"{compose_path.name} (buildable: {buildable})")
+    else:
+        note = (f"no service repointed: {wt_note}; every service builds from the "
+                f"MAIN CHECKOUT (master) — correct only for a task with no worktree")
 
     header = (
         f"# GENERATED by scripts/qa-env-override.py — do not edit by hand.\n"
@@ -197,6 +385,13 @@ def main(argv=None):
         f"# Bring up:  COMPOSE_PROJECT_NAME={proj} \\\n"
         f"#   docker compose -f {compose_path.name} -f {{this file}} up --build\n"
     )
+    if build_report:
+        header += (
+            f"# Build context repointed at the worktree under test (T-028):\n"
+            f"#   {', '.join(matched)} -> {build_report['context']}\n"
+            f"#   {ident['branch']} @ {ident['commit']}"
+            f"{' (dirty working tree)' if ident['dirty'] else ''}\n"
+        )
     body = yaml.safe_dump(override, sort_keys=False, default_flow_style=False)
     content = header + body
 
@@ -205,6 +400,9 @@ def main(argv=None):
 
     if args.stdout:
         sys.stdout.write(content)
+        # stdout stays pure YAML for piping; the ruling-3 note still has to be
+        # said out loud, so it goes to stderr.
+        print(f"build: {note}", file=sys.stderr)
     else:
         override_path.write_text(content)
 
@@ -233,6 +431,13 @@ def main(argv=None):
             path = "/" + path
         smoke = f"curl -fsS http://localhost:{endpoints[svc]}{path}"
 
+    # Provenance is a build LABEL, not an endpoint (ruling 5): it works for every
+    # service, including modifying tasks with no distinguishing endpoint.
+    provenance = [
+        f"docker inspect --format '{{{{json .Config.Labels}}}}' {proj}-{svc}"
+        for svc in (build_report["services"] if build_report else [])
+    ]
+
     if args.json:
         out = {
             "task": args.task,
@@ -242,8 +447,13 @@ def main(argv=None):
             "override_file": str(override_path),
             "ports": {svc: ms for svc, ms in report.items()},
             "endpoints": {svc: f"localhost:{p}" for svc, p in endpoints.items()},
+            "worktree": ident,
+            "worktree_note": wt_note,
+            "build": build_report,
+            "note": note,
             "up": up_cmd,
             "down": down_cmd,
+            "provenance": provenance,
         }
         if smoke:
             out["smoke"] = smoke
@@ -254,10 +464,13 @@ def main(argv=None):
         for svc, ms in report.items():
             pairs = ", ".join(f"{m['published']}→{m['target']}" for m in ms)
             print(f"  {svc:<16} host→container  {pairs}")
+        print(f"\nbuild: {note}")
         print(f"\nup:    {up_cmd}")
         print(f"down:  {down_cmd}")
         if smoke:
             print(f"smoke: {smoke}")
+        for cmd in provenance:
+            print(f"prov:  {cmd}")
 
     return 0
 
