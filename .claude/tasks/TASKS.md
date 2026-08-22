@@ -14,7 +14,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-106](T-106-restrict-openapi-and-actuator-exposure.md) | Stop serving the OpenAPI spec and Prometheus metrics anonymously | cv-domain-service | done (**Jenkins green**) | backend-developer | — | [#4](https://github.com/erfeamor/cv-domain-service/pull/4) |
 | [T-107](T-107-post-id-cross-person-write.md) | **POST with a client-supplied id overwrites another person's row** (person, experience) | cv-domain-service | done (**exploit + fix proven live**) | backend-developer | — | [#6](https://github.com/erfeamor/cv-domain-service/pull/6) |
 | [T-108](T-108-untransacted-update-read-modify-write.md) | **PUT is an untransacted read-modify-write** — a concurrent DELETE makes it re-INSERT the row under a new id (all three section resources) | cv-domain-service | todo | | — | |
-| [T-151](T-151-dev-seeds-cv-sections.md) | Dev seed data for CV sections | cv-database | todo | | — | |
+| [T-151](T-151-dev-seeds-cv-sections.md) | Dev seed data for CV sections | cv-database | done (**both T-028 provenance halves obtained; ordering proven through the API**) | backend-developer | — | [#4](https://github.com/erfeamor/cv-database/pull/4) |
 | [T-201](T-201-bff-cv-aggregate.md) | BFF: aggregated public CV endpoint | cv-bff-node | todo | | T-101…T-104, T-006 | |
 | [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |
 | [T-401](T-401-public-cv-sections.md) | Public site: render full CV | cv-public-vanilla | todo | | T-201 | |
@@ -24,7 +24,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 ### Parallelization notes (read before claiming)
 
 - **Wave 1 (5 agents in parallel):** T-101, T-102, T-103, T-104, T-151 — fully independent; the four API tasks touch disjoint packages, so PRs won't conflict except trivially.
-  - ~~**Status as of 2026-08-09:** T-101 is **merged**… T-102/T-103/T-104 reached **H1 and stopped**… T-151 never started.~~ ~~**Superseded 2026-08-20.** **Status as of 2026-08-20:** T-101 (`09282ed`) and T-102 (`42abe91`) are **merged**. **Wave 1 is now T-103, T-104 and T-151.**~~ **Superseded again 2026-08-22 — T-103 merged on 2026-08-21 (`2e54394`) and this line kept sending readers at it.** ~~**Status as of 2026-08-22:** T-101 (`09282ed`), T-102 (`42abe91`) and T-103 (`2e54394`) are **merged**. **Wave 1 is now T-104 and T-151.**~~ **Superseded later the same day — T-104 merged as `7677fee`.** **Wave 1 is now [T-151](T-151-dev-seeds-cv-sections.md) alone**, and it is the only wave-1 task that never started. **All four API resources are done**, so [T-201](T-201-bff-cv-aggregate.md) and [T-301](T-301-admin-cv-sections-crud.md) are unblocked and wave 2 is open. The "start at implementation, not refinement" instruction served all three of T-102/T-103/T-104 and is retained for the record: an 18-day-old ratified H1 was worth more than a re-refinement each time, provided the premises that moved were written down first.
+  - ~~**Status as of 2026-08-09:** T-101 is **merged**… T-102/T-103/T-104 reached **H1 and stopped**… T-151 never started.~~ ~~**Superseded 2026-08-20.** **Status as of 2026-08-20:** T-101 (`09282ed`) and T-102 (`42abe91`) are **merged**. **Wave 1 is now T-103, T-104 and T-151.**~~ **Superseded again 2026-08-22 — T-103 merged on 2026-08-21 (`2e54394`) and this line kept sending readers at it.** ~~**Status as of 2026-08-22:** T-101 (`09282ed`), T-102 (`42abe91`) and T-103 (`2e54394`) are **merged**. **Wave 1 is now T-104 and T-151.**~~ ~~**Superseded later the same day — T-104 merged as `7677fee`.** **Wave 1 is now [T-151](T-151-dev-seeds-cv-sections.md) alone**, and it is the only wave-1 task that never started.~~ **WAVE 1 IS COMPLETE, 2026-08-22** — T-151 merged as `865784f`. All five wave-1 tasks are `done`. **All four API resources are done**, so [T-201](T-201-bff-cv-aggregate.md) and [T-301](T-301-admin-cv-sections-crud.md) are unblocked and wave 2 is open. The "start at implementation, not refinement" instruction served all three of T-102/T-103/T-104 and is retained for the record: an 18-day-old ratified H1 was worth more than a re-refinement each time, provided the premises that moved were written down first.
 - **Wave 2:** T-201 and T-301 — both may *start* against the contract (mocked upstreams) during wave 1; their final verification needs wave 1 merged.
 - **Wave 3:** T-401 and T-402 after T-201 (different repos — run them in parallel); T-501 strictly last.
 - ~~T-103 is the highest-risk API task (composite key, upsert, 409) — assign it to the strongest agent or start it first.~~ **Done 2026-08-21** — and the advice was right: it is the task whose acceptance criterion turned out to be wrong. **T-104 is now the only API task left**, and the concurrency lesson it inherits is recorded in §"T-103 merged" below.
@@ -537,3 +537,52 @@ Stage-4 QA then proved the live half by exploit, not by argument: `POST /people/
 **One Jenkins login now closes three open items**: this occurrence, [T-030](T-030-pr3-build1-success-then-error.md)'s anomaly, and [T-152](T-152-mysql-84-parity-cv-database.md)'s outstanding CI-console criterion.
 
 **The `gh pr checks` caution, demonstrated live.** PR-8 renders green and `gh pr checks 8` reports a pass while the `error` sits in the history behind it — GitHub keeps only the latest state per context. Anyone verifying the eventual T-026 fix that way will confirm a fix that never ran.
+## T-151 merged — wave 1 is complete, and T-028's rule got its first real test (2026-08-22)
+
+Merged as `865784f` ([cv-database#4](https://github.com/erfeamor/cv-database/pull/4)). One file, append-only, +183 lines: `sql/dev-seeds/afterMigrate__seed_dev.sql`. No versioned migration, no edit to `V1__init_schema.sql`.
+
+**Wave 1 is now complete** — T-101, T-102, T-103, T-104 and T-151 are all `done`. The local stack finally renders a *complete* demo CV; until today the section endpoints and both public front ends came up empty.
+
+### The task's own guard was broken, and it was caught at H1 rather than in production
+
+T-151 correctly diagnosed that `INSERT IGNORE` cannot dedupe `experience`, `education` or `project` (verified: each has **only** an autoincrement PK and an FK — no unique constraint), and correctly prescribed `INSERT … SELECT … WHERE NOT EXISTS`. Then it specified `name + start_date` as the natural key for `project` — and **`project.start_date` is nullable**, the only nullable date of the three tables. In MySQL `pr.start_date = '…'` is never true against a stored NULL, so for an undated project the guard passes and **the row is re-inserted on every migrate**: exactly the duplicate-row bug the task exists to prevent, reproduced by the fix it prescribed.
+
+**Being right about the mechanism is not the same as being right about the instance.** That is the seventh specification defect this board has found in five days, and the first caught at H1 — before implementation rather than during it.
+
+Fixed with the null-safe operator `<=>` on the three project guards; `experience.start_date` and `education.start_date` are `NOT NULL` and keep plain `=`, since null-safe handling there would be dead code implying a nullability the schema does not have.
+
+**Confirmed red first**, and the isolation is what makes it evidence rather than assertion — with `<=>` swapped back to `=` on a fresh volume, the project count went 3 → 4 → 5 across three migrates while **only the undated row duplicated**; the two dated projects and both `NOT NULL` tables held. That pins the cause to the NULL comparison rather than to the guard's shape.
+
+### Both sharp edges of the ordering contract are now exercised locally
+
+H1 ratified seeding **one undated project** deliberately, to exercise the *"undated last"* rule [T-104](T-104-project-resource.md) had shipped hours earlier. `/code-review` then found the matching hole: every seeded row had a **distinct `start_date`**, so the contract's `id ASC` tiebreaker — *"mandatory, not decorative"* per § Ordering — was never exercised, and a regression dropping it would still render a correct-looking CV locally. A fourth project now shares a date:
+
+```
+id 1  Curriculum Interactivo  2024-02-05
+id 2  Ledger CLI              2021-11-08   <-- tie
+id 3  Schema Diff Reporter    2021-11-08   <-- tie
+id 4  Dotfiles                NULL         <-- undated, last
+```
+
+QA verified the order **through the domain API**, not by re-running the `ORDER BY` in SQL: `GET /api/v1/people/1/projects` returned `1 → 2 → 3 → 4`. The tied pair resolving id 2 before id 3 is what distinguishes a real `id ASC` tiebreak from insertion order that happens to look right.
+
+### [T-028](T-028-qa-env-generator-worktree-build-context.md)'s bind-mount rule, first real outing
+
+T-028 named this task as the first its mount-provenance rule binds, and **both halves were obtained**:
+
+- **`.Mounts` captured while the stack was up** — `cvdl_t-151-flyway-1` bound `…/cvdl-worktrees/T-151/sql` → `/flyway/sql`: the worktree, not the main checkout.
+- **Paired behavioural check** — `experience=3, education=2, project=4` on the meta stack, counts that are *impossible* unless the worktree's SQL executed, since master's seed file has no rows in those tables at all.
+
+The pairing is the sign-off because **a bind mount leaves no trace after teardown**, unlike a build label. Before T-028 landed, this exact task would have seeded from **master's SQL** while the generator printed *"no service repointed: task repo 'cv-database' is not built by docker-compose.dev.yml"* — output that reads as *nothing to do here*. The rule was written for this shape and it caught it.
+
+### Documented, not fixed — and the documentation was verified
+
+`/code-review` reproduced a silent break of this task's own invariant: rename a seeded row's **key** column through `cv-admin-react` and re-migrate, and the guard misses, the row is resurrected, and there are **two rows with `end_date NULL`** — two "current jobs" on the public CV, while migrate exits 0. The converse also holds: editing a **non-key** field *in the seed file* applies on a fresh volume and silently no-ops on every existing one.
+
+Neither is fixable without a unique constraint, which is a schema change and explicitly out of this task's scope. Both are documented in the header block with `reset.sh` named as the remedy — and **QA reproduced both and confirmed the remedy**, so the comments describe observed behaviour rather than predicted behaviour. A comment that is subtly wrong is worse than none, in a file whose entire theme is that the absence of an error is not evidence of success.
+
+### The gate that does not exist, stated once more
+
+`Jenkinsfile:25` pins `FLYWAY_LOCATIONS=filesystem:/flyway/sql/migrations` and `dev-seeds` is **not** on that path — verified, not assumed. A syntax error, an FK violation, or the duplicate bug above would all pass CI green with no output. **Green CI is required by the DoD and proves nothing about this file.** The triple-migrate verification is the only check that will ever catch a seed regression, here or on any future edit — which is why it was run three times independently: by the developer, by the driver, and by `/code-review` in its own container.
+
+**A record correction:** the *"two pre-existing 1062 warnings"* figure carried in this task's brief and in both agent reports is wrong — on MySQL 8.4 it is **eleven** (1 `person` + 5 `skill` + 5 `person_skill`). Same expected `INSERT IGNORE` noise, no defect, and the figure never reached the committed file. Kept because *"what does clean noise look like"* is precisely the judgement this file's silent-failure mode depends on, and a wrong baseline for it is how a real error gets skimmed past.
