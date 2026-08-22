@@ -114,3 +114,30 @@ PR merged, and a cold-start push demonstrated green on first attempt.
 - **Developer:** `infrastructure-engineer`. **Reviewer:** `/code-review` + `infrastructure-engineer`. No `/security-review` — this touches boot sequencing, not an adapter §5 security path.
 - **Cheap mitigation if the cause proves hard:** the reaper already knows how to talk to Jenkins. A "wait for ready" gate in the doorbell path, or simply letting the *second* scan pick it up, may be enough. Do not reach for payload replay — T-019's ruling 1 rejected that deliberately and this defect is not an argument against it.
 - **Do not fold this into T-019.** T-019 is `done` and merged; this is a follow-up defect found by using it, which is the healthy outcome of that task, not a reason to reopen it.
+
+## ~~Fifth occurrence — and the status signature is NEW~~ → **UNATTRIBUTED anomaly on the same host** (2026-08-22, from [T-152](T-152-mysql-84-parity-cv-database.md))
+
+> **Retitled within the hour, and the retitling is the point.** This section was first written as "fifth occurrence" of T-026. **Stage-4 QA challenged the attribution and was right:** T-026's filed signature is `No build record … could be located` **with a stage that opened and closed having executed nothing**, and *that evidence was never obtained here* — the Jenkins console needs credentials this machine's policy declined. What is actually known is a status sequence on the same host, in a repo wired to the same doorbell. That is suggestive, not diagnostic.
+>
+> Folding it in anyway would have inflated this task's occurrence count with an instance nobody verified, and the count is the evidence base for "reproducible on demand". **The driver made exactly the error this board keeps cataloguing** — a plausible attribution written down once, which every later reader would have inherited as fact. Recorded rather than quietly edited, per this board's convention.
+>
+> **To resolve it, one fetch covers both open items:** the console logs for `PR-3/1` (this anomaly) and `PR-3/2` (T-152's outstanding CI criterion) at `http://13.39.59.12/jenkins/job/cv-database/job/PR-3/`. If #1 shows the empty-stage signature, this *is* occurrence five and the section can be retitled back. If it shows real stage output, it is a **different defect** and deserves its own task.
+
+Occurrences 1–4 all presented the same way: the first build after idle goes **red**, a later build on the warm box goes green. `cv-database`'s PR-3 produced a sequence this task had not seen — cause unestablished:
+
+```
+07:47:14  pending   PR-3/1/   "This commit is being built"
+07:48:06  success   PR-3/1/   "This commit looks good"
+07:48:07  error     PR-3/1/   "This commit cannot be built"     <-- ONE SECOND after its own success
+07:48:07  pending   PR-3/2/   "This commit is being built"
+07:48:31  success   PR-3/2/   "This commit looks good"
+```
+
+**Build #1 posted `success` and then `error` one second later, for the same build.** Nobody retriggered — push-then-PR fires two webhook deliveries, as this task already documents, so #2 ran unattended on the by-then-warm box.
+
+Two things follow:
+
+1. **The diagnostic signature in this file is incomplete.** Anyone bisecting this by looking for "first build is red" will not match this instance, because the first build is *also* green, momentarily. Whatever fails after the executor is allocated appears able to land a success status first and then invalidate it. That is a stronger clue about *where* the failure sits than four plain red builds were — it points at something after the build is considered complete, not at the build never starting.
+2. **It makes this task's own detection advice more important, not less.** `gh pr checks` reports the latest state per context and would show `pass`; the error is only visible in the full status history via `gh api repos/:owner/:repo/commits/:sha/statuses`. In this instance the *success* is also latest-but-one, so a reader skimming the history could equally miss the error between two greens.
+
+**This is the first such event recorded in `cv-database` rather than `cv-domain-service`.** Both are wired to the doorbell, which is *consistent with* a host-level rather than repo-level cause — but on one unverified instance that is a hypothesis, not a confirmation, and the sentence that stood here claimed the latter. Cost to T-152: one spurious red status and a paragraph of explanation in its PR; no manual retrigger was needed.
