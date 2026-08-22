@@ -39,6 +39,20 @@ curl localhost:3000/api/v1/people/1                    # E2E smoke: BFF → Java
 
 Dev stack ports: BFF :3000, domain API :8080 (Swagger at `/swagger-ui.html`), MySQL :3306, Prometheus :9090, Grafana :3001 (admin/admin). Frontends run separately: `npm run dev` in their repos (:5173 admin, :4173 public).
 
+**Switching an existing `cv-dev-mysql-data` volume between MySQL versions — wipe it.** `docker-compose.dev.yml` pins `mysql:8.4`, matching production (`cv-infra/templates/domain-service-user-data.sh`) and the Jenkins migration gate in `cv-database`. A `cv-dev-mysql-data` volume left over from an older `8.0` pin holds an 8.0-formatted datadir. The supported route when the pin moves is to throw the volume away:
+
+```bash
+docker compose -f docker-compose.dev.yml down -v   # discard the old datadir (all services)
+docker compose -f docker-compose.dev.yml up --build   # fresh datadir; Flyway + the dev-seed callback regenerate everything
+```
+
+Nothing is lost: dev seed data regenerates via the Flyway `afterMigrate` callback (`cv-database/sql/dev-seeds/`), never hand-maintained.
+
+Why wiping is the rule rather than a nicety — the two directions are **not** symmetric (verified on this stack, 2026-08-22):
+
+- **8.0 → 8.4 succeeds silently.** The server performs an in-place upgrade on first start (`Data dictionary upgrading from version '80023' to '80300'`, `Server upgrade from '80046' to '80411' completed`) and comes up healthy. Convenient, but it is a one-way door: the volume is now 8.4-formatted.
+- **8.4 → 8.0 fails hard and is not recoverable in place.** Re-pinning to `8.0` after `8.4` has touched the volume aborts startup with `[ERROR] [MY-014061] [InnoDB] Invalid MySQL server downgrade: Cannot downgrade from 80411 to 80046. Downgrade is only permitted between patch releases.` The container exits 1 and never reports healthy. The fix is `docker compose down -v`.
+
 ## Environment gotchas (this machine)
 
 - Toolchains are user-space in `~/.local`: `mvn` is a wrapper pinning Temurin JDK 17 (system `java` is a bare JRE 25 — don't use it directly), Node 20 via nvm symlinks, Terraform 1.9.8.
