@@ -2,19 +2,59 @@
 id: T-104
 title: Project resource in the domain API
 repo: cv-domain-service
-status: todo
-owner:
+status: done
+owner: backend-developer
 branch: feat/project-resource
-pr:
+pr: https://github.com/erfeamor/cv-domain-service/pull/8
 depends_on: []
 risk: normal
 security_review: false   # promoted 2026-08-20: the value already existed at checkpoint.security_review and was missing at top level, where the board and the driver read it. Same shape as T-011's pr: bug. Value unchanged — this is not a new ruling.
 checkpoint:
-  stage: H1
+  stage: done                 # merged as 7677fee 2026-08-22; H2 accepted by the human
+  merged: 7677fee
+  h2_note: "Accepted with both PO rulings explicitly surfaced for overturn -- the @Size applied against the AC's literal wording, and T-108 deferred rather than fixed in-PR. Neither was overturned."
+  ORIGINAL_stage_h2: # stages 1-3 complete 2026-08-22; H1 of 2026-08-04 stands, re-entered at implementation
+  commits: [b98cb72, 81f4bef]
+  a1: pass                    # checkstyle 0 violations, 137 tests, package -- re-run independently by the driver after each round
+  ci: pass                    # Jenkins PR-8/2 success 15:36:40Z. PR-8/1 FAILED on cold start (T-026, fifth occurrence) -- recorded there, not counted against this task
+  review_round: 1
+  review_status: CONVERGED
+  review_trail: "/code-review high effort on b98cb72: two findings. (1) repoUrl missing @Size(max=255) -> a 260-char value reaches MySQL strict mode as error 1406 and surfaces as 500 where contract design rule 4 requires 400. PO RULED APPLY: the AC's 'no validation annotation on any other field' is over-broad wording, not a ratified decision -- DoR 5's actual reasoning is about FORMAT validation narrowing the contract, which a length bound mirroring the column does not do; and Education.fieldOfStudy / Skill.category (both optional) already carry @Size. Fixed in 81f4bef with the boundary pair, 400 confirmed red first, C15 untouched. (2) update() is an untransacted read-modify-write -> concurrent DELETE makes merge() re-INSERT under a new id; no @Version so two PUTs lose an update. PO RULED FILE, DO NOT FIX: identical verbatim in EducationController and ExperienceController, both already on master, so fixing only Project leaves three siblings with two behaviours -- the same argument T-107 used to decline @JsonProperty(READ_ONLY). Filed as T-108."
+  spawned_task: "T-108 -- untransacted update read-modify-write across all three section resources."
+  qa_stage4: pass             # 2026-08-22, env slot 3, no defects
+  qa_stage4_provenance: "Read off the running container's IMAGE LABELS, not inferred: com.cvproject.dev-loop.commit=81f4bef, branch=feat/project-resource, worktree=/home/erfeamor/work/cvdl-worktrees/T-104, dirty=false. Corroborated by the additive tell -- GET /api/v1/people/1/projects answered 200 [] where master would 404. This is the first task where T-028's generator did the repointing rather than a hand-built third compose file."
+  qa_stage4_engine: "SELECT VERSION() -> 8.4.11, read off the live container rather than the compose tag. FIRST task on this board whose 'verified against live MySQL 8.4' claim is true by construction (T-152 + T-016 landed the parity the same day); the four earlier claims were most likely 8.0 wearing an 8.4 label."
+  qa_stage4_ordering: "Fixture inserted in an order deliberately mismatching the expected output: A 2024-01-01(id6), B undated(id7), C 2025-06-01(id8), D 2025-06-01(id9), E 2026-01-01(id10). GET returned ids [10, 8, 9, 6, 7] = startDate DESC, undated LAST, id ASC on the shared 2025-06-01 tiebreak. The CASE-WHEN JPQL spelling (T-027 workaround) is therefore proven against real MySQL 8.4, not only H2 -- which is the whole reason this check exists, since the two engines can disagree on NULL sort order."
+  qa_stage4_t107: "Exploit attempted, not argued: POST /api/v1/people/2/projects {\"id\":5,\"name\":\"PWNED\"} where row 5 is owned by person 3 -> 400. Row 5 read back FROM MYSQL afterwards: unchanged (person_id=3, name=victim-project). GET /people/3/projects still returns it. No stray row under person 2. Same standard of proof T-107 itself used."
+  qa_stage4_repourl: "255-char repoUrl -> 201, echoed in full (not truncated). 256-char -> 400 with Spring's default problem body, NOT the 500 the unbounded version produced. The review finding is confirmed live -- a mock could not have shown this difference, which is why it was missed until /code-review."
+  qa_stage4_teardown: "down -v on project cvdl_t-104; generated override removed."
+  premises_moved_since_h1: |
+    Three premises changed between H1 (2026-08-04) and pickup (2026-08-22). Recorded BEFORE a line
+    was written, as T-103 did, because an 18-day-old DoR is not uniformly current and saying which
+    parts aged is cheaper than letting the implementer infer it.
+
+    1. T-027 -- THE ORDERING SPELLING IN THIS FILE'S OWN AC DOES NOT COMPILE IN JPQL. The AC (and
+       docs/api-contract.md:41) prescribe `ORDER BY start_date IS NULL, start_date DESC, id ASC`
+       and, in the same breath, mandate an @Query -- which is JPQL unless nativeQuery=true.
+       `ORDER BY <expr> IS NULL` is SQL: a boolean predicate used as a sort key. The board has
+       said since 2026-08-21 that "T-104 hits it next". It does. Use the portable JPQL spelling
+       T-103 shipped and verified against live MySQL 8.4:
+           ORDER BY CASE WHEN p.startDate IS NULL THEN 1 ELSE 0 END, p.startDate DESC, p.id ASC
+       The SEMANTICS in the AC are binding and unchanged (undated last, startDate DESC, id ASC);
+       only the spelling is wrong. This is not a contract deviation -- T-027 is the open task that
+       fixes the contract's wording, and it is docs-only. Do NOT reach for nativeQuery=true.
+    2. T-028 MERGED 2026-08-21. The blockquote below saying "the generated stack builds master,
+       not your worktree -- until that lands, add a build-context override" is SUPERSEDED.
+       scripts/qa-env-override.py now repoints build contexts AND bind mounts at the worktree, and
+       refuses loudly rather than silently building master. Use it as documented; no hand override.
+    3. MySQL 8.4 IS NOW REAL (T-152 + T-016, both merged 2026-08-22). This file's stage-4 section
+       says "live MySQL 8.4" and, for the first time on this board, that label is true by
+       construction rather than by assumption -- docker-compose.dev.yml pins 8.4 and the generator
+       inherits it. Earlier tasks' identical claims were most likely 8.0 wearing an 8.4 label.
   reset_note: "Claim reset 2026-08-09: status was in_progress with owner backend-developer, but NO implementation existed — worktree sat at master's tip (d78ef27) with 0 changed files and no remote branch. The stale claim blocked re-pickup under board rule 1 ('if owner: is already set, pick another task'), parking three of the five wave-1 tasks behind a status that was not true. NOTE this is NOT a fresh todo: stage H1 is real — refinement and the DoR/test plan in this file were completed and ratified, so whoever picks it up starts at implementation, not refinement. The local worktree and branch still exist and are reusable."
   repo: cv-domain-service
   branch: feat/project-resource
-  worktree: /home/erfeamor/work/cvdl-worktrees/T-104
+  worktree: none              # CLEARED at close-out 2026-08-22, per the convention T-028 made load-bearing. It WAS /home/erfeamor/work/cvdl-worktrees/T-104; `git worktree remove` run after the merge. The 2026-08-22 sweep left this declaration alone deliberately while the task was unclaimed -- close-out is the moment the rule applies.
   pr:
   developer: backend-developer
   reviewers: [code-review, quality-assurance]
@@ -25,7 +65,7 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   env_slot: 3
-  updated: 2026-08-04
+  updated: 2026-08-22
 ---
 
 ## Goal
