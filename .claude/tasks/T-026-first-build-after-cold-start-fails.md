@@ -167,3 +167,30 @@ Two things follow:
 **Nobody retriggered it.** Pushing the branch and opening the PR fire two separate webhook deliveries, so PR-8/2 ran unattended on the warm box — the corrected severity claim in this file, holding for a fourth time.
 
 **The `gh pr checks` caution demonstrated live.** GitHub's status API keeps only the latest state per context, so PR-8 renders green and `gh pr checks 8` reports a pass while the `error` sits in the history behind it. Anyone verifying the eventual fix through `gh pr checks` will confirm a fix that never ran. The statuses API is the only honest read, and it is what produced the table above.
+
+
+## Sixth occurrence — and this is the first one where the cold start was *verified* rather than inferred (2026-08-22, from [T-151](T-151-dev-seeds-cv-sections.md))
+
+`cv-database` PR-4:
+
+```
+16:18:39  i-073e5284ca2a1ceed  LaunchTime  (reaper had stopped it after T-104's builds)
+16:19:23  pending  "scheduled to be built"   PR-4/1
+16:19:39  pending  "being built"             PR-4/1
+16:19:41  error    "This commit cannot be built"   PR-4/1   <-- 62s after the box started
+16:20:10  pending  "scheduled to be built"   PR-4/2
+16:20:19  pending  "being built"             PR-4/2
+16:20:44  success  "This commit looks good"  PR-4/2
+```
+
+**The premise was checked before the attribution was written, and that is the point of this entry.** The CI host had been `running` since 15:33:34 for [T-104](T-104-project-resource.md)'s builds, ~45 minutes earlier in the same session. **Had it still been up, this would not have been T-026 at all** — it would have been a warm-box failure, a different defect, and calling it T-026 would have repeated precisely the error that got [T-030](T-030-pr3-build1-success-then-error.md) filed the day before.
+
+`aws ec2 describe-instances` settles it: `LaunchTime` had moved to **16:18:39**, so T-019's reaper stopped the box between the two tasks and T-151's push cold-started it again. The failure is 62 seconds after that start.
+
+**Three confirmed cold-start intervals now: 47s, 42s, 62s.** All three are `pending → error` with no intervening `success`, which is the axis that separates this task from T-030.
+
+**The console signature is still unobtained** — Jenkins needs credentials this machine's policy declines — so this is *"matches the cold-start-fails / warm-succeeds pattern, cold start verified, console signature unobtained"*. That qualifier is now attached to occurrences five and six identically, and it is not weakening with repetition: six matching status sequences are still not the one console log that would confirm the mechanism.
+
+**What this occurrence adds beyond the count:** it is the first on **`cv-database`** whose shape is confirmed. The earlier `cv-database` anomaly (PR-3) is the one that became T-030 for lacking exactly this. So the defect is now observed in two repos, both wired to the same doorbell, which points at the shared Jenkins/host boot path rather than at anything repo-specific.
+
+**One Jenkins login still closes four items**: occurrences five and six, [T-030](T-030-pr3-build1-success-then-error.md), and [T-152](T-152-mysql-84-parity-cv-database.md)'s outstanding CI-console criterion.
