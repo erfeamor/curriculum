@@ -12,11 +12,12 @@ security_review: true   # adapter §5 — the diff touches `Jenkinsfile`, which 
 checkpoint:
   stage: done                  # H2 ratified 2026-08-22; merged as 5942881
   merged: 5942881
-  worktree:                    # CLEARED at close-out -- T-028's generator exits 1 on a closed task that still declares a path. This is the convention T-028 made load-bearing.
+  worktree: none               # CLEARED at close-out -- T-028's generator exits 1 on a closed task that still declares a path. This is the convention T-028 made load-bearing.
+                               # 2026-08-22 sweep: this clearing was INEFFECTIVE until today. Two more `worktree:` keys followed it in this same mapping (the stage-1 path, and `pending` from stage 0), and in YAML the LAST duplicate key wins -- so the generator read `pending` and refused, on a task whose close-out had explicitly cleared it. Both are demoted to non-key names below.
   outstanding: "CI-console version proof (Flyway banner from Jenkins PR-3 build #2) was NEVER obtained -- the console is authenticated and the credential path was declined. Merged with the gap named in the PR at the human's H2 ruling, not ticked. Anyone with Jenkins access should still fetch it; the same fetch also settles T-026's unattributed PR-3/1 anomaly."
   pr: https://github.com/erfeamor/cv-database/pull/3
   commit: b0f346c
-  worktree: /home/erfeamor/work/cvdl-worktrees/T-152   # CLEAR THIS AT CLOSE-OUT -- T-028's generator exits 1 on a closed task that still declares a path
+  worktree_history: /home/erfeamor/work/cvdl-worktrees/T-152   # was `worktree:`; DEMOTED 2026-08-22 -- it shadowed the cleared key above. The directory is gone; the path is kept as a record of where the task ran.
   blocked_criterion: "CI-side version proof (Flyway banner from Jenkins build #2). Console is authenticated; fetching it needs the SSM jenkins-admin-password, which this machine's permission policy declined. Pipeline DEFINITION verified locally instead; pipeline RUN is not. Needs a human with Jenkins access, or an explicit permission grant."
 
   updated: 2026-08-22
@@ -24,9 +25,9 @@ checkpoint:
   reviewers: ["/code-review", "infrastructure-engineer (CI-config lens, read-only)", "/security-review"]
   security_review: true        # adapter §5 — Jenkinsfile is an unconditional /security-review path
   qa_plan: recorded            # authored by quality-assurance at stage 0, appended to this file
-  worktree: pending            # cv-database supports worktrees (T-002's note); created at stage 1 after H1
+  worktree_stage0: pending     # was `worktree:`; DEMOTED 2026-08-22 -- being LAST, this is the value the generator actually read, so a closed task kept declaring a worktree. cv-database supports worktrees (T-002's note); created at stage 1 after H1.
   branch: chore/mysql-84-parity-ci
-  pr:
+  pr_stage0:                   # was a second `pr:`, EMPTY and LAST, shadowing the merged URL above. DEMOTED 2026-08-22 -- the exact hygiene bug the 2026-08-17 sweep fixed in T-011 and the 2026-08-20 sweep fixed in T-019, here recurring INSIDE one file.
   h1_rulings:
     - "AC3 CORRECTED: the CI half proves 8.4 via Flyway's connection banner, not docker exec (the container is --rm'd). Applied to the acceptance criteria."
     - "AC grep scope CORRECTED to repo-wide, matching the criterion rather than the narrower --include form the verification block carried."
