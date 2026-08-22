@@ -45,7 +45,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 |----|-------|------|--------|-------|------------|----|
 | [T-001](T-001-selfhost-mysql-followups.md) | Backup: replace the managed backups lost when MySQL left RDS | cv-infra | done (applied + restore verified) | infrastructure-engineer | — | [#15](https://github.com/erfeamor/cv-infra/pull/15) |
 | [T-016](T-016-dev-prod-mysql-parity.md) | Dev/prod parity: bump the local MySQL to 8.4 | cv-project (meta) | done | infrastructure-engineer | T-152 ✔ | [#52](https://github.com/erfeamor/curriculum/pull/52) |
-| [T-152](T-152-mysql-84-parity-cv-database.md) | Dev/CI parity: bump cv-database's stack **and its migration gate** to MySQL 8.4 | cv-database | done (**merged; CI-log proof still outstanding**) | backend-developer | — | [#3](https://github.com/erfeamor/cv-database/pull/3) |
+| [T-152](T-152-mysql-84-parity-cv-database.md) | Dev/CI parity: bump cv-database's stack **and its migration gate** to MySQL 8.4 | cv-database | done (**CI-log proof obtained 2026-08-22 — all criteria met**) | backend-developer | — | [#3](https://github.com/erfeamor/cv-database/pull/3) |
 | [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) | cv-database's Jenkins `Deploy` stage is gated on `main`, a branch that does not exist here — and still names RDS | cv-database | todo | | T-152 | |
 | [T-154](T-154-jenkins-pipeline-timeout.md) | No `timeout {}` on cv-database's pipeline: a hung build **holds the only CI host up** (~$17.24/mo) | cv-database | todo | | — | |
 | [T-155](T-155-flyway-version-supports-mysql-84.md) | Flyway 10 does not claim MySQL 8.4 support — and it runs against 8.4 **in production** | cv-database + meta + cv-infra | todo | | — | |
@@ -69,7 +69,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-023](T-023-meta-docs-stale-bff-smoke-path.md) | The documented E2E smoke command curls a path the BFF no longer serves (**four files, not three — scope corrected**) | cv-project (meta) | todo | | — | |
 | [T-024](T-024-contract-skill-assignment-put-shape.md) | Contract: split the skill-assignment PUT's request body from its response | cv-project (meta) | done | tech-product-owner | — | [#41](https://github.com/erfeamor/curriculum/pull/41) |
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution | cv-infra + cv-domain-service | todo | | T-022 | |
-| [T-026](T-026-first-build-after-cold-start-fails.md) | First Jenkins build after a cold start fails (`No build record could be located`) | cv-infra | todo | | T-019 | |
+| [T-026](T-026-first-build-after-cold-start-fails.md) | First Jenkins build after a cold start fails (`No build record could be located`) | cv-infra | todo (**signature CONFIRMED from console 2026-08-22; cause narrowed, fix unbuilt**) | | T-019 | |
 | [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) | Contract: the ordering note prescribes SQL syntax for a JPQL context (**T-104 hits it next**) | cv-project (meta) | todo | | — | |
 | [T-028](T-028-qa-env-generator-worktree-build-context.md) | QA stack builds `master`, not the worktree under test (**silent false pass**) | cv-project (meta) | done (**bind mounts too; T-151's failure mode closed**) | infrastructure-engineer | — | [#49](https://github.com/erfeamor/curriculum/pull/49) |
 | [T-029](T-029-code-review-cannot-see-worktrees.md) | `/code-review` **silently reviews the wrong thing** without an explicit target (cause corrected — not worktrees) | cv-project (meta) | todo | | — | |
@@ -586,3 +586,73 @@ Neither is fixable without a unique constraint, which is a schema change and exp
 `Jenkinsfile:25` pins `FLYWAY_LOCATIONS=filesystem:/flyway/sql/migrations` and `dev-seeds` is **not** on that path — verified, not assumed. A syntax error, an FK violation, or the duplicate bug above would all pass CI green with no output. **Green CI is required by the DoD and proves nothing about this file.** The triple-migrate verification is the only check that will ever catch a seed regression, here or on any future edit — which is why it was run three times independently: by the developer, by the driver, and by `/code-review` in its own container.
 
 **A record correction:** the *"two pre-existing 1062 warnings"* figure carried in this task's brief and in both agent reports is wrong — on MySQL 8.4 it is **eleven** (1 `person` + 5 `skill` + 5 `person_skill`). Same expected `INSERT IGNORE` noise, no defect, and the figure never reached the committed file. Kept because *"what does clean noise look like"* is precisely the judgement this file's silent-failure mode depends on, and a wrong baseline for it is how a real error gets skimmed past.
+## The Jenkins console arrived — one fetch, five tasks moved (2026-08-22)
+
+The human supplied the console text for `cv-database` PR-4 builds **#1** and **#2**. This board had been routing items to *"one Jenkins login"* for three days; here is what it actually settled, and what it did not.
+
+### [T-026](T-026-first-build-after-cold-start-fails.md) — signature CONFIRMED, cause narrowed, still `todo`
+
+Both halves of the filed signature, in one log, verbatim:
+
+```
+[Pipeline] { (Validate migrations)
+[Pipeline] }                                  <-- opened and closed. NO [Pipeline] sh at all.
+...
+ERROR: No build record cv-database/PR-4#1 could be located.
+Finished: FAILURE
+```
+
+Five prior occurrences were argued from status sequences. This one is read off the console — so the qualifier this board has attached six times (*"matches the pattern, console signature unobtained"*) comes off.
+
+**The new fact is that the build did real work before it died.** Build #1 completed a full clone, merge and checkout, then lost its record between checkout and the first `sh`. That re-ranks the file's three standing candidates: **SSM re-provisioning orphaning the in-flight record is promoted to leading** (it is the only one that predicts *checkout succeeds, then the record vanishes*), while *"Jenkins mid-initialisation"* is weakened as worded — a not-ready Jenkins does not clone a repo first — and *disk/permission timing* is weakened, since the clone wrote to `/var/lib/jenkins` successfully in the same window.
+
+**Still a narrowing, not a diagnosis.** Two artifacts would settle it and neither is in hand: Jenkins' own boot-window log, and the **SSM command invocation history** for `i-073e5284ca2a1ceed` across 16:18:39–16:19:41. If the SSM invocation overlaps the build, candidate 1 is confirmed and the fix is *sequencing*, not a readiness probe.
+
+**Both builds are triggered by `Branch indexing`, not by a push** — confirming [T-019](T-019-ci-host-on-demand.md)'s `ci-on-demand.tf` ruling 1 that the doorbell forwards no payload. The real chain is `push → doorbell → StartInstances → Jenkins boots → branch indexing → build`, which is *why* the first build races the boot: nothing was ever designed to wait. **A readiness probe on the doorbell cannot fix this** — the doorbell is long finished before indexing starts.
+
+And build #2 is the control this task has wanted since it was filed: **same commit, same job, warm box, 63 seconds later, stage executes fully.** Identical input, opposite outcome, now in the same evidence set as the failure.
+
+### [T-152](T-152-mysql-84-parity-cv-database.md) — the last outstanding criterion is CLOSED
+
+The criterion named PR-3 build #2; what arrived is **PR-4 build #2**. Recorded as a **substitution rather than glossed**, per this task's own rule that a local reproduction and a CI execution are different claims — and it is the *stronger* evidence, because PR-4 runs against master with T-152 already merged:
+
+```
++ docker run -d --rm --name cv-mysql-ci-2 ... mysql:8.4
+Database: jdbc:mysql://cv-mysql-ci-2:3306/cv?allowPublicKeyRetrieval=true (MySQL 8.4)
+Successfully applied 1 migration to schema `cv`, now at version v1
+```
+
+**The banner matches the corrected expected string exactly, including `?allowPublicKeyRetrieval=true`** — vindicating the AC correction made on 2026-08-22 *before any log existed*, since a literal grep for the shorter form would have missed and read as "banner absent". The struck `docker exec` criterion is likewise confirmed unsatisfiable: the log shows `--rm` and a post-stage `docker rm -f`.
+
+It also observes `FLYWAY_LOCATIONS=filesystem:/flyway/sql/migrations` in a real run — the load-bearing fact behind [T-151](T-151-dev-seeds-cv-sections.md)'s *"Jenkins is not a signal for dev-seeds"*, until now verified only by reading the Jenkinsfile.
+
+**Every `done` task on this board now has every acceptance criterion met except T-019's billing week and T-022's interactive Cognito login.**
+
+### [T-154](T-154-jenkins-pipeline-timeout.md) — the premise was wrong: the retry loop is NOT latent
+
+The task argued the hang was dormant because `allowPublicKeyRetrieval` is intact. The log shows Flyway's retry path **executing on a healthy build**:
+
+```
+Retrying in 1 sec... / 2 sec... / 4 sec... / 8 sec...
+```
+
+**The cause is mundane and permanent:** the Jenkinsfile starts MySQL with `-d` and runs Flyway immediately, with no healthcheck wait. **The retries *are* the wait.** So this is the pipeline's normal startup path, succeeding only because MySQL wins the race in ~15s. Against `FLYWAY_CONNECT_RETRIES=60` and a doubling backoff, a MySQL that never comes up walks that budget to exhaustion **while holding the only CI host up** — defeating T-019's reaper exactly as the task predicts. A second, cheaper fix is now visible and should be priced at H1 beside `timeout {}`: **wait for the container to report healthy**, so the retry budget stops being the synchronisation mechanism.
+
+### [T-155](T-155-flyway-version-supports-mysql-84.md) — confirmed in CI, and the bump is bigger than assumed
+
+The unsupported-pairing warning is now observed in a real gate run, and the log pins the version: **Flyway OSS 10.22.0**, with Flyway itself advertising **13.3.0** as current. A two-major jump is a materially different proposition from a patch bump and should be weighed at H1 rather than assumed cheap.
+
+### [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) — the dead gate, observed dead
+
+```
+[Pipeline] { (Deploy)
+Stage "Deploy" skipped due to when conditional
+```
+
+Previously argued from reading the Jenkinsfile; now Jenkins names the reason itself. **A trap for whoever fixes it:** build #1 of the same PR reports the same stage skipped `due to earlier failure(s)` — so *"Deploy was skipped"* is not evidence about the branch gate unless you read **which** skip it was, and T-026 means roughly one cold-start build in two shows the misleading variant.
+
+### [T-030](T-030-pr3-build1-success-then-error.md) — NOT closed, and the prediction was wrong
+
+**These are PR-4 logs; T-030 is about PR-3 build #1.** The claim this board repeated — *"one Jenkins login closes four items"* — was wrong on this one: the four items were not four independent fetches, they were largely **the same PR's builds**. Recorded rather than quietly dropped, because a convenient-sounding count that nobody re-derived is precisely this board's recurring failure, arriving this time in a sentence *about* closing open items.
+
+What did improve is that the discriminator is now exact: if PR-3#1 shows the empty stage plus `No build record`, it is T-026 and folds in; if it shows the stage executing real steps and *then* failing, it is a different defect. The prior mildly favours the latter — T-026's mechanism kills a build before it can report anything, and T-030's sequence has a **`success` posted first** — but that is an argument, and this task exists because an argument was mistaken for evidence once already.

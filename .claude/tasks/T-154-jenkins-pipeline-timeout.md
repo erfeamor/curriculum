@@ -55,3 +55,28 @@ PR open against `master` from `fix/jenkins-pipeline-timeout`, the guard demonstr
 ## Provenance
 
 Raised by `infrastructure-engineer` in [T-152](T-152-mysql-84-parity-cv-database.md)'s stage-2 review, 2026-08-22, and flagged there as out of scope for that PR under board rule 3. Filed at T-152's H2 gate.
+
+
+## The retry loop is NOT latent — it engages on every build (2026-08-22)
+
+This task called the hang *"latent, not live"*, on the grounds that `allowPublicKeyRetrieval` is intact so Flyway never enters its retry path. **The console log for `cv-database` PR-4 build #2 shows the retry path executing**, four times, on a perfectly healthy build:
+
+```
++ docker run -d --rm --name cv-mysql-ci-2 ... mysql:8.4
++ docker run --rm ... -e FLYWAY_CONNECT_RETRIES=60 flyway/flyway:10 migrate
+WARNING: Connection error: ... Socket fail to connect to host:cv-mysql-ci-2, port:3306. Connection refused
+Retrying in 1 sec...
+WARNING: Connection error: ... Connection refused
+Retrying in 2 sec...
+WARNING: Connection error: ... Connection refused
+Retrying in 4 sec...
+WARNING: Connection error: ... Connection refused
+Retrying in 8 sec...
+Database: jdbc:mysql://cv-mysql-ci-2:3306/cv?allowPublicKeyRetrieval=true (MySQL 8.4)
+```
+
+**The cause is mundane and permanent: the Jenkinsfile starts MySQL with `-d` and immediately runs Flyway against it, with no healthcheck wait.** The retries *are* the wait. So the mechanism this task is about is not dormant waiting for a config regression — it is the pipeline's normal startup path, and it succeeds only because MySQL happens to win the race within ~15 seconds.
+
+**Sharpen the argument accordingly.** The observed backoff **doubles** (1, 2, 4, 8 …) against `FLYWAY_CONNECT_RETRIES=60`. If MySQL fails to come up at all — a bad image pull, a full disk, the 8.4 tag moving — the build does not fail fast; it walks that backoff to exhaustion while **holding the only CI host up**, defeating [T-019](T-019-ci-host-on-demand.md)'s reaper exactly as this task predicts. Do not put a number on the total in the task record without checking Flyway 10's `connectRetriesInterval` cap; the point stands without one, and an unverified figure here would be the kind of claim this board keeps having to retract.
+
+**A second, cheaper fix is now visible** and should be priced at H1 alongside `timeout {}`: **wait for the MySQL container to report healthy before invoking Flyway**, so the retry budget stops being the synchronisation mechanism. That does not replace the timeout — a timeout bounds *every* hang, not just this one — but it removes the path that currently exercises it on every single build.

@@ -63,3 +63,24 @@ PR open against `master` from `fix/jenkins-deploy-stage-gate`, task updated to `
 ## Provenance
 
 Found 2026-08-22 during T-152's stage-0 refinement, while reading the Jenkinsfile to confirm that its throwaway MySQL container is `--rm`'d (it is — which is why T-152's AC3 had to change). Filed rather than fixed inside T-152 per board rule 3, and filed rather than folded into [T-017](T-017-docs-drift-rds-to-selfhosted.md) because T-017 is a docs task and this is a pipeline file with a live, if inert, logic error. Ratified at T-152's H1 gate, 2026-08-22.
+
+
+## Confirmed from the console — the stage is skipped, in as many words (2026-08-22)
+
+`cv-database` PR-4 build #2, a fully green run on the merged 8.4 gate:
+
+```
+[Pipeline] stage
+[Pipeline] { (Deploy)
+Stage "Deploy" skipped due to when conditional
+```
+
+The `when { branch 'main' }` gate evaluates false and the stage is skipped, on a repo whose default branch is `master`. This task previously argued the gate was dead **by reading the Jenkinsfile**; it is now observed being dead in a real run, with Jenkins naming the reason itself.
+
+**Note the contrast with build #1 of the same PR**, which reports the same stage skipped for an entirely different reason:
+
+```
+Stage "Deploy" skipped due to earlier failure(s)
+```
+
+Two different skip reasons for a stage that has never once executed. Worth recording because it is a small trap for whoever fixes this: *"Deploy was skipped"* in a log is not evidence about the branch gate unless you read **which** skip it was — and [T-026](T-026-first-build-after-cold-start-fails.md) means roughly one build in two on a cold start shows the misleading variant.

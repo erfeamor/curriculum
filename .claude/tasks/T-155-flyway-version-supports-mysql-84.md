@@ -56,3 +56,22 @@ Before T-152, CI validated migrations against **8.0** while production applied t
 ## Provenance
 
 Found during [T-152](T-152-mysql-84-parity-cv-database.md)'s implementation, 2026-08-22, and confirmed not-blocking by that task's stage-2 review — which argued explicitly that blocking T-152 over this would have protected the more dangerous status quo. Filed at T-152's H2 gate.
+
+
+## Confirmed in CI, not only locally — 2026-08-22
+
+The warning this task is about is now observed in a real Jenkins run (`cv-database` PR-4 build #2 console, supplied by the human):
+
+```
+Flyway OSS Edition 10.22.0 by Redgate
+...
+Database: jdbc:mysql://cv-mysql-ci-2:3306/cv?allowPublicKeyRetrieval=true (MySQL 8.4)
+WARNING: Flyway upgrade recommended: MySQL 8.4 is newer than this version of Flyway
+and support has not been tested. The latest supported version of MySQL is 8.1.
+Successfully applied 1 migration to schema `cv`, now at version v1
+```
+
+Two things this pins down that the task previously argued from local runs:
+
+1. **The exact version in play is Flyway OSS 10.22.0**, not "flyway 10" generically. Whoever prices the bump at H1 now has the concrete starting point, and the log also shows Flyway itself advertising **13.3.0** as current — a two-major jump, which is a materially different proposition from a patch bump and should be weighed at H1 rather than assumed cheap.
+2. **The unsupported pairing is load-bearing in CI as well as in production.** The migration applies cleanly against 8.4 — one more data point for *"it says untested, not broken"* — but it now does so in the gate that is supposed to be the safety net, which is the argument for deciding this rather than leaving it to accumulate.

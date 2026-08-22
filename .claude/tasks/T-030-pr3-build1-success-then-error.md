@@ -58,3 +58,19 @@ Fetch the console log for `http://13.39.59.12/jenkins/job/cv-database/job/PR-3/1
 ## Provenance
 
 Observed on [T-152](T-152-mysql-84-parity-cv-database.md)'s PR, 2026-08-22. Misattributed to T-026 by the driver, caught by stage-4 QA, corrected in T-026 and filed here at T-152's H2 gate.
+
+
+## Still open — but the discriminator is now exact (2026-08-22)
+
+**The console text that arrived is for PR-4, not PR-3.** This task is about `cv-database` **PR-3 build #1**, so it is **not** settled by it. Recorded plainly because the prediction repeated across several board entries — *"one Jenkins login closes four items"* — was **wrong on this one**: the fetch closed [T-026](T-026-first-build-after-cold-start-fails.md)'s signature and [T-152](T-152-mysql-84-parity-cv-database.md)'s outstanding criterion, but those two plus occurrences five and six were all the same PR's builds. T-030 needs its own log.
+
+**What changed anyway is that the test is now exact rather than descriptive.** T-026's signature has been read off a real console, so PR-3 build #1's log settles this in one glance:
+
+| If PR-3#1 shows | Then |
+|---|---|
+| `[Pipeline] { (Validate migrations)` immediately followed by `[Pipeline] }` with **no `[Pipeline] sh`**, and `ERROR: No build record cv-database/PR-3#1 could be located.` | It **is** T-026. Fold this task in as another occurrence and close it. |
+| The `Validate migrations` stage executing real steps (`docker network create`, `docker run … mysql:8.4`, Flyway output) and **then** a failure | It is a **different defect** and this task stands on its own. The `success`-then-`error` one second apart points at status reporting or a post-build step, not at a build that never started. |
+
+**One more reason to expect the second outcome.** T-026's confirmed mechanism is *the build record disappearing mid-build*, and a build in that state never reaches a terminal `success` — build #1 of PR-4 went straight to `FAILURE`. T-030's sequence has a **`success` posted first**, which means the build completed and reported. Those are hard to reconcile, so the prior mildly favours "different defect" — but that is an argument, and this task exists because an argument was mistaken for evidence once already. **Fetch the log.**
+
+`http://13.39.59.12/jenkins/job/cv-database/job/PR-3/1/consoleText`
