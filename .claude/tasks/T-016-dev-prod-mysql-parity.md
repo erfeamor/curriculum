@@ -2,15 +2,18 @@
 id: T-016
 title: "Dev/prod parity: bump the local MySQL to 8.4"
 repo: cv-project (meta)
-status: todo
-owner:
+status: done
+owner: infrastructure-engineer
 branch: chore/dev-mysql-84-parity
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/52
 depends_on: [T-152]   # RESOURCE dependency ratified at H1 2026-08-22, not a code one. cv-database/flyway.conf:6 hardcodes localhost:3306 and scripts/migrate.sh runs --network host, so T-152 must own host port 3306; this task's stack publishes it too, and BOTH databases are named `cv` with user cv/cv -- an overlap makes T-152's Flyway migrate THIS stack while reporting success. Encoded as depends_on rather than prose deliberately: this board has repeatedly lost gating conditions that lived only in prose (T-002, T-014). Do not remove it without reading that reasoning.
 risk: normal
 security_review: false
 checkpoint:
-  stage: h1_approved_parked    # H1 RATIFIED 2026-08-22: approved, but sequenced AFTER T-152 (human chose strictly-sequential over the parallel wave). Resume at STAGE 1 -- implementation -- do not re-refine.
+  stage: done                  # H2 ratified 2026-08-22; merged as ebb6649
+  commits: [c72d803, b3aea99]
+  merged: ebb6649
+  h1_ruling_voided: "H1's 'wipe is the supported route' rested on QA's stage-0 advice that 8.4 would REFUSE an 8.0 datadir. The asymmetry proved inverted the same day; in-place preserves data going forward. Doc corrected to match the facts. RAISED AT H2 AND THE CORRECTION WAS CONFIRMED by the human, 2026-08-22 -- the original ruling is voided by evidence, not overridden silently."
   updated: 2026-08-22
   developer: infrastructure-engineer
   reviewers: ["/code-review", "backend-developer (data-layer lens, read-only)"]
@@ -118,3 +121,44 @@ PR open against `master` from `chore/dev-mysql-84-parity`, local stack verified,
 | Unrelated connect failure (bad password, port clash) | Also fast, but names credentials/host/port rather than a plugin or RSA term | Cross-check compose env and `docker compose -p cvdl_T-016 ps` for the expected slot ports before blaming 8.4 |
 | Stale Docker cache serving 8.0 under the new tag | `mysql --version` says 8.0 while the compose file says 8.4 | Exactly why 05/06/11 read the running container. `docker pull mysql:8.4` and retest — an environment artifact, but it must still be caught before sign-off |
 | In-place upgrade crash-loop | `mysql` restarts repeatedly, or logs data-dictionary / InnoDB redo-log incompatibility | Covered by QA-T016-14; if hit, that is the strongest argument for documenting the wipe path |
+
+---
+
+## Stages 1–4 — implemented, reviewed twice, QA clean (2026-08-22)
+
+**PR [#52](https://github.com/erfeamor/curriculum/pull/52)**, branch `chore/dev-mysql-84-parity`, commits `c72d803` (bump) + `b3aea99` (review fixes). Two files, +30/−1: `docker-compose.dev.yml:16` and a `CLAUDE.md` block. No board file in the diff — verified at every stage.
+
+**A1 green twice** (before and after the review fixes): `docker compose config` valid, and the meta repo's own suite — including [T-028](T-028-qa-env-generator-worktree-build-context.md)'s 33 generator tests, which matter here because this change edits the file that generator reads. Risk re-check: no adapter §5 security path, so `security_review: false` holds on the real diff, not just as a stage-0 guess.
+
+> **There is no CI gate behind this task.** The meta repo has **no `.github/workflows` at all**, so the engine's stage-3 *"repo CI must go green — the authoritative gate"* does not exist for it. A1 and QA are the whole of the verification. That is true for every meta-repo task on this board (T-003, T-012, T-015, T-017, T-023, T-027, T-029) — roughly a third of the open work runs with one fewer layer than the adapter's §3 table implies.
+
+### The bump is provably safe, not merely observed to work
+
+The data-layer reviewer applied `V1__init_schema.sql` plus the `afterMigrate` seed callback through Flyway 10 against real `mysql:8.0.46` **and** `mysql:8.4.11`, then diffed the whole `information_schema` picture: columns (type, charset, collation, nullability, default, extra), tables (engine, collation, row format), every index including `person_skill`'s composite PK, `@@sql_mode`, `@@character_set_server`, `mysql.user.plugin`, the Flyway history and all six row counts.
+
+**Byte-identical except the `SELECT VERSION()` line.** Since the metadata Hibernate reads is unchanged, `ddl-auto: validate` cannot behave differently — that is a proof, where "the service booted" would have been an observation.
+
+It also closed a gap production's success does **not** cover: `docker-compose.dev.yml:53` uses `jdbc:mysql://mysql:3306/cv` with **no** `allowPublicKeyRetrieval`, unlike production's URL. Connector/J 8.3.0 was run against both servers with that exact URL — `ssl_cipher=TLS_AES_256_GCM_SHA384` on both. Auto-generated TLS covers `caching_sha2_password` on 8.4, so the paramless dev URL is fine and the [T-023](T-023-meta-docs-stale-bff-smoke-path.md)-adjacent worry does not apply here.
+
+### Two review findings, and one of them voided an H1 ruling
+
+Found independently by both reviewers:
+
+1. **`down -v` blast radius understated.** It drops *every* named volume in the project — `cv-dev-grafana-data` included — and `cv-observability/grafana/provisioning/dashboards/` ships only `dashboards.yml`, **no dashboard JSON**. A UI-built dashboard has no repo backup. The doc said it discarded "the old datadir".
+2. **"Nothing is lost" was false, and the wipe ruling had lost its premise.** H1 ratified *"wipe is the supported route, seeds regenerate so it costs nothing"* — on QA's stage-0 recommendation, made while everyone still believed **8.4 would refuse an 8.0 datadir**. Once the asymmetry proved inverted, in-place became the safe forward path and nobody re-derived the ruling. Meanwhile `cv-admin-react` writes real rows to this same database, so a wipe destroys authored data.
+
+   Corrected in `b3aea99`: **forward (8.0→8.4) in-place preserves the datadir, wipe optional; backward (8.4→8.0) wipe required.** The empirical log-line bullets were left verbatim — they were the most valuable part.
+
+**This is the board's signature failure in its purest form yet**: not a stale number or a stale status, but a *ratified decision whose premise died three hours later*. It was made at a human gate, by the driver presenting it, on advice that was correct when given.
+
+### Stage 4 — QA clean, and the dirty-volume check finally ran against real data
+
+All fourteen checks pass. QA-T016-05/06/11 read `8.4.11` off running containers (never the compose file); the generator was confirmed not to touch `image:`, so the QA stack inherits the pin — which is what makes every future *"verified against 8.4"* claim on this board true by construction rather than by assumption.
+
+**QA-T016-14 was revised by the driver and it earned the change.** The project's only genuine 8.0-era volume is real developer data (`curriculum_cv-dev-mysql-data`, untouched since 2026-07-19, `curriculum-mysql-1` exited on `mysql:8.0`), and the first plain `up` would have consumed it irreversibly. QA **cloned it and tested the clone**:
+
+- Forward: exact documented signature, healthy, `8.4.11`, and the pre-existing `person` row **byte-identical including `created_at=2026-07-11 15:10:00`**. Real authored data survived the in-place upgrade — the corrected doc's central claim, previously untested against anything but freshly-seeded volumes.
+- Backward: `MY-014061`, exit 1, never healthy — exact match.
+- Original untouched, mtimes still `2026-07-19`, clone removed.
+
+**A methodological catch worth keeping:** `information_schema.tables.table_rows` is an *estimate* for InnoDB and read 0 for a table holding a row. QA used `COUNT(*)` throughout instead — otherwise this pass would have reported false data loss on the one check whose entire purpose is proving data survives.

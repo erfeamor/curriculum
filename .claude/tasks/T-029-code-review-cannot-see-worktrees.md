@@ -1,6 +1,6 @@
 ---
 id: T-029
-title: "/code-review returns nothing on a worktree, so the adapter mandates a reviewer the pipeline cannot run"
+title: "/code-review silently reviews the wrong thing when given no explicit target"
 repo: cv-project (meta)
 status: todo
 owner:
@@ -10,6 +10,16 @@ depends_on: []
 risk: normal
 security_review: false   # tooling/process change in the meta repo; no adapter §5 security path
 ---
+
+> ## PREMISE CORRECTED 2026-08-22, HOURS AFTER FILING — worktrees were never the cause
+>
+> This task was filed as *"`/code-review` returns nothing on a worktree"*. **That diagnosis was wrong**, and it was wrong in the way this board keeps finding: a plausible cause inferred from two observations, written down, and nearly inherited.
+>
+> Disproved during [T-016](T-016-dev-prod-mysql-parity.md), which runs in the **meta repo on a branch — no worktree at all**. Bare `/code-review low` there returned the same empty result in ~7s. Then `/code-review 52` (the PR number) ran a **full, high-quality review**: 21 tool calls, ~6 minutes, four findings, with the reviewer independently re-running the empirical claims against local Docker images.
+>
+> **The actual behaviour:** with no explicit target it reviews the **uncommitted working-tree diff**. In every failing invocation that diff was board markdown under `.claude/tasks/` — so "no findings" was *correct*, it just answered a question nobody asked. The task's branch changes were committed and therefore invisible to it.
+>
+> **So this is a usage defect, not a tool defect** — and the harm is unchanged: an empty result is **indistinguishable from a clean review**, and the driver reported it as "did not run" only because the 5-second duration was implausible. Anyone less suspicious records a clean review that never happened.
 
 ## Goal
 
@@ -38,14 +48,16 @@ A green-looking signal that measured nothing:
 
 ## Scope
 
-1. **Establish the actual cause.** Do not fix on this task file's premise — reproduce it. Is it cwd-relative, git-repo-relative, or does it reject a path argument? Try: invoking from inside the worktree, passing a PR number, passing a branch, and passing an absolute path.
-2. **Pick a remedy that fails loudly rather than silently.** Ranked by preference: (a) an invocation form that works and is documented in the adapter; (b) if none exists, the driver runs the general pass inline and the adapter says so explicitly, so the reviewer set is honest; (c) worst case, a documented "cannot run here" that the pipeline records on the task rather than skipping quietly.
-3. **Update `.claude/dev-loop-adapter.md` §7** so the reviewer set states what actually runs.
+~~1. Establish the actual cause…~~ **Done 2026-08-22, see the correction above.** The cause is a missing target argument, not worktrees.
+
+1. **Document the working invocation in `.claude/dev-loop-adapter.md` §7:** `/code-review <PR-number>` after stage 3, or an explicit committed-diff target. Bare `/code-review` reviews uncommitted changes and will silently review the board instead of the task.
+2. **Sequencing consequence worth stating in the adapter:** the general pass therefore belongs **after** the PR exists (stage 3), not at stage 2 as the engine's ordering implies. Either move it, or use a target form that works pre-PR — but do not leave the pipeline invoking it in a position where it cannot see the change.
+3. **The real deliverable is making an empty result distinguishable from a clean one.** Both prior failures were caught only by noticing a ~5-second duration. If the harness cannot distinguish them, the pipeline must: record the invocation form and require the reviewer to state what it examined, so "no findings" is always attached to a scope.
 
 ## Acceptance criteria
 
-- [ ] The cause is reproduced and stated, not inferred.
-- [ ] A working invocation is documented, or its absence is documented with the fallback the pipeline uses instead.
+- [x] The cause is reproduced and stated, not inferred. **Done 2026-08-22** — see the correction block.
+- [ ] The working invocation (`/code-review <PR-number>`) is documented in the adapter, together with the stage-ordering consequence.
 - [ ] **An empty/no-op result is distinguishable from a genuine "no findings"** — this is the real deliverable. A remedy that leaves those two indistinguishable has not fixed the defect, only this instance of it.
 - [ ] Adapter §7's reviewer table matches what the pipeline can actually execute.
 
