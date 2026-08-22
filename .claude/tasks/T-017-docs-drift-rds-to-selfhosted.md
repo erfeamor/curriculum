@@ -1,6 +1,6 @@
 ---
 id: T-017
-title: "Docs drift: the repo still says RDS in five places"
+title: "Docs drift: name MySQL 8.4 as the target engine in cv-database's docs (the meta repo's five RDS mentions are already permitted)"
 repo: cv-project (meta) + cv-database
 status: todo
 owner:
@@ -10,6 +10,14 @@ depends_on: []
 risk: trivial
 security_review: false
 ---
+
+> ## TITLE CORRECTED 2026-08-22 — this task is smaller than its old name claimed
+>
+> It was titled *"the repo still says RDS in five places"*, which reads as five defects. Its own **re-scope check**, added the same day and sitting below in this file, says the opposite: **all five surviving mentions in the meta repo are contrastive or historical** (*"instead of RDS"*, *"replacing RDS's automated backups"*, *"no RDS"*) — which **AC1 explicitly permits** — and `diagrams/architecture.mmd:15` reads `MySQL` and never said RDS at all.
+>
+> So the title asserted work the body had already found was done. What is genuinely left is most likely **the two `cv-database` prose lines** (`CLAUDE.md:3`, `README.md:9`) naming the target engine as MySQL 8.4. Re-verify before claiming; the scope below is unchanged, only the name is.
+>
+> Same shape as [T-023](T-023-meta-docs-stale-bff-smoke-path.md) and [T-029](T-029-code-review-cannot-see-worktrees.md), both falsified on 2026-08-22: a task's headline outliving the evidence inside it.
 
 ## Why this exists
 

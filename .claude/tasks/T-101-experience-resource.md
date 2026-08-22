@@ -14,7 +14,7 @@ checkpoint:
   repo: cv-domain-service
   branch: feat/experience-resource
   commit: 3b22793
-  worktree: /home/erfeamor/work/cvdl-worktrees/T-101
+  worktree: none      # CLEARED at close-out 2026-08-22 (retroactively). It WAS /home/erfeamor/work/cvdl-worktrees/T-101; the directory was removed by the 2026-08-20 sweep. T-028's generator refuses on a closed task that still declares a path -- verified refusing on this task before the fix.
   pr: https://github.com/erfeamor/cv-domain-service/pull/3
   developer: backend-developer
   reviewers: [code-review, quality-assurance]
@@ -48,7 +48,7 @@ checkpoint:
   acceptance_boxes: "All acceptance-criteria checkboxes in this file are still unticked. DoD item 1 is 'All acceptance criteria checked' — tick them against evidence when stage 4 runs, rather than on merge."
   ci_note: "Jenkins CI is green on PR #3 as of 2026-08-09 (continuous-integration/jenkins/pr-merge: pass). This was impossible until T-002 landed and is the DoD item that was blocked, not the QA one."
   merged: "cv-domain-service PR #3 squash-merged 2026-08-09T08:01:38Z as 09282ed. Merged with --admin: the ruleset requires 1 approval and GitHub does not permit approving your own PR, so a solo-owner repo has no other path. The bypass replaced a review that had already happened — /code-review and QA's coverage pass both converged at round 1 with 0 blocking, and stage-4 QA passed — rather than skipping one."
-  worktree: "/home/erfeamor/work/cvdl-worktrees/T-101 still exists on the now-merged feat/experience-resource branch. Safe to remove (git worktree remove) — unlike cv-infra, worktrees ARE appropriate for cv-domain-service, so recreate freely for the next task."
+  worktree_note: "SUPERSEDED 2026-08-22. Said the worktree still existed and was safe to remove; the 2026-08-20 sweep removed it, and this duplicate `worktree:` key then shadowed the cleared one above. The standing fact: worktrees ARE appropriate for cv-domain-service (unlike cv-infra), so recreate freely for the next task."
   qa_bounces: 0
   fix_attempts: 0
   env_slot: 0
