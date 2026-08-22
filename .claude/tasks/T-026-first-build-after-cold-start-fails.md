@@ -141,3 +141,29 @@ Two things follow:
 2. **It makes this task's own detection advice more important, not less.** `gh pr checks` reports the latest state per context and would show `pass`; the error is only visible in the full status history via `gh api repos/:owner/:repo/commits/:sha/statuses`. In this instance the *success* is also latest-but-one, so a reader skimming the history could equally miss the error between two greens.
 
 **This is the first such event recorded in `cv-database` rather than `cv-domain-service`.** Both are wired to the doorbell, which is *consistent with* a host-level rather than repo-level cause — but on one unverified instance that is a hypothesis, not a confirmation, and the sentence that stood here claimed the latter. Cost to T-152: one spurious red status and a paragraph of explanation in its PR; no manual retrigger was needed.
+
+
+## Fifth occurrence — the pattern holds, and the console signature is still unobtained (2026-08-22, from [T-104](T-104-project-resource.md))
+
+`cv-domain-service` PR-8, read from the statuses API:
+
+```
+15:33:34  i-073e5284ca2a1ceed  stopped -> running   (doorbell, T-104's push)
+15:34:16  pending  "scheduled to be built"   PR-8/1
+15:34:28  pending  "being built"             PR-8/1
+15:34:31  error    "This commit cannot be built"   PR-8/1   <-- 42s after the box started
+15:35:12  pending  "scheduled to be built"   PR-8/2
+15:35:18  pending  "being built"             PR-8/2
+15:36:40  success  "This commit looks good"  PR-8/2
+```
+
+**Why this one counts where the [T-030](T-030-pr3-build1-success-then-error.md) anomaly did not.** It matches on both axes this task uses to separate itself from that one:
+
+- It **fails outright** — `pending → error`, no intervening `success`. T-030's distinguishing detail is a build that posts `success` and then invalidates itself one second later, which points at something *after* completion. This does not do that.
+- It fires **42 seconds after a cold start**, against ~47s for the earlier confirmed occurrences. The box had been stopped by the reaper and was woken by the push that produced the build.
+
+**What is still NOT evidenced, stated plainly because overstating it is the error this task already made once.** The filed signature is `No build record … could be located` **plus a stage that opens and closes having executed nothing**, and that requires the Jenkins console — authenticated, and the credential path is still declined on this machine. So this is *"matches the cold-start-fails / warm-succeeds pattern, console signature unobtained"*, not *"confirmed occurrence five"*. The same one fetch that settles [T-152](T-152-mysql-84-parity-cv-database.md)'s outstanding criterion and [T-030](T-030-pr3-build1-success-then-error.md) would settle this too — three open items behind a single Jenkins login.
+
+**Nobody retriggered it.** Pushing the branch and opening the PR fire two separate webhook deliveries, so PR-8/2 ran unattended on the warm box — the corrected severity claim in this file, holding for a fourth time.
+
+**The `gh pr checks` caution demonstrated live.** GitHub's status API keeps only the latest state per context, so PR-8 renders green and `gh pr checks 8` reports a pass while the `error` sits in the history behind it. Anyone verifying the eventual fix through `gh pr checks` will confirm a fix that never ran. The statuses API is the only honest read, and it is what produced the table above.
