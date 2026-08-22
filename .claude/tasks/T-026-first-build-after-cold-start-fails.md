@@ -194,3 +194,67 @@ Two things follow:
 **What this occurrence adds beyond the count:** it is the first on **`cv-database`** whose shape is confirmed. The earlier `cv-database` anomaly (PR-3) is the one that became T-030 for lacking exactly this. So the defect is now observed in two repos, both wired to the same doorbell, which points at the shared Jenkins/host boot path rather than at anything repo-specific.
 
 **One Jenkins login still closes four items**: occurrences five and six, [T-030](T-030-pr3-build1-success-then-error.md), and [T-152](T-152-mysql-84-parity-cv-database.md)'s outstanding CI-console criterion.
+
+
+## THE CONSOLE LOG ARRIVED — signature confirmed, and the diagnosis is narrowed (2026-08-22)
+
+The human supplied the console text for `cv-database` PR-4 builds **#1** and **#2** — the fetch this task, [T-030](T-030-pr3-build1-success-then-error.md) and [T-152](T-152-mysql-84-parity-cv-database.md) had all been waiting on. **Occurrence six is no longer "matches the pattern, signature unobtained". It is confirmed, both halves, verbatim.**
+
+### The filed signature, exact
+
+```
+[Pipeline] stage
+[Pipeline] { (Validate migrations)
+[Pipeline] }                                  <-- opened and closed. NO [Pipeline] sh node at all.
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Deploy)
+Stage "Deploy" skipped due to earlier failure(s)
+...
+ERROR: No build record cv-database/PR-4#1 could be located.
+Finished: FAILURE
+```
+
+Both halves this task filed — *`No build record … could be located`* **plus** *a stage that opened and closed having executed nothing* — are present in one log. Five prior occurrences were argued from status sequences; this one is read off the console.
+
+### The new fact, and it moves the diagnosis
+
+**The build did substantial real work before it died.** Build #1's `Declarative: Checkout SCM` stage ran a complete, successful clone into a fresh workspace:
+
+```
+Cloning the remote Git repository
+ > git init /var/lib/jenkins/workspace/cv-database_PR-4
+ > git fetch --no-tags --force --progress -- https://github.com/erfeamor/cv-database.git ...
+Merge succeeded, producing e4313040115765aa0cd60aab0bddaa642cb537b0
+Commit message: "docs(dev-seeds): document the key-only guard's two failure modes (T-151)"
+First time build. Skipping changelog.
+```
+
+So the record was **lost mid-build**, between a successful checkout and the first `sh` step — not absent at build start. That single fact re-ranks this file's three standing candidates:
+
+| Candidate (as filed) | Status after the log |
+|---|---|
+| **1. Boot-time SSM re-provisioning races the scan**, orphaning the in-flight record | **Promoted to leading.** It is the only candidate that predicts *checkout succeeds, then the record vanishes*: JCasC/job-dsl re-creating the job underneath a running build orphans exactly the record the next step needs. T-019's apply note puts SSM re-provisioning at ~37s, and the failure lands 62s after boot. |
+| 2. Jenkins mid-initialisation — *"the job exists but its build directory or the queue is not ready"* | **Weakened as stated.** A not-ready Jenkins does not clone a repository, merge a commit and print a changelog line first. A *variant* survives — lazy-loading completing mid-build and replacing in-memory state — but the filed wording is not what happened. |
+| 3. Disk/permission timing on `/var/lib/jenkins` after the boot remount | **Weakened.** The clone wrote to `/var/lib/jenkins/workspace/cv-database_PR-4` successfully in the same window. |
+
+**This is a narrowing, not a diagnosis.** Acceptance criterion 1 requires the cause identified *from evidence* — the console is now on the table, but the two artifacts that would settle it are still missing: **Jenkins' own log for the boot window** and the **SSM command invocation history** for `i-073e5284ca2a1ceed` around 16:18:39–16:19:41. If the SSM invocation overlaps the build window, candidate 1 is confirmed and the fix is sequencing, not a readiness probe.
+
+### Both builds are triggered by `Branch indexing`, exactly as designed
+
+```
+Branch indexing
+Obtained Jenkinsfile from e431304...+5942881... (745afe3...)
+```
+
+Neither build says "Started by GitHub push". This **confirms [T-019](T-019-ci-host-on-demand.md)'s `ci-on-demand.tf` ruling 1** — the doorbell deliberately forwards no payload and Jenkins' own folder scan rediscovers the branch after boot. The real chain is:
+
+```
+push -> doorbell -> ec2:StartInstances -> Jenkins boots -> branch indexing -> build
+```
+
+That is *why* the first build races the boot: nothing waits for Jenkins to finish coming up, because nothing was ever designed to. Worth stating plainly, because it means **a readiness probe on the doorbell side cannot fix this** — the doorbell is finished long before Jenkins starts indexing. Acceptance criterion 3's *"if the fix is 'wait until Jenkins is ready before scanning'"* is aimed at the right layer: the scan, not the trigger.
+
+### What build #2 proves by contrast
+
+Same commit, same job, warm box, 63 seconds later — and the `Validate migrations` stage executes fully (network created, MySQL started, Flyway migrated, cleanup ran). **Identical input, opposite outcome**, with the only difference being that Jenkins had finished booting. That is the control this task has wanted since it was filed, and it is now in the same evidence set as the failure.

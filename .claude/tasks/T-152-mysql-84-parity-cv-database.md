@@ -14,7 +14,36 @@ checkpoint:
   merged: 5942881
   worktree: none               # CLEARED at close-out -- T-028's generator exits 1 on a closed task that still declares a path. This is the convention T-028 made load-bearing.
                                # 2026-08-22 sweep: this clearing was INEFFECTIVE until today. Two more `worktree:` keys followed it in this same mapping (the stage-1 path, and `pending` from stage 0), and in YAML the LAST duplicate key wins -- so the generator read `pending` and refused, on a task whose close-out had explicitly cleared it. Both are demoted to non-key names below.
-  outstanding: "CI-console version proof (Flyway banner from Jenkins PR-3 build #2) was NEVER obtained -- the console is authenticated and the credential path was declined. Merged with the gap named in the PR at the human's H2 ruling, not ticked. Anyone with Jenkins access should still fetch it; the same fetch also settles T-026's unattributed PR-3/1 anomaly."
+  outstanding: "CLOSED 2026-08-22 -- see checkpoint.ci_console_proof below. Was: CI-console version proof (Flyway banner from Jenkins PR-3 build #2) was NEVER obtained, the console being authenticated and the credential path declined."
+  ci_console_proof: |
+    OBTAINED 2026-08-22 from the human, who supplied the console text directly. The criterion named
+    PR-3 build #2; what arrived is PR-4 build #2. STATED AS A SUBSTITUTION RATHER THAN GLOSSED, per
+    this task's own rule that a local reproduction and a CI execution are different claims: it is a
+    DIFFERENT BUILD from the one named, and it is STRONGER evidence, because PR-4 runs against master
+    WITH T-152 already merged -- the post-merge state this task's change was supposed to produce.
+
+    The gate demonstrably stands up 8.4 and applies the migration:
+
+      + docker run -d --rm --name cv-mysql-ci-2 --network cv-db-ci-2 ... mysql:8.4
+      + docker run --rm --network cv-db-ci-2 -v .../sql:/flyway/sql \
+          -e FLYWAY_URL=jdbc:mysql://cv-mysql-ci-2:3306/cv?allowPublicKeyRetrieval=true \
+          -e FLYWAY_LOCATIONS=filesystem:/flyway/sql/migrations \
+          -e FLYWAY_CONNECT_RETRIES=60 flyway/flyway:10 migrate
+
+      Database: jdbc:mysql://cv-mysql-ci-2:3306/cv?allowPublicKeyRetrieval=true (MySQL 8.4)
+      Successfully validated 1 migration (execution time 00:00.032s)
+      Migrating schema `cv` to version "1 - init schema"
+      Successfully applied 1 migration to schema `cv`, now at version v1
+
+    THE BANNER MATCHES THE CORRECTED EXPECTED STRING EXACTLY, INCLUDING `?allowPublicKeyRetrieval=true`.
+    That correction (AC line 91, made 2026-08-22 before any log existed) is now vindicated by evidence:
+    a literal grep for the shorter form WOULD have missed and been read as "banner absent". The
+    struck `docker exec` criterion is likewise confirmed unsatisfiable -- the log shows `--rm` on the
+    MySQL container and a post-stage `docker rm -f`, so there was never a moment to exec into it.
+
+    FLYWAY_LOCATIONS is confirmed pinned to the migrations path, which is the load-bearing fact behind
+    T-151's "Jenkins is not a signal for dev-seeds" -- previously verified only by reading the
+    Jenkinsfile, now observed in an actual run.
   pr: https://github.com/erfeamor/cv-database/pull/3
   commit: b0f346c
   worktree_history: /home/erfeamor/work/cvdl-worktrees/T-152   # was `worktree:`; DEMOTED 2026-08-22 -- it shadowed the cleared key above. The directory is gone; the path is kept as a record of where the task ran.
