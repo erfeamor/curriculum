@@ -1,0 +1,65 @@
+---
+id: T-153
+title: "cv-database's Deploy stage is gated on a branch that does not exist, and still targets RDS"
+repo: cv-database
+status: todo
+owner:
+branch: fix/jenkins-deploy-stage-gate
+pr:
+depends_on: [T-152]   # FILE-LEVEL, not scheduling: both tasks edit cv-database/Jenkinsfile. T-152 changes the image pin at line 18, this task changes the Deploy stage below it. Sequenced to keep the diffs reviewable and conflict-free, not because this task needs 8.4.
+risk: low
+security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /security-review path, regardless of how small the diff is
+---
+
+## Goal
+
+`cv-database/Jenkinsfile`'s `Deploy` stage carries two stale facts. Neither breaks a build today, which is exactly why they have survived.
+
+```groovy
+stage('Deploy') {
+    when {
+        branch 'main'          // <-- the mainline in every repo in this workspace is `master`
+    }
+    steps {
+        // Placeholder: run Flyway against RDS with credentials from
+        // SSM Parameter Store once the dev environment exists.
+        echo 'Deploy stage not yet implemented'
+    }
+}
+```
+
+1. **The gate can never match.** `master` is the protected mainline in all nine repos (meta `CLAUDE.md`, board `README.md` rule 2). `when { branch 'main' }` means this stage has never run and never will. It is currently harmless because the body is an `echo` — it stops being harmless the moment someone implements the body and cannot work out why deploys never fire.
+2. **The comment describes an architecture that was dismantled.** MySQL left RDS for a self-hosted 8.4 container on the domain-service EC2 (cv-infra PR #8); `cv-infra/templates/domain-service-user-data.sh:164` is the current truth. The comment also defers to "once the dev environment exists" — it exists, and has since before [T-001](T-001-selfhost-mysql-followups.md) put nightly backups on it.
+
+## Scope
+
+- Correct the branch condition to `master`.
+- Rewrite the placeholder comment to describe the **actual** deploy target (self-hosted MySQL 8.4 on the domain-service instance, credentials from SSM Parameter Store), or delete the comment if the stage is better left undescribed until someone implements it. **Decide this at H1** — a comment that is merely less wrong is not obviously better than none.
+- **Do not implement the deploy.** That is a separate, larger task with real credential and blast-radius questions ([T-005](T-005-ci-secret-blast-radius.md) is directly relevant). This task makes the stage honest, nothing more.
+
+**Out of scope:** the `mysql:8.0` → `8.4` pin four lines above, which is **[T-152](T-152-mysql-84-parity-cv-database.md)'s** — this task depends on it so the two diffs do not collide in one file.
+
+## Acceptance criteria
+
+- [ ] `when { branch 'master' }`, matching the actual protected mainline.
+- [ ] No reference to RDS remains in the file, other than deliberately historical wording if any is kept ([T-017](T-017-docs-drift-rds-to-selfhosted.md)'s standard: prose explaining *why* RDS was dropped may keep the word; prose describing current architecture may not).
+- [ ] The stage still does nothing at runtime — this task must not turn a placeholder into a deploy.
+- [ ] Jenkins goes green on the branch. **Note the stage will still not execute on a PR build** (PR builds are not `master`), so a green build does not prove the new condition works; state that limitation in the PR rather than implying it was verified.
+
+## Watch-outs
+
+- **Verification is genuinely weak here and should be stated, not dressed up.** Nothing available on a PR build exercises a `branch 'master'` condition. The honest evidence is the diff plus the workspace-wide fact that `master` is the mainline. Do not claim a green PR build verified the gate — this board has a standing problem with green signals that measured the wrong thing ([T-107](T-107-post-id-cross-person-write.md)'s mock-measuring test, [T-028](T-028-qa-env-generator-worktree-build-context.md)'s master-building QA stack).
+- **[T-026](T-026-first-build-after-cold-start-fails.md) applies** — `cv-database` is wired to the on-demand CI host, so the first build after idle may fail spuriously with an empty stage. Re-run on the warm box before debugging. Read the statuses API, not `gh pr checks`, which reports `pass` while a failed build sits in the history.
+
+## Definition of done
+
+PR open against `master` from `fix/jenkins-deploy-stage-gate`, task updated to `in_review` with the PR URL.
+
+## dev-loop notes
+
+- **Developer:** `backend-developer` (adapter §2 — `cv-database` is its layer). **Reviewers:** `/code-review` + `infrastructure-engineer` (owns all CI config) + `/security-review` (adapter §5, forced by the `Jenkinsfile` path).
+- `risk: low` and it is genuinely small, but it does **not** take the trivial fast-path: adapter §5's fast-path covers "isolated non-security config", and a CI pipeline file is neither.
+
+## Provenance
+
+Found 2026-08-22 during T-152's stage-0 refinement, while reading the Jenkinsfile to confirm that its throwaway MySQL container is `--rm`'d (it is — which is why T-152's AC3 had to change). Filed rather than fixed inside T-152 per board rule 3, and filed rather than folded into [T-017](T-017-docs-drift-rds-to-selfhosted.md) because T-017 is a docs task and this is a pipeline file with a live, if inert, logic error. Ratified at T-152's H1 gate, 2026-08-22.

@@ -43,7 +43,11 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-001](T-001-selfhost-mysql-followups.md) | Backup: replace the managed backups lost when MySQL left RDS | cv-infra | done (applied + restore verified) | infrastructure-engineer | — | [#15](https://github.com/erfeamor/cv-infra/pull/15) |
-| [T-016](T-016-dev-prod-mysql-parity.md) | Dev/prod parity: bump the local MySQL to 8.4 | cv-project (meta) | todo | | — | |
+| [T-016](T-016-dev-prod-mysql-parity.md) | Dev/prod parity: bump the local MySQL to 8.4 | cv-project (meta) | todo (**H1 done, UNPARKED** — start at implementation) | | T-152 ✔ | |
+| [T-152](T-152-mysql-84-parity-cv-database.md) | Dev/CI parity: bump cv-database's stack **and its migration gate** to MySQL 8.4 | cv-database | done (**merged; CI-log proof still outstanding**) | backend-developer | — | [#3](https://github.com/erfeamor/cv-database/pull/3) |
+| [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) | cv-database's Jenkins `Deploy` stage is gated on `main`, a branch that does not exist here — and still names RDS | cv-database | todo | | T-152 | |
+| [T-154](T-154-jenkins-pipeline-timeout.md) | No `timeout {}` on cv-database's pipeline: a hung build **holds the only CI host up** (~$17.24/mo) | cv-database | todo | | — | |
+| [T-155](T-155-flyway-version-supports-mysql-84.md) | Flyway 10 does not claim MySQL 8.4 support — and it runs against 8.4 **in production** | cv-database + meta + cv-infra | todo | | — | |
 | [T-017](T-017-docs-drift-rds-to-selfhosted.md) | Docs drift: the repo still says RDS in five places | cv-project (meta) + cv-database | todo | | — | |
 | [T-018](T-018-mysql-on-dedicated-ebs-volume.md) | MySQL on a dedicated EBS volume, surviving instance replacement | cv-infra | done (applied + survival proven) | infrastructure-engineer | — | [#16](https://github.com/erfeamor/cv-infra/pull/16) |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
@@ -67,6 +71,8 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-026](T-026-first-build-after-cold-start-fails.md) | First Jenkins build after a cold start fails (`No build record could be located`) | cv-infra | todo | | T-019 | |
 | [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) | Contract: the ordering note prescribes SQL syntax for a JPQL context (**T-104 hits it next**) | cv-project (meta) | todo | | — | |
 | [T-028](T-028-qa-env-generator-worktree-build-context.md) | QA stack builds `master`, not the worktree under test (**silent false pass**) | cv-project (meta) | done (**bind mounts too; T-151's failure mode closed**) | infrastructure-engineer | — | [#49](https://github.com/erfeamor/curriculum/pull/49) |
+| [T-029](T-029-code-review-cannot-see-worktrees.md) | `/code-review` returns nothing on a worktree — the mandated reviewer **silently no-ops on every code task** | cv-project (meta) | todo | | — | |
+| [T-030](T-030-pr3-build1-success-then-error.md) | A Jenkins build posted `success` then `error` one second later — **not** yet attributable to T-026 | cv-infra | todo | | — | |
 
 **Cost model is stale as of 2026-08-14 — the documented figures understate real burn by a third.** `cv-infra/CLAUDE.md` and T-010's runway both encode *~$0.92/day ≈ $28/month*. The 2026-08-08 `t3.micro`→`t3.small` resize of the CI host (T-002, deliberate, for Maven headroom) took the real rate to **~$1.23/day ≈ $37.30/month**, verified against the August cost export and `describe-instances`. Consequences: the credits deplete **~25% sooner in elapsed time**, which moves T-012's date; and the `$30` monthly budget is now **structurally exceeded (~124%)**, so its 100/120% thresholds will fire every month from September — an alarm that always fires stops being a signal. Note [cv-infra#14](https://github.com/erfeamor/cv-infra/pull/14) deliberately refused to raise that limit, so this needs a decision rather than a bump. **T-014 may push it further** — its own watch-outs say the domain-service box may need `t3.small` for RAM, another +$8.62/month → ~$46. [T-019](T-019-ci-host-on-demand.md) is the largest available offset (~$17.24/month).
 
