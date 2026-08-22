@@ -48,6 +48,24 @@ So the drift sat in the most-read file in the workspace for four days with no ow
 - `README.es.md:247` — the Spanish counterpart, **confirmed present 2026-08-20**, not a maybe: `curl http://localhost:3000/api/v1/people/1   # ruta del sitio público: BFF → servicio de dominio → MySQL`. Same dead path, same misleading annotation. Fix it in the same PR — the two READMEs are maintained in parallel and half-fixing them is how the next sweep finds this again.
 - Any other file that curls port 3000. A `grep -rn "3000/api/v1"` on 2026-08-20 returned exactly these three lines and nothing else.
 
+> ## SCOPE FALSIFIED AND WIDENED — 2026-08-22, from [T-016](T-016-dev-prod-mysql-parity.md)'s data-layer review
+>
+> **This task's own DoD could not be satisfied as written.** It asserted that a `grep -rn "3000/api/v1"` on 2026-08-20 *"returned exactly these three lines and nothing else"*, and made a clean grep the definition of done. Re-run today, outside the board, it returns **four**:
+>
+> ```
+> README.md:247
+> README.es.md:247
+> CLAUDE.md:37
+> docker-compose.dev.yml:7        <-- MISSING FROM THIS TASK'S SCOPE
+> ```
+>
+> `docker-compose.dev.yml:7` is a **comment header in the dev compose file** — not prose, which is presumably why a docs-shaped sweep missed it. Add it to the scope; the count is **four**, and the DoD grep is now achievable.
+>
+> **Note the shape of this error**, because this task was itself created by a drift sweep: the 2026-08-17 sweep filed it, the 2026-08-20 sweep *corrected its count from two to three* and called that settled (*"the hedge is now a fact and the count is three"*), and it was still wrong. A sweep that greps only `*.md` will keep finding only markdown. **The check has to be repo-wide or it re-confirms its own blind spot** — which is what happened twice.
+>
+> Found by the reviewer of a task that was *forbidden* from fixing it (board rule 3), which is the boundary working as intended: the finding was routed here rather than silently absorbed into T-016.
+
+
 ## Acceptance criteria
 
 - [ ] `grep -rn "3000/api/v1" .` across the meta repo returns nothing that documents a current command.
