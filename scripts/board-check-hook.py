@@ -104,6 +104,28 @@ def main() -> int:
     if proc.returncode == 0:
         return 0  # clean — genuinely silent, no output at all
 
+    if proc.returncode == 2:
+        # board-check's OWN exit-2 contract: the board could not be READ at
+        # all (permissions, encoding, a file vanishing between glob() and
+        # read_text()) -- not content drift. Treating this the same as
+        # exit 1 told the model "board-check found frontmatter drift
+        # introduced by this edit", which is a false accusation against
+        # whatever was just written; the real message (already accurate,
+        # already on stderr) is what belongs in front of the model instead.
+        detail = proc.stderr.strip() or proc.stdout.strip()
+        context = (
+            "board-check could not run (scripts/board-check.py exited 2 -- "
+            "a read failure, NOT a claim that this edit introduced drift):\n"
+            f"{detail}"
+        )
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "PostToolUse",
+                "additionalContext": context,
+            }
+        }))
+        return 0
+
     findings = proc.stdout.strip() or proc.stderr.strip()
     context = (
         "board-check found frontmatter drift introduced by this edit "

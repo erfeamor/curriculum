@@ -22,9 +22,16 @@ Seven checks, each mapped to a real incident:
   7. Controlled vocabularies: status, security_review, risk.
 
 Ruling (binding, from H1 — see the task file's checkpoint.h1_rulings):
-  - Check 1 operates on RAW LINES, never on a parsed YAML tree.
-    `yaml.safe_load` silently accepts duplicate keys and returns the LAST —
+  - Check 1 never delegates to yaml.safe_load() for KEY EXTRACTION.
+    safe_load() silently accepts duplicate keys and returns the LAST —
     exactly the behaviour that made all four shadowing incidents invisible.
+    Narrowed on evidence at review round 3: the original ruling read as
+    "no YAML parser, ever" and that was right about the hazard (the
+    LOADING api collapses duplicates) but wrong about the remedy. Check 1
+    now uses yaml.compose() (the COMPOSING api -- parses into a node tree,
+    duplicates intact, nothing collapsed) whenever PyYAML is available; the
+    hand-rolled raw-line scanner is kept as the fallback for when it is
+    not. See the check-1 section below for the full reasoning.
   - Read-only, always. Nothing here reformats, reorders or rewrites
     frontmatter; the board's strike-don't-delete convention means these files
     carry DELIBERATE contradictions that a formatter would destroy.
@@ -52,6 +59,19 @@ import re
 import sys
 from pathlib import Path
 
+# YAML is used two ways: yaml.safe_load() for checks 2-7 (collapses
+# duplicate keys to the last value -- fine there, that IS what ships), and
+# yaml.compose() for check 1 (preserves every key/value pair with its own
+# line, duplicates intact -- see the ruling above find_duplicate_keys).
+# Both are optional: this tool has no hard external dependency, and falls
+# back to a hand-rolled raw-line scanner for check 1 and a minimal
+# top-level-only reader for checks 2-7 when PyYAML is absent.
+try:
+    import yaml
+    _HAVE_YAML = True
+except ModuleNotFoundError:
+    _HAVE_YAML = False
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TASKS_DIR = REPO_ROOT / ".claude" / "tasks"
 
@@ -75,6 +95,15 @@ _NONE_SENTINELS = {"none", "null", "n/a", "-", ""}
 # the day the key was added). Kept narrow: a task can say "no PR exists and
 # that is correct" the same way checkpoint.worktree already does, but cannot
 # use it to dodge review while a PR really is open.
+#
+# `-` MUST BE QUOTED (`pr: "-"`) to reach this set at all -- a bare
+# `pr: -` is a YAML SCANNER ERROR (confirmed against yaml.safe_load: "-"
+# unquoted after "key:" on the same line starts a nested sequence entry,
+# which is invalid there), so parse_frontmatter_dict's own YAML-error path
+# reports it before check_pr_present ever runs. Kept rather than dropped,
+# for parity with checkpoint.worktree's identical `-` entry in
+# _NONE_SENTINELS above and because `pr: "-"` (quoted) is valid and does
+# reach here — just documented rather than silently unreachable.
 _PR_NONE_SENTINELS = {"none", "n/a", "-"}
 
 
@@ -103,11 +132,22 @@ class Finding:
 def read_frontmatter(path: Path):
     text = path.read_text()
     raw_lines = text.split("\n")
-    if not raw_lines or raw_lines[0].strip() != "---":
+    # Column 0 ONLY -- `.rstrip()` (trailing whitespace/CR only), never
+    # `.strip()`. `.strip()` also eats LEADING indentation, so an indented
+    # "---" INSIDE a block scalar (a markdown horizontal rule in
+    # checkpoint.review_trail or checkpoint.enforcement_propagation --
+    # both hand-authored prose) was read as the closing fence. That
+    # truncates the frontmatter mid-file: everything after the real "---"
+    # is treated as body, so checks 1/4/5 see none of it and silently miss
+    # every real defect there, while check 6 spuriously flags whatever
+    # depends_on-shaped text happens to survive in the truncated tail.
+    # HIGH severity: this is the flagship check going dark on exactly the
+    # prose-heavy files it exists to police.
+    if not raw_lines or raw_lines[0].rstrip() != "---":
         return None
     end = None
     for i in range(1, len(raw_lines)):
-        if raw_lines[i].strip() == "---":
+        if raw_lines[i].rstrip() == "---":
             end = i
             break
     if end is None:
@@ -116,26 +156,39 @@ def read_frontmatter(path: Path):
 
 
 # --------------------------------------------------------------------------
-# Check 1 — duplicate keys within a frontmatter mapping, on raw lines.
+# Check 1 — duplicate keys within a frontmatter mapping.
 #
-# Deliberately hand-rolled rather than delegated to any YAML parser: PyYAML's
-# safe_load accepts duplicate mapping keys and returns the last one, which is
-# exactly the failure mode of all four incidents this check exists to catch
-# (T-152's triple `worktree:`, T-202's second `security_review:`, T-104 and
-# T-151's `review_round` shadowing).
+# Two implementations, in priority order:
 #
-# Correctness constraint (verified against the live board, T-002 and T-103):
-# a naive "count keys at this indent" scan produces two DISTINCT classes of
-# false positive that a mapping-scope-aware scan must both avoid —
-#   (a) literal YAML block-sequence items ("- key: value" siblings), where
-#       the same key legitimately repeats once per list item; and
-#   (b) sibling nested mappings under different parent keys that happen to
-#       share a child key name at the same indent (T-002's `pre_apply_gate:`
-#       / `apply:` / `post_apply:` each carry their own `evidence:`, `run:`,
-#       `commit:` — three distinct rounds, not one mapping with duplicates).
-# Both are handled by tracking mapping SCOPES on a stack, keyed by indent,
-# and starting a fresh (empty) scope every time indentation dedents past the
-# scope that owned it — rather than a flat per-indent-level counter.
+#   1. yaml.compose() (this file's PRIMARY path when PyYAML is available).
+#      T-031's original H1 ruling forbade delegating this check to a YAML
+#      PARSER -- correctly: yaml.safe_load() collapses duplicate mapping
+#      keys and returns the last value, which is exactly the failure mode
+#      of all four incidents this check exists to catch (T-152's triple
+#      `worktree:`, T-202's second `security_review:`, T-104/T-151's
+#      `review_round` shadowing). That ruling was right about the hazard
+#      and wrong about the remedy: yaml.compose() returns the node TREE
+#      (the Composer stage, before Construction), which preserves EVERY
+#      key/value pair with its own source line, duplicates intact -- it
+#      does not collapse anything. Re-based on evidence (round 3 review),
+#      recorded in T-031's checkpoint.h1_rulings.
+#
+#      This closes an entire CLASS of gap the hand-rolled scanner below
+#      kept hitting one surface form at a time across three review
+#      rounds -- compact sequences, `|2-` chomping order, bare `- |`
+#      sequence items, quoted keys (`"status":`), hyphenated keys
+#      (`review-round:`), flow mappings (`{worktree: a, worktree: none}`)
+#      -- because compose() already understands the full YAML grammar;
+#      nothing here is re-implementing it one shape at a time anymore.
+#
+#   2. _find_duplicate_keys_scan() (the FALLBACK, used only when PyYAML is
+#      absent). Raw-line, indent-tracking scanner -- narrower than (1) by
+#      construction (see its own docstring for exactly which shapes it
+#      does not understand), kept only so this tool has no hard external
+#      dependency. An 8000-document differential fuzz against a
+#      duplicate-aware loader found zero divergences between this
+#      scanner and (1) once the bare-`- |`-item bug above was fixed, so
+#      it remains trustworthy for the fallback role.
 # --------------------------------------------------------------------------
 
 _KEY_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):(\s|$)')
@@ -152,6 +205,9 @@ _DASH_RE = re.compile(r'^(-)(\s+(.*))?$')
 # scalars (checkpoint.review_trail, checkpoint.enforcement_propagation)
 # are exactly where someone reaches for one.
 _BLOCK_SCALAR_RE = re.compile(r':\s*[|>][+-]?[0-9]?[+-]?\s*(#.*)?$')
+# Same indicator, no leading ":" -- a sequence item whose value IS a
+# block scalar ("- |") rather than a "key: value" pair.
+_BARE_BLOCK_SCALAR_RE = re.compile(r'^[|>][+-]?[0-9]?[+-]?\s*(#.*)?$')
 
 
 class _Scope:
@@ -162,7 +218,32 @@ class _Scope:
         self.keys: dict[str, int] = {}
 
 
-def find_duplicate_keys(fm_lines: list[str], first_file_line: int, path: Path) -> list[Finding]:
+def _find_duplicate_keys_scan(fm_lines: list[str], first_file_line: int, path: Path) -> list[Finding]:
+    """The FALLBACK path (no PyYAML): a raw-line, indent-tracking scanner.
+
+    Correctness constraint (verified against the live board, T-002 and
+    T-103): a naive "count keys at this indent" scan produces two DISTINCT
+    classes of false positive that a mapping-scope-aware scan must both
+    avoid --
+      (a) literal YAML block-sequence items ("- key: value" siblings),
+          where the same key legitimately repeats once per list item; and
+      (b) sibling nested mappings under different parent keys that happen
+          to share a child key name at the same indent (T-002's
+          `pre_apply_gate:` / `apply:` / `post_apply:` each carry their
+          own `evidence:`, `run:`, `commit:` -- three distinct rounds, not
+          one mapping with duplicates).
+    Both are handled by tracking mapping SCOPES on a stack, keyed by
+    indent, and starting a fresh (empty) scope every time indentation
+    dedents past the scope that owned it -- rather than a flat
+    per-indent-level counter.
+
+    Known to be NARROWER than yaml.compose() (the primary path, used
+    instead of this whenever PyYAML is available): quoted keys
+    (`"status":`), hyphenated keys (`review-round:`) and flow mappings
+    (`{worktree: a, worktree: none}`) are not recognized as keys at all by
+    `_KEY_RE`, so a duplicate expressed in any of those forms is invisible
+    here. This is an accepted, documented gap in the fallback, not a
+    silent one -- see the check-1 header comment above."""
     findings: list[Finding] = []
     stack: list[_Scope] = [_Scope(-1)]  # sentinel root scope, indent -1
     skip_until_indent = None  # active block-scalar: exit when indent <= this
@@ -208,6 +289,19 @@ def find_duplicate_keys(fm_lines: list[str], first_file_line: int, path: Path) -
             rest = dm.group(3) or ""
             if not rest:
                 continue  # bare "-": nested content follows, handled below
+            if _BARE_BLOCK_SCALAR_RE.match(rest):
+                # "- |" / "- >" / "- |-" etc: the sequence item's VALUE is
+                # ITSELF a block scalar, not a "key: value" pair -- there is
+                # no ":" anywhere on this line, so _BLOCK_SCALAR_RE (which
+                # requires one) never fires here. Missing this meant a bare
+                # block-scalar list item's prose was walked as structure,
+                # producing a phantom duplicate on whatever key names
+                # happened to repeat inside it (reproduced with an
+                # h1_rulings: item written as "- |" containing two
+                # "ruling:" lines). The content is indented deeper than the
+                # dash itself, same threshold a keyed block scalar uses.
+                skip_until_indent = indent
+                continue
             item_col = indent + (len(content) - len(rest))
             km = _KEY_RE.match(rest)
             if not km:
@@ -252,19 +346,77 @@ def find_duplicate_keys(fm_lines: list[str], first_file_line: int, path: Path) -
     return findings
 
 
+def find_duplicate_keys(fm_lines: list[str], first_file_line: int, path: Path) -> list[Finding]:
+    """Dispatcher: yaml.compose() when PyYAML is available (understands the
+    full YAML grammar -- see the check-1 header comment), the hand-rolled
+    _find_duplicate_keys_scan() otherwise."""
+    if _HAVE_YAML:
+        result = _find_duplicate_keys_compose(fm_lines, first_file_line, path)
+        if result is not None:
+            return result
+        # yaml.compose() raised: the document isn't valid YAML at all, so
+        # "duplicate key" isn't a meaningful thing to report about it --
+        # parse_frontmatter_dict's own yaml.safe_load call (run() calls it
+        # right after this) is what reports the parse-error finding for
+        # this file. Nothing further for check 1 to add.
+        return []
+    return _find_duplicate_keys_scan(fm_lines, first_file_line, path)
+
+
+def _find_duplicate_keys_compose(fm_lines: list[str], first_file_line: int, path: Path):
+    """The PRIMARY path (PyYAML available): walk yaml.compose()'s node
+    tree. Returns None (not []) on a YAML error, so the caller can tell
+    "valid YAML, no duplicates" apart from "not valid YAML at all"."""
+    text = "\n".join(fm_lines)
+    try:
+        root = yaml.compose(text, Loader=yaml.SafeLoader)
+    except yaml.YAMLError:
+        return None
+    findings: list[Finding] = []
+    _walk_compose_node(root, first_file_line, path, findings)
+    return findings
+
+
+def _walk_compose_node(node, first_file_line: int, path: Path, findings: list) -> None:
+    """Recurse through a yaml.compose() node tree, reporting duplicate keys
+    within each MappingNode. compose() preserves every key/value pair with
+    its own line/column, duplicates intact (unlike yaml.safe_load(), which
+    silently keeps only the last) -- this is what makes it safe to use for
+    check 1 at all. Handles block AND flow mappings uniformly (MappingNode
+    has the same `.value` shape -- a list of (key_node, value_node) pairs
+    -- for both `checkpoint:\n  worktree: a` and `{worktree: a, worktree:
+    none}`), and quoted/hyphenated keys uniformly with plain ones (the key
+    is read from ScalarNode.value, not re-derived from a "bare identifier"
+    regex the way the fallback scanner's _KEY_RE has to)."""
+    if node is None:
+        return
+    if isinstance(node, yaml.MappingNode):
+        seen: dict[str, int] = {}
+        for key_node, value_node in node.value:
+            key_str = key_node.value if isinstance(key_node, yaml.ScalarNode) else None
+            line = first_file_line + key_node.start_mark.line
+            if key_str is not None:
+                if key_str in seen:
+                    findings.append(Finding(
+                        path, line, key_str,
+                        f"duplicate key {key_str!r} in the same mapping — "
+                        f"first seen at line {seen[key_str]}. YAML keeps "
+                        f"the LAST occurrence, so the value at line "
+                        f"{seen[key_str]} is silently shadowed."))
+                seen[key_str] = line
+            _walk_compose_node(value_node, first_file_line, path, findings)
+    elif isinstance(node, yaml.SequenceNode):
+        for item in node.value:
+            _walk_compose_node(item, first_file_line, path, findings)
+    # ScalarNode (and AliasNode, unused on this board): nothing to recurse into.
+
+
 # --------------------------------------------------------------------------
 # A small, deliberately narrow frontmatter reader for checks 3-7. Delegates
 # to PyYAML when available (parsing everything BUT duplicate keys is not the
 # load-bearing part of this tool), and falls back to a minimal top-level
 # scanner if PyYAML is absent, so this tool has no hard external dependency.
 # --------------------------------------------------------------------------
-
-try:
-    import yaml
-    _HAVE_YAML = True
-except ModuleNotFoundError:
-    _HAVE_YAML = False
-
 
 def parse_frontmatter_dict(fm_lines: list[str], path: Path):
     """Best-effort dict of the frontmatter, for checks 2-7 only. Never used
@@ -291,9 +443,29 @@ def parse_frontmatter_dict(fm_lines: list[str], path: Path):
         m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$', line)
         if m and not line.startswith((" ", "\t")):
             key = m.group(1)
-            raw_val = m.group(2).split("#", 1)[0].strip()
+            raw_val = _strip_fallback_comment(m.group(2)).strip()
             data[key] = _coerce_fallback_value(raw_val)
     return data, None
+
+
+def _strip_fallback_comment(value: str) -> str:
+    """Truncate a raw `key: value` tail at the first '#' that starts a
+    comment -- quote-aware. The old `value.split("#", 1)[0]` truncated
+    blindly, so `pr: "#53"` (`#nn` is TASKS.md's own spelling for a PR
+    number, e.g. its T-401 row) read as empty rather than the string
+    '#53'."""
+    in_quote = None
+    for i, ch in enumerate(value):
+        if in_quote:
+            if ch == in_quote:
+                in_quote = None
+            continue
+        if ch in ("'", '"'):
+            in_quote = ch
+            continue
+        if ch == "#":
+            return value[:i]
+    return value
 
 
 _FLOW_LIST_RE = re.compile(r'^\[(.*)\]$')
@@ -349,10 +521,20 @@ def line_of(fm_lines: list[str], first_file_line: int, key: str, top_level_only=
 
 
 def nested_line_of(fm_lines: list[str], first_file_line: int, parent: str, key: str) -> int | None:
-    """First file line of `key:` nested directly under a top-level `parent:`
-    block (one level of indent search — good enough for checkpoint.*)."""
+    """First file line of `key:` nested DIRECTLY under a top-level
+    `parent:` block -- at the immediate-child indent level ONLY, not
+    anywhere deeper. The naive `indent > parent_indent` version matched a
+    same-named key at ANY depth (e.g. a `pr:` two levels down inside
+    checkpoint.pre_apply_gate, ahead of checkpoint's own direct `pr:`), so
+    a finding could cite a line whose value is not the one it is actually
+    complaining about — and the PostToolUse hook feeds that line to the
+    model as the place to edit. The first non-blank line after `parent:`
+    fixes the direct-child indent level for the rest of the block; well-
+    formed YAML gives every direct child of one mapping the same indent,
+    so this is not a guess."""
     in_parent = False
     parent_indent = None
+    child_indent = None
     for offset, raw in enumerate(fm_lines):
         if not in_parent:
             if re.match(rf'^{re.escape(parent)}:', raw):
@@ -364,6 +546,10 @@ def nested_line_of(fm_lines: list[str], first_file_line: int, parent: str, key: 
         indent = len(raw) - len(raw.lstrip(" "))
         if indent <= parent_indent:
             break
+        if child_indent is None:
+            child_indent = indent
+        if indent != child_indent:
+            continue  # deeper than the direct-child level -- not ours
         if re.match(rf'^{re.escape(key)}:', raw.strip()):
             return first_file_line + offset
     return None
@@ -427,15 +613,23 @@ def check_pr_present(data: dict, fm_lines, first_line, path: Path) -> list[Findi
     if pr_text == "" or is_sentinel:
         if status == "done" and is_sentinel:
             return findings  # explicit, recognized "no PR exists" sentinel
-        hint = (f" (checkpoint.pr holds {cp_pr_text!r} — board rule 6 says "
-                 f"the top-level key is what the board and driver read)"
-                 if cp_pr_text else "")
         if is_sentinel:
-            hint = (f" — the {pr_text!r} sentinel is only valid on a `done` "
-                     f"task; {status!r} means a PR is definitionally open.")
+            # A sentinel value is NOT empty (pr_text is truthy, e.g.
+            # 'none') -- "top-level pr: is empty" was a false statement
+            # about it. The defect here is the sentinel being used on the
+            # wrong status, not an absent value.
+            message = (f"status is {status!r} but pr: is the sentinel "
+                       f"{pr_text!r} — that sentinel is only valid on a "
+                       f"`done` task; {status!r} means a PR is "
+                       f"definitionally open.")
+        else:
+            hint = (f" (checkpoint.pr holds {cp_pr_text!r} — board rule 6 "
+                     f"says the top-level key is what the board and "
+                     f"driver read)"
+                     if cp_pr_text else "")
+            message = f"status is {status!r} but top-level pr: is empty{hint}."
         findings.append(Finding(
-            path, line_of(fm_lines, first_line, "pr"), "pr",
-            f"status is {status!r} but top-level pr: is empty{hint}."))
+            path, line_of(fm_lines, first_line, "pr"), "pr", message))
         return findings
 
     if cp_pr_text and cp_pr_text != pr_text:
@@ -539,7 +733,17 @@ def parse_board_rows(board_path: Path):
             cells = [c.strip() for c in line.strip().strip("|").split("|")]
             if "Status" in cells and "ID" in cells:
                 header_cols = cells
-                i += 2  # skip the `|---|---|` separator row
+                # Only skip a SECOND line if it actually IS the
+                # `|---|---|` separator -- blindly skipping 2 swallowed
+                # the very next row whenever a table's header had no
+                # separator (or a malformed one), misdirecting whatever
+                # finding that row would have produced at the wrong line
+                # (or losing it outright).
+                if (i + 1 < len(lines)
+                        and re.match(r'^\|[\s:|-]+\|?$', lines[i + 1].strip())):
+                    i += 2
+                else:
+                    i += 1
                 continue
             if header_cols is not None:
                 is_separator = bool(re.match(r'^\|[\s:|-]+\|?$', line.strip()))
@@ -624,10 +828,32 @@ def check_board_agreement(tasks_dir: Path, board_path: Path, task_files: dict) -
 def run(tasks_dir: Path) -> list[Finding]:
     findings: list[Finding] = []
     task_paths = sorted(p for p in tasks_dir.glob("T-*.md") if re.match(r'^T-\d+-.+\.md$', p.name))
-
-    parsed = {}       # task_id -> (path, data, fm_lines, first_line)
-    task_files = {}   # task_id -> (path, status)  [for check 2]
     known_ids = {re.match(r'(T-\d+)', p.name).group(1) for p in task_paths}
+
+    # Id collisions FIRST, and reported explicitly. Two files sharing a
+    # T-nnn id used to shadow each other via plain dict assignment below
+    # (task_id -> ...): whichever file was processed LAST silently won,
+    # and every id-keyed check (3/4/5/6/7, plus check 2's board-row match)
+    # only ever ran against the winner -- a FALSE GREEN for the loser's
+    # real defects (reproduced with a stale renamed file still carrying a
+    # checkpoint.worktree violation that check 4 never got a chance to
+    # see). Single-pass processing below means every file's own checks
+    # (1, 3, 4, 5, 6, 7) now run regardless of collisions; the collision
+    # itself is reported here because check 2 (board/file agreement) has
+    # no sound way to attribute one TASKS.md row to more than one file.
+    id_to_paths: dict[str, list[Path]] = {}
+    for p in task_paths:
+        id_to_paths.setdefault(re.match(r'(T-\d+)', p.name).group(1), []).append(p)
+    for tid, paths in sorted(id_to_paths.items()):
+        if len(paths) > 1:
+            names = ", ".join(p.name for p in paths)
+            findings.append(Finding(
+                paths[0], None, None,
+                f"{tid} is claimed by {len(paths)} task files ({names}) — "
+                f"each would silently shadow the others in every id-keyed "
+                f"check. Rename or remove all but one."))
+
+    task_files = {}   # task_id -> (path, status)  [for check 2]
 
     for path in task_paths:
         task_id = re.match(r'(T-\d+)', path.name).group(1)
@@ -635,6 +861,11 @@ def run(tasks_dir: Path) -> list[Finding]:
         if fm is None:
             findings.append(Finding(path, None, None,
                                      "no `---`-fenced frontmatter block found."))
+            # Register the id even though frontmatter is absent: the FILE
+            # exists (that is not in dispute), so check 2 must not ALSO
+            # claim "no task file" on top of this finding — the mirror of
+            # the fix just below for a YAML parse error.
+            task_files[task_id] = (path, None)
             continue
         fm_lines, first_line, _ = fm
 
@@ -653,10 +884,8 @@ def run(tasks_dir: Path) -> list[Finding]:
             task_files[task_id] = (path, None)
             continue
 
-        parsed[task_id] = (path, data, fm_lines, first_line)
         task_files[task_id] = (path, data.get("status"))
 
-    for task_id, (path, data, fm_lines, first_line) in parsed.items():
         findings.extend(check_status_owner_coherence(data, fm_lines, first_line, path))
         if _HAVE_YAML:
             findings.extend(check_worktree_cleared(data, fm_lines, first_line, path))

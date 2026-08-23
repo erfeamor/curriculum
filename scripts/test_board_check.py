@@ -430,6 +430,124 @@ class RealHistoricalIncidents(unittest.TestCase):
         self.assertIn("first seen at line 17", dup[0].message)
 
 
+class FrontmatterFenceTruncation(TempDirCase):
+    """Review round 3, HIGH #1: `read_frontmatter` used `.strip()` (which
+    also eats LEADING indentation) rather than `.rstrip()` to recognize the
+    closing `---` fence, so an INDENTED `---` inside a block scalar (a
+    markdown horizontal rule in hand-authored prose -- exactly what
+    checkpoint.review_trail and checkpoint.enforcement_propagation are)
+    truncated the frontmatter early. Everything after the fake fence,
+    including the file's real problems, was invisible to checks 1/4/5."""
+
+    def test_realistic_prose_block_with_indented_horizontal_rule(self):
+        b = make_board(self.root)
+        # A realistic review_trail: two rounds of findings separated by a
+        # markdown horizontal rule, the way this board's own task files
+        # actually write them -- plus a REAL defect (checkpoint.worktree
+        # still set on a done task) positioned AFTER the fake fence, so a
+        # truncation bug would hide it.
+        b.add_task("T-940", textwrap.dedent("""\
+            id: T-940
+            status: done
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: https://example.invalid/pr/1
+            checkpoint:
+              stage: done
+              review_trail: |
+                Round 1 (2026-08-20): two findings, both fixed.
+
+                ---
+
+                Round 2 (2026-08-21): converged, zero blocking.
+              worktree: /home/erfeamor/work/cvdl-worktrees/T-940
+            """), status="done")
+        b.write_board()
+        findings = b.check()
+        wt = [f for f in findings if f.key == "checkpoint.worktree"]
+        self.assertTrue(wt, f"real defect after the fake '---' was hidden by "
+                             f"truncation: {[str(f) for f in findings]}")
+
+    def test_frontmatter_still_closes_at_the_real_fence(self):
+        """The body (after the REAL closing ---) must not be mistaken for
+        frontmatter either -- confirms the fix didn't just stop matching
+        ANY '---', only indented ones."""
+        b = make_board(self.root)
+        b.add_task("T-941", textwrap.dedent("""\
+            id: T-941
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """), status="todo")
+        p = b.dir / "T-941-x.md"
+        p.write_text(p.read_text() + "\n## Not frontmatter\n\nstatus: this text is body prose, not YAML\n")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.file.name == "T-941-x.md" and f.key == "status"
+                              for f in findings),
+                          f"body content after the real fence was parsed as "
+                          f"frontmatter: {[str(f) for f in findings]}")
+
+
+class YamlComposeSurfaceForms(unittest.TestCase):
+    """Review round 3, design change (#11): check 1 is re-based on
+    yaml.compose() when PyYAML is available, closing three YAML surface
+    forms the hand-rolled scanner's _KEY_RE is structurally blind to --
+    quoted keys, hyphenated keys, and flow mappings -- all of which
+    yaml.safe_load() shadows silently, same failure class as the four
+    incidents check 1 exists to catch."""
+
+    def test_quoted_key_duplicate_detected(self):
+        fm = ['id: T-950', 'status: todo', '"status": in_progress']
+        findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
+        self.assertTrue(any(f.key == "status" for f in findings),
+                         [str(f) for f in findings])
+
+    def test_hyphenated_key_duplicate_detected(self):
+        fm = ['id: T-951', 'review-round: 1', 'review-round: 2']
+        findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
+        self.assertTrue(any(f.key == "review-round" for f in findings),
+                         [str(f) for f in findings])
+
+    def test_flow_mapping_duplicate_detected(self):
+        fm = ['id: T-952', 'checkpoint: {worktree: a, worktree: none}']
+        findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
+        self.assertTrue(any(f.key == "worktree" for f in findings),
+                         [str(f) for f in findings])
+
+    def test_malformed_yaml_reports_nothing_from_check_1(self):
+        """compose() raising must not crash check 1 -- parse_frontmatter_dict's
+        own yaml.safe_load call is what reports the parse error."""
+        fm = ['id: T-953', 'depends_on: [T-001']
+        findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
+        self.assertEqual(findings, [])
+
+    def test_compose_path_still_matches_scanner_on_the_real_regressions(self):
+        """Not a new algorithm producing new answers for the shapes both
+        paths already handled -- same four real historical incidents,
+        same result, via yaml.compose() this time."""
+        cases = [
+            ("dd7bfe7", ".claude/tasks/T-152-mysql-84-parity-cv-database.md", "worktree", None),
+            ("05387a5^", ".claude/tasks/T-202-bff-public-routing-and-auth.md", "security_review", "line 21"),
+            ("51bc931^", ".claude/tasks/T-104-project-resource.md", "review_round", "line 20"),
+        ]
+        for commit, relpath, key, first_seen in cases:
+            text = git_show(commit, relpath)
+            lines = text.split("\n")
+            end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
+            findings = bc.find_duplicate_keys(lines[1:end], 2, Path(relpath.rsplit("/", 1)[-1]))
+            dup = [f for f in findings if f.key == key]
+            self.assertTrue(dup, f"{relpath}: {[str(f) for f in findings]}")
+            if first_seen:
+                self.assertIn(first_seen, dup[0].message)
+
+
+
 class CompactSequences(TempDirCase):
     """The HIGH finding: a compact-style sequence (dash at the SAME column
     as its sibling keys, e.g. `depends_on:\n- T-001`) must not destroy the
@@ -549,6 +667,19 @@ class FallbackParserWithoutYAML(unittest.TestCase):
             bc._HAVE_YAML = had_yaml
         self.assertEqual(findings, [], [str(f) for f in findings])
 
+    def test_quoted_hash_not_treated_as_comment(self):
+        """Review round 3, LOW #6: the old `value.split('#', 1)[0]` was not
+        quote-aware, so `pr: "#53"` -- '#nn' is TASKS.md's own spelling for
+        a PR number -- read as empty rather than the string '#53'."""
+        self.assertEqual(bc._strip_fallback_comment('"#53"'), '"#53"')
+        self.assertEqual(bc._coerce_fallback_scalar('"#53"'), "#53")
+
+    def test_real_comment_after_a_quoted_value_still_stripped(self):
+        self.assertEqual(
+            bc._strip_fallback_comment('"#53"   # a trailing real comment').strip(),
+            '"#53"')
+
+
 
 class BoardRowIdColumn(TempDirCase):
     """The LOW finding: a row's id comes from the header's ID column, not
@@ -605,6 +736,74 @@ class ParseFailureRegistration(TempDirCase):
         misdirected = [f for f in findings if "no task file" in f.message
                         or "no row in any Status-bearing" in f.message]
         self.assertEqual(misdirected, [], [str(f) for f in findings])
+
+
+class NoFrontmatterFenceRegistration(TempDirCase):
+    """Review round 3, MEDIUM #3: mirror of ParseFailureRegistration, but
+    for the OTHER early-exit in run() -- a file with NO `---`-fenced
+    frontmatter at all. That branch didn't register the task id either,
+    so check 2 additionally (and falsely) reported "no task file" about a
+    file that was just read successfully (its frontmatter block is simply
+    absent/malformed, which is already its own finding)."""
+
+    def test_no_frontmatter_fence_does_not_also_report_missing_file(self):
+        b = make_board(self.root)
+        (b.dir / "T-996-x.md").write_text("no frontmatter fence in this file at all\n")
+        b.add_raw_board_row(board_line("T-996", "x", "todo"))
+        b.write_board()
+        findings = b.check()
+        fence_errors = [f for f in findings if "no `---`-fenced" in f.message]
+        self.assertTrue(fence_errors, "expected the no-fence finding")
+        misdirected = [f for f in findings if "no task file" in f.message]
+        self.assertEqual(misdirected, [], [str(f) for f in findings])
+
+
+class IdCollision(TempDirCase):
+    """Review round 3, MEDIUM #4: two files sharing a T-nnn id used to
+    shadow each other via plain dict assignment in run() -- whichever file
+    was processed LAST silently won every id-keyed check, and the LOSER's
+    real defects were never validated at all. A FALSE GREEN, reproduced
+    with a stale renamed file still carrying a checkpoint.worktree
+    violation that check 4 never got a chance to see."""
+
+    def test_collision_is_reported_and_the_shadowed_files_defect_still_surfaces(self):
+        b = make_board(self.root)
+        # "aaa" sorts first; under the OLD last-writer-wins code its defect
+        # was silently overwritten by "zzz", which sorts last and is clean.
+        b.add_task("T-901-aaa-stale", textwrap.dedent("""\
+            id: T-901
+            status: done
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: https://example.invalid/pr/1
+            checkpoint:
+              stage: done
+              worktree: /home/erfeamor/work/cvdl-worktrees/T-901
+            """), status="done", in_board=False)
+        b.add_task("T-901-zzz-current", textwrap.dedent("""\
+            id: T-901
+            status: done
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: https://example.invalid/pr/1
+            checkpoint:
+              stage: done
+              worktree: none
+            """), status="done", in_board=False)
+        b.add_raw_board_row(board_line("T-901", "x", "done"))
+        b.write_board()
+        findings = b.check()
+        collision = [f for f in findings if "is claimed by 2 task files" in f.message]
+        self.assertTrue(collision, [str(f) for f in findings])
+        worktree_defect = [f for f in findings if f.key == "checkpoint.worktree"]
+        self.assertTrue(worktree_defect,
+                         f"the shadowed file's real defect was still lost: "
+                         f"{[str(f) for f in findings]}")
+
 
 
 class DependsOnScalarForm(TempDirCase):
@@ -734,6 +933,25 @@ class BoardFileAgreement(TempDirCase):
         findings = b.check()
         dupes = [f for f in findings if "expected exactly one" in f.message]
         self.assertEqual(dupes, [], [str(f) for f in findings])
+
+    def test_header_immediately_followed_by_a_data_row_no_separator(self):
+        """Review round 3, LOW #7: `i += 2` unconditionally skipped a line
+        after a recognized header, assuming it was always the `|---|---|`
+        separator. A header with NO separator row (or a malformed one)
+        swallowed the very next real row outright."""
+        b = make_board(self.root)
+        b.add_task("T-920", self.base_fm(status="in_review", owner="someone"),
+                   status="in_review", in_board=False)
+        # Header directly followed by a DATA row -- no separator line at all.
+        board_text = (TABLE_HEADER + "\n" +
+                      board_line("T-920", "x", "in_review") + "\n")
+        (b.dir / "TASKS.md").write_text(board_text)
+        findings = b.check()
+        self.assertFalse(any("no row in any Status-bearing" in f.message
+                              for f in findings),
+                          f"the header-adjacent row was swallowed: "
+                          f"{[str(f) for f in findings]}")
+
 
 
 # --------------------------------------------------------------------------
@@ -949,6 +1167,29 @@ class PrPresence(TempDirCase):
         findings = b.check()
         self.assertTrue(any(f.key == "pr" for f in findings))
 
+    def test_sentinel_message_does_not_claim_it_is_empty(self):
+        """Review round 3, LOW #8: pr: is a SENTINEL (a truthy value, e.g.
+        'none'), not an empty one -- the message must not say "is empty"
+        about a value that plainly is not."""
+        b = make_board(self.root)
+        b.add_task("T-956", textwrap.dedent("""\
+            id: T-956
+            status: in_review
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: none
+            """), status="in_review")
+        b.write_board()
+        findings = b.check()
+        pr_findings = [f for f in findings if f.key == "pr"]
+        self.assertTrue(pr_findings)
+        self.assertNotIn("is empty", pr_findings[0].message,
+                          pr_findings[0].message)
+        self.assertIn("sentinel", pr_findings[0].message)
+
+
 
 # --------------------------------------------------------------------------
 # Check 6 — depends_on resolves
@@ -1153,6 +1394,46 @@ class CommandLine(unittest.TestCase):
             self.assertEqual(r.returncode, 1)
             self.assertIn("T-980-x.md:", r.stdout)
             self.assertIn("[owner]", r.stdout)
+
+
+class NestedLineOfDepth(unittest.TestCase):
+    """Review round 3, LOW #10: `nested_line_of` matched a same-named key
+    at ANY depth under `parent:`, not just the immediate child level -- a
+    finding could cite a line whose value is not the one it complains
+    about, and the PostToolUse hook feeds that wrong line to the model as
+    the place to edit."""
+
+    def test_only_the_direct_child_key_matches_not_a_deeper_one(self):
+        fm = textwrap.dedent("""\
+            id: T-930
+            status: done
+            checkpoint:
+              stage: done
+              pre_apply_gate:
+                pr: https://example.invalid/deep-nested-not-the-real-one
+              pr: https://example.invalid/real-checkpoint-pr
+            """).split("\n")
+        line = bc.nested_line_of(fm, 2, "checkpoint", "pr")
+        self.assertEqual(line, 8, f"got line {line}, expected 8 (the direct "
+                                   f"child), not 7 (the deeper one)")
+
+    def test_still_finds_a_key_that_is_genuinely_the_direct_child(self):
+        fm = textwrap.dedent("""\
+            id: T-931
+            checkpoint:
+              worktree: none
+            """).split("\n")
+        line = bc.nested_line_of(fm, 2, "checkpoint", "worktree")
+        self.assertEqual(line, 4)
+
+    def test_absent_key_returns_none(self):
+        fm = textwrap.dedent("""\
+            id: T-932
+            checkpoint:
+              stage: done
+            """).split("\n")
+        self.assertIsNone(bc.nested_line_of(fm, 2, "checkpoint", "pr"))
+
 
 
 if __name__ == "__main__":
