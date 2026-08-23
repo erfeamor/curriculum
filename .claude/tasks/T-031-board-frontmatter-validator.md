@@ -2,15 +2,17 @@
 id: T-031
 title: "A validator for the task board: the checks this board keeps running by hand and keeps failing"
 repo: cv-project (meta)
-status: in_progress
+status: done
 owner: infrastructure-engineer
 branch: feat/board-validator
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/59
 depends_on: []
 risk: normal
 security_review: false   # STAGE-0 DEFAULT, AND A1 MUST RE-DECIDE IT: the H1-ratified scope adds a settings.json HOOK, which is a command-execution path even though it is not in adapter §5's list (that list names deployed CI config -- Jenkinsfile, workflows, .drone.yml, Vercel -- not the local harness). A hook runs a script automatically on matching tool calls, so the real diff may warrant /security-review on that file alone. Flagged rather than pre-decided.
 checkpoint:
-  stage: implement            # H1 ratified by the human 2026-08-23
+  stage: done                 # merged as ae343eb 2026-08-23; H2 accepted with a follow-up
+  merged: ae343eb
+  h2_note: "Accepted, AND the human asked for T-032 rather than choosing between accept and block. Reasoning: shipping starts it catching real drift now, while the unconverged finding rate (6 / 2 / 11 / 15 across three rounds -- it never fell) deserves an answer only live use can give. Both driver errors on this task were surfaced for overturn at the gate: the .gitignore override (caught by a security check, reverted) and the dual-path dispatch ruling (caught by the developer, deleted)."
   repo: cv-project (meta)
   branch: feat/board-validator
   worktree: none              # meta-repo change, and NOT merely by convention: the validator reads .claude/tasks/, so running it from a worktree would validate the WORKTREE'S snapshot of the board rather than the live one. Same family of error as T-028's build-context bug, one level up.

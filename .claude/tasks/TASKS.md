@@ -74,7 +74,8 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-028](T-028-qa-env-generator-worktree-build-context.md) | QA stack builds `master`, not the worktree under test (**silent false pass**) | cv-project (meta) | done (**bind mounts too; T-151's failure mode closed**) | infrastructure-engineer | — | [#49](https://github.com/erfeamor/curriculum/pull/49) |
 | [T-029](T-029-code-review-cannot-see-worktrees.md) | `/code-review` **silently reviews the wrong thing** without an explicit target (cause corrected — not worktrees) | cv-project (meta) | todo | | — | |
 | [T-030](T-030-pr3-build1-success-then-error.md) | A Jenkins build posted `success` then `error` one second later — **not** yet attributable to T-026 | cv-infra | todo | | — | |
-| [T-031](T-031-board-frontmatter-validator.md) | **A validator for the task board** — the checks this board keeps running by hand and keeps failing | cv-project (meta) | in_progress (**H1 ratified 2026-08-23: all three enforcement points**) | infrastructure-engineer | — | |
+| [T-031](T-031-board-frontmatter-validator.md) | **A validator for the task board** — the checks this board keeps running by hand and keeps failing | cv-project (meta) | done (**3 review rounds, 34 findings; live**) | infrastructure-engineer | — | [#59](https://github.com/erfeamor/curriculum/pull/59) |
+| [T-032](T-032-board-check-re-review-after-live-use.md) | Re-review `board-check.py` after a week of real use — **the finding rate never fell** | cv-project (meta) | todo | | T-031 ✔ | **not before 2026-08-30** |
 
 **Cost model is stale as of 2026-08-14 — the documented figures understate real burn by a third.** `cv-infra/CLAUDE.md` and T-010's runway both encode *~$0.92/day ≈ $28/month*. The 2026-08-08 `t3.micro`→`t3.small` resize of the CI host (T-002, deliberate, for Maven headroom) took the real rate to **~$1.23/day ≈ $37.30/month**, verified against the August cost export and `describe-instances`. Consequences: the credits deplete **~25% sooner in elapsed time**, which moves T-012's date; and the `$30` monthly budget is now **structurally exceeded (~124%)**, so its 100/120% thresholds will fire every month from September — an alarm that always fires stops being a signal. Note [cv-infra#14](https://github.com/erfeamor/cv-infra/pull/14) deliberately refused to raise that limit, so this needs a decision rather than a bump. **T-014 may push it further** — its own watch-outs say the domain-service box may need `t3.small` for RAM, another +$8.62/month → ~$46. [T-019](T-019-ci-host-on-demand.md) is the largest available offset (~$17.24/month).
 
@@ -657,3 +658,48 @@ Previously argued from reading the Jenkinsfile; now Jenkins names the reason its
 **These are PR-4 logs; T-030 is about PR-3 build #1.** The claim this board repeated — *"one Jenkins login closes four items"* — was wrong on this one: the four items were not four independent fetches, they were largely **the same PR's builds**. Recorded rather than quietly dropped, because a convenient-sounding count that nobody re-derived is precisely this board's recurring failure, arriving this time in a sentence *about* closing open items.
 
 What did improve is that the discriminator is now exact: if PR-3#1 shows the empty stage plus `No build record`, it is T-026 and folds in; if it shows the stage executing real steps and *then* failing, it is a different defect. The prior mildly favours the latter — T-026's mechanism kills a build before it can report anything, and T-030's sequence has a **`success` posted first** — but that is an argument, and this task exists because an argument was mistaken for evidence once already.
+## T-031 merged — the board has a validator, after three rounds and 34 findings (2026-08-23)
+
+Merged as `ae343eb` ([#59](https://github.com/erfeamor/curriculum/pull/59)). `scripts/board-check.py`, 740 lines, read-only, seven checks — each mapped to a **recorded incident**, not an invented rule. Wired into `scripts/test-all.sh`; the `/dev-loop` driver runs it at every checkpoint write; a `PostToolUse` hook is available **opt-in**.
+
+**Why it exists, stated as evidence:** twelve violations on this board, every one found by a human or agent *re-reading* rather than by anything downstream noticing. The T-002 board line made five infra tasks read as un-claimable for four days. Four were the duplicate-key class — the only one that silently **inverts** a value rather than leaving it absent — and two of those were introduced by the driver hours after it swept for that exact bug, with the write-up a few sections above in this file. **"Be careful" had demonstrably failed as a control, in writing, within hours.**
+
+### What it would have caught, proven rather than claimed
+
+Four tests read the **real historical incidents out of git** rather than reconstructing them — T-152's triple `worktree:` and shadowed `pr:` (`dd7bfe7`), T-202's third `security_review:` vocabulary (`05387a5^`), T-104's and T-151's `review_round` shadowing (`51bc931^`). All four fail if the checker is stubbed, so *"a validator that would not have caught the bugs that motivated it is not done"* is a checkable criterion rather than a self-graded one.
+
+That mattered: an earlier hand-built fixture passed while a reviewer believed the real case failed. **The fixture and the artifact disagreed, and only the artifact counts.**
+
+### Three review rounds, 34 findings, and a rate that never fell
+
+| Round | Scope | Findings |
+|---|---|---|
+| 1 · `high` | whole branch | 6 |
+| stage-4 QA | behaviour + hook | 2 |
+| 2 · `max` | `board-check.py` | 11 |
+| 3 · `max` | **the test file** — never reviewed before | 11 + 4 from the driver |
+
+**The two best findings in the whole task are the same defect wearing different clothes, and neither was in the validator's logic.**
+
+QA found `test_fallback_produces_no_false_positives_on_the_live_board` **green while 59 false positives sailed past it** — because before asserting empty it filtered to the one key already fixed. Its *name* promised the general property; its *assertion* checked a special case. Round 3 then **mutation-tested** the suite — revert each fix, see whether any test dies — and found **11 surviving mutants**, including that the entire fallback scanner had *zero* positive coverage: reverting all three of its bug fixes at once left the suite fully green.
+
+Both are the [T-107](T-107-post-id-cross-person-write.md) shape: a green signal that stopped measuring what it claims, retiring the question before anyone thinks to ask it. **They appeared inside the tool built to catch that class of thing** — which is the honest limit on this validator, now written into the task. It checks board frontmatter. It cannot check whether a test asks the question its name promises.
+
+### Two driver errors, both caught by something other than the driver
+
+1. **A `.gitignore` override.** The driver ruled — on its own authority — that `.claude/settings.json` should be committed so the hook would propagate, and had it done. H1 had authorized *building* the hook, not reversing a documented policy to distribute it, and the driver noted at the time that it was a policy change and proceeded anyway. **A security check flagged it.** The human chose **script committed, registration opt-in**; reverted before the branch was ever pushed. `.gitignore` is a 0-line diff.
+2. **The dual-path dispatch.** The driver ruled that check 1 should run on `yaml.compose()` with the hand-rolled scanner kept as a fallback. That closed three real blind spots — and orphaned the fallback's entire test coverage and introduced three false positives, both being consequences of the change rather than of the original code. Asked directly whether the dispatch was worth keeping, **the developer said no, with reasons, and deleted it**: `qa-env-override.py` in the same directory already hard-requires PyYAML, so the fallback avoided a dependency this repo's tooling already assumes. 966 → 740 lines.
+
+**The second error is the more instructive one.** The evidence for the compose re-base was strong and the ruling was still wrong, because the driver treated *"use the real parser"* as self-evidently safe. A parser does not do the thinking; it **moves** where the thinking has to happen — from *what does a key look like* to *what makes two keys the same*. Three false positives followed directly from skipping that step.
+
+**"PO ruling" in this board's vocabulary means THE DRIVER DECIDED.** It does not mean the human approved. The original wording did not distinguish them, and on a board whose entire pathology is facts inherited without re-checking, that ambiguity was a worse defect than the override it described. Human decisions now say so, with dates.
+
+### Also worth keeping
+
+`line_of`'s `top_level_only` flag was reported as *untested*. The developer investigated instead of complying and found it **provably dead code** — the regex's own column-anchoring made the flag incapable of ever mattering, and no caller passed `False`. Deleted, rather than padded with a test for behaviour that never existed. **Third time on this task that someone declined an instruction because the instruction was wrong**, which is the disposition this board has been asking for since the T-107 post-mortem.
+
+### Filed, not resolved: [T-032](T-032-board-check-re-review-after-live-use.md)
+
+The human accepted the merge **and** asked for a re-review after a week of real use, rather than choosing between accepting and blocking. The reasoning is on the task: shipping starts it catching real drift immediately, while **the finding rate never fell** (6 / 2 / 11 / 15) and that deserves an answer only live use can give. T-032 is explicitly not to be started before **2026-08-30** — elapsed time carrying real edits *is* the input — and its acceptance criteria require a deliberate hunt for an **eighth** duplicate-key blind spot, since check 1 missed seven distinct YAML surface forms across these three rounds.
+
+Its verdict options are **converged**, **needs another round**, or **the approach is wrong** — the third named explicitly so sunk cost does not quietly remove it.
