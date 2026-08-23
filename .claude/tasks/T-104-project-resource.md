@@ -60,7 +60,12 @@ checkpoint:
   reviewers: [code-review, quality-assurance]
   risk: normal
   security_review: false
-  review_round: 0
+  # review_round was DUPLICATED here (0) below the accurate value (1) set at review; removed
+  # 2026-08-23. YAML takes the LAST key, so this file read `review_round: 0` -- 'no review has
+  # happened' -- for a task whose review round converged with findings applied. Same shadowing bug
+  # the 2026-08-22 sweep fixed in T-152 and T-202, reintroduced by the driver in the next two tasks
+  # it drove, on the same day. The lesson is that it is structural, not a one-off: this checkpoint
+  # block is hand-edited YAML with nothing checking it.
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
