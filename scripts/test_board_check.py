@@ -132,6 +132,60 @@ class DuplicateKeys(TempDirCase):
         dup = [f for f in findings if f.key == "worktree"]
         self.assertTrue(dup, "expected a duplicate-key finding nested under checkpoint:")
 
+    def test_block_scalar_digit_before_sign_chomping_indicator_recognized(self):
+        """YAML permits the chomping/indentation indicators in EITHER order
+        (`|2-` and `|-2` are both legal -- confirmed against yaml.safe_load).
+        The original _BLOCK_SCALAR_RE matched sign-before-digit only, so a
+        `|2-` block scalar was never recognized as one and its prose content
+        was walked as structure -- a FALSE duplicate-key finding between two
+        lines of prose that happen to both start with the same word."""
+        b = make_board(self.root)
+        b.add_task("T-904", textwrap.dedent("""\
+            id: T-904
+            status: done
+            owner: carlos
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: https://example.invalid/pr/1
+            checkpoint:
+              stage: done
+              worktree: none
+              notes: |2-
+                status: fake
+                status: fake2
+            """), status="done")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.key == "status" for f in findings),
+                          f"false positive: |2- block scalar not recognized, "
+                          f"prose walked as structure: {[str(f) for f in findings]}")
+
+    def test_block_scalar_digit_before_sign_chomping_indicator_on_folded_scalar(self):
+        """Same bug, the `>` (folded) form with sign-before-digit reversed
+        the other way (`>2+`)."""
+        b = make_board(self.root)
+        b.add_task("T-905", textwrap.dedent("""\
+            id: T-905
+            status: done
+            owner: carlos
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: https://example.invalid/pr/1
+            checkpoint:
+              stage: done
+              worktree: none
+              notes: >2+
+                owner: fake
+                owner: fake2
+            """), status="done")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.key == "owner" for f in findings),
+                          f"false positive: >2+ block scalar not recognized: "
+                          f"{[str(f) for f in findings]}")
+
     def test_no_false_positive_on_sequence_items(self):
         """The exact false-positive shape check 1 must not produce: a literal
         YAML block sequence of mappings where sibling items legitimately
@@ -472,20 +526,28 @@ class FallbackParserWithoutYAML(unittest.TestCase):
 
     def test_fallback_produces_no_false_positives_on_the_live_board(self):
         """End-to-end: force the no-PyYAML code path and confirm the live
-        board's real security_review values (all true/false) don't trip
-        check 7 the way they did before the coercion fix."""
+        board produces ZERO findings under it, same as with PyYAML.
+
+        Deliberately UNFILTERED. An earlier version of this test narrowed
+        the assertion to `f.key == "security_review"` right after fixing
+        the boolean-coercion bug -- which made the test's NAME claim the
+        general "no false positives without PyYAML" property while its
+        ASSERTION checked only the one case already fixed. 59 real
+        depends_on false positives (flow-sequence values comma-split into
+        garbage: '[]', '[T-013', 'T-202]') sailed straight past it, caught
+        only by stage-4 QA running the fallback directly rather than
+        trusting this test. That is the T-101 clientSuppliedIdInThePostBody
+        pattern -- a green assertion that measures a narrower thing than
+        its name promises -- arriving inside the tool built to catch it.
+        No filtering here again, on purpose: if any future check regresses
+        under the fallback, this test must fail."""
         had_yaml = bc._HAVE_YAML
         bc._HAVE_YAML = False
         try:
             findings = bc.run(LIVE_TASKS_DIR)
         finally:
             bc._HAVE_YAML = had_yaml
-        bool_coercion_findings = [
-            f for f in findings
-            if f.key == "security_review" and "not a real boolean" in f.message]
-        self.assertEqual(bool_coercion_findings, [],
-                          f"fallback parser still misreads true/false: "
-                          f"{[str(f) for f in bool_coercion_findings]}")
+        self.assertEqual(findings, [], [str(f) for f in findings])
 
 
 class BoardRowIdColumn(TempDirCase):

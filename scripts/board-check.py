@@ -140,7 +140,18 @@ def read_frontmatter(path: Path):
 
 _KEY_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):(\s|$)')
 _DASH_RE = re.compile(r'^(-)(\s+(.*))?$')
-_BLOCK_SCALAR_RE = re.compile(r':\s*[|>][+-]?\d*\s*(#.*)?$')
+# YAML permits the block-scalar chomping/indentation indicators in
+# EITHER order (`|2-` and `|-2` are both legal, likewise `>2+`/`>+2`) --
+# confirmed against yaml.safe_load, not assumed. The original
+# sign-then-digit-only pattern missed the digit-then-sign form, so a
+# `|2-` block scalar was never recognized as one and its prose content
+# was walked as structure, producing a FALSE duplicate-key finding on
+# whatever key names happened to appear twice in that prose. Dormant on
+# the live board today (nothing uses an indentation indicator), but the
+# realistic trigger is close: the deeply-nested prose-with-colons block
+# scalars (checkpoint.review_trail, checkpoint.enforcement_propagation)
+# are exactly where someone reaches for one.
+_BLOCK_SCALAR_RE = re.compile(r':\s*[|>][+-]?[0-9]?[+-]?\s*(#.*)?$')
 
 
 class _Scope:
@@ -266,17 +277,42 @@ def parse_frontmatter_dict(fm_lines: list[str], path: Path):
         except yaml.YAMLError as exc:
             return None, f"YAML parse error: {exc}"
         return (data if isinstance(data, dict) else {}), None
-    # Minimal fallback: only top-level `key: value` lines, no nesting. Good
-    # enough for checks 3/5/6/7 (all top-level); check 4 needs
-    # checkpoint.worktree and degrades to "not checked" without PyYAML.
+    # Minimal fallback: only top-level `key: value` lines, no nesting.
+    # Handles both this board's real vocabularies at top level: scalars
+    # (coerced true/false -> bool) and flow sequences (`depends_on: []`,
+    # `depends_on: [T-013, T-202]` -> a real Python list, not left as the
+    # bracketed STRING that used to comma-split into '[]' / '[T-013' /
+    # 'T-202]' and fail check 6 on nearly every file). checkpoint.worktree
+    # (check 4) and checkpoint.pr (half of check 5) are nested and still
+    # degrade to "not checked" without PyYAML — see the check-4 gate in
+    # run() and the warning printed at startup.
     data = {}
     for line in fm_lines:
         m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$', line)
         if m and not line.startswith((" ", "\t")):
             key = m.group(1)
             raw_val = m.group(2).split("#", 1)[0].strip()
-            data[key] = _coerce_fallback_scalar(raw_val)
+            data[key] = _coerce_fallback_value(raw_val)
     return data, None
+
+
+_FLOW_LIST_RE = re.compile(r'^\[(.*)\]$')
+
+
+def _coerce_fallback_value(raw: str):
+    """Top-level value coercion for the no-PyYAML fallback: a flow sequence
+    (`[...]`) becomes a real list (comma-split, each item stripped of
+    surrounding whitespace/quotes — this board never nests a comma inside a
+    quoted depends_on item, so this is not a general YAML flow parser and
+    does not try to be one); anything else is a scalar, handled by
+    _coerce_fallback_scalar."""
+    m = _FLOW_LIST_RE.match(raw)
+    if m:
+        inner = m.group(1).strip()
+        if not inner:
+            return []
+        return [item.strip().strip("'\"") for item in inner.split(",")]
+    return _coerce_fallback_scalar(raw)
 
 
 def _coerce_fallback_scalar(raw: str):
@@ -652,13 +688,20 @@ def main(argv=None) -> int:
         ap.error(f"--tasks-dir is not a directory: {tasks_dir}")
 
     if not _HAVE_YAML:
-        print("board-check: WARNING — PyYAML not installed; check 4 "
-              "(checkpoint.worktree) is skipped entirely, and any check "
-              "that reads a NESTED frontmatter value (e.g. checkpoint.pr "
-              "consistency in check 5) degrades to top-level-only. "
-              "Top-level checks (3, 6, 7, and the top-level half of 5) "
-              "still run at full accuracy — true/false coercion for "
-              "security_review is handled by the fallback parser too.",
+        print("board-check: WARNING — PyYAML not installed. This warning "
+              "has been wrong about its own blast radius twice before "
+              "(security_review boolean coercion, then depends_on flow "
+              "sequences), so it now names checks by number rather than "
+              "promising a blanket 'top-level is fine': checks 3 and 7 read "
+              "only top-level scalars and are unaffected. Check 6 "
+              "(depends_on) is handled for this board's real usage — flow "
+              "sequences (`[T-013, T-202]`) and bare/comma-separated "
+              "scalars — but the fallback is NOT a general YAML flow "
+              "parser (no quoted-comma handling, no nesting). Check 4 "
+              "(checkpoint.worktree) is skipped entirely — it is nested "
+              "and the fallback reads no nested keys at all. Check 5 "
+              "(pr:) runs its top-level half; the checkpoint.pr "
+              "consistency half is skipped for the same nested-key reason.",
               file=sys.stderr)
 
     try:
