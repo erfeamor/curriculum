@@ -28,10 +28,18 @@ for dir in "$ROOT_DIR"/cv-*; do
 done
 
 # The meta repo has no product code, but scripts/ carries the QA-stack generator
-# whose failure mode is silent (T-028) — so its tests run here too.
+# whose failure mode is silent (T-028), and the board validator whose failure
+# mode is the same shape (T-031) — so their tests run here too.
 echo "=== Test: cv-project (meta tooling) ==="
 (cd "$ROOT_DIR" && python3 -m unittest discover -s scripts -p 'test_*.py' -q) \
   || FAILED+=("cv-project meta tooling")
+
+# board-check is read-only over .claude/tasks/, so it can run directly (not
+# just its unit tests) — it is meant to be run from the main checkout, never
+# a worktree (T-031), which matches how test-all.sh itself always runs.
+echo "=== Test: board-check (live board) ==="
+(cd "$ROOT_DIR" && python3 scripts/board-check.py) \
+  || FAILED+=("board-check (live board)")
 
 if [ "${#FAILED[@]}" -gt 0 ]; then
   echo "Tests failed in: ${FAILED[*]}"
