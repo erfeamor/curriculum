@@ -215,6 +215,36 @@ class DuplicateKeys(TempDirCase):
         self.assertFalse(any(f.key in ("round", "finding") for f in findings),
                           f"false positive on sequence items: {[str(f) for f in findings]}")
 
+    def test_real_duplicate_inside_a_single_sequence_item_is_still_caught(self):
+        """Round 4 review, MEDIUM: only the "siblings legitimately repeat"
+        NEGATIVE case was ever tested for sequences -- a real shadow
+        INSIDE one list item (`- round: 1\\n  round: 2`, exactly the shape
+        this board writes in checkpoint.review_trail-style lists) was
+        never asserted to be caught. Deleting the SequenceNode recursion
+        in _walk_compose_node would have survived every prior test."""
+        b = make_board(self.root)
+        b.add_task("T-906", textwrap.dedent("""\
+            id: T-906
+            status: done
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: https://example.invalid/pr/1
+            checkpoint:
+              stage: done
+              worktree: none
+              review_trail:
+                - round: 1
+                  round: 2
+                  finding: shadowed round
+            """), status="done")
+        b.write_board()
+        findings = b.check()
+        dup = [f for f in findings if f.key == "round"]
+        self.assertEqual(len(dup), 1, f"duplicate inside a sequence item "
+                                       f"was not caught: {[str(f) for f in findings]}")
+
     def test_no_false_positive_on_sibling_nested_mappings(self):
         """T-002's real shape: pre_apply_gate / apply / post_apply are three
         DIFFERENT nested mappings under checkpoint, each with its own `run:`
@@ -250,15 +280,25 @@ class DuplicateKeys(TempDirCase):
         self.assertFalse(any(f.key in ("run", "commit", "evidence") for f in findings),
                           f"false positive on sibling nested mappings: {[str(f) for f in findings]}")
 
+    def _live_file(self, task_id: str) -> Path:
+        """Locate by glob rather than a hardcoded filename -- a rename
+        (this board's title suffixes DO change, e.g. T-017's did) must
+        fail this test with a clear message, not silently stop testing
+        the file the spec actually named."""
+        matches = sorted(LIVE_TASKS_DIR.glob(f"{task_id}-*.md"))
+        self.assertTrue(matches, f"no file matches {task_id}-*.md under "
+                                  f"{LIVE_TASKS_DIR} -- renamed or removed?")
+        return matches[0]
+
     def test_live_board_t002_and_t103_no_false_positive(self):
         """Assert directly against the real files named in the spec."""
-        fm = bc.read_frontmatter(LIVE_TASKS_DIR / "T-002-jenkins-on-drone-host.md")
-        findings = bc.find_duplicate_keys(fm[0], fm[1], LIVE_TASKS_DIR / "T-002-jenkins-on-drone-host.md")
-        self.assertEqual(findings, [], [str(f) for f in findings])
-
-        fm = bc.read_frontmatter(LIVE_TASKS_DIR / "T-103-skills-catalog-and-assignments.md")
-        findings = bc.find_duplicate_keys(fm[0], fm[1], LIVE_TASKS_DIR / "T-103-skills-catalog-and-assignments.md")
-        self.assertEqual(findings, [], [str(f) for f in findings])
+        for task_id in ("T-002", "T-103"):
+            path = self._live_file(task_id)
+            fm = bc.read_frontmatter(path)
+            self.assertIsNotNone(fm, f"{path.name}: no `---`-fenced "
+                                      f"frontmatter found -- lost its fence?")
+            findings = bc.find_duplicate_keys(fm[0], fm[1], path)
+            self.assertEqual(findings, [], [str(f) for f in findings])
 
 
 class DuplicateKeyRegressions(TempDirCase):
@@ -374,13 +414,25 @@ class RealHistoricalIncidents(unittest.TestCase):
     here — see the task report for the transcript."""
 
     def duplicates_in(self, commit: str, relpath: str):
+        """Uses bc.read_frontmatter -- the REAL fence detector, not a
+        second, independent .strip()-based reimplementation of it. An
+        inline `.strip()` copy here would carry the exact bug
+        FrontmatterFenceTruncation exists to catch (an indented "---"
+        inside a block scalar truncating the frontmatter early), silently
+        analyzing a truncated mapping in these four real-file regression
+        tests specifically -- the ones this round's escalation was ABOUT
+        being faithful to the real artifact."""
         text = git_show(commit, relpath)
-        lines = text.split("\n")
-        assert lines[0].strip() == "---", "not a frontmatter-fenced file"
-        end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
-        fm_lines, first_line = lines[1:end], 2
-        return bc.find_duplicate_keys(fm_lines, first_line,
-                                       Path(relpath.rsplit("/", 1)[-1]))
+        name = relpath.rsplit("/", 1)[-1]
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / name
+            p.write_text(text)
+            fm = bc.read_frontmatter(p)
+            self.assertIsNotNone(fm, f"{relpath}@{commit}: no `---`-fenced "
+                                      f"frontmatter found -- file renamed, "
+                                      f"restructured, or the commit is stale")
+            fm_lines, first_line, _ = fm
+            return bc.find_duplicate_keys(fm_lines, first_line, Path(name))
 
     def test_t152_real_triple_worktree_and_shadowed_pr(self):
         """dd7bfe7: T-152 as merged, before the 05387a5 sweep demoted the
@@ -399,6 +451,19 @@ class RealHistoricalIncidents(unittest.TestCase):
         self.assertEqual(len(by_key.get("pr", [])), 1,
                           [str(f) for f in findings])
         self.assertIn("first seen at line 17", by_key["pr"][0].message)
+
+        # Round 4 review, LOW: the two `worktree:` findings above were
+        # only ever COUNTED, never LOCATED -- keeping the first-seen line
+        # fixed (instead of advancing it to the newest, as the comment in
+        # find_duplicate_keys/_walk_compose_node explicitly promises for a
+        # third occurrence) would still produce a count of 2 and pass
+        # every assertion before this one. The real, distinct lines: each
+        # finding sits at the NEXT worktree: line and blames the one
+        # immediately before it, not the original first at line 15.
+        worktree_findings = sorted(by_key["worktree"], key=lambda f: f.line)
+        self.assertEqual([f.line for f in worktree_findings], [19, 27])
+        self.assertIn("first seen at line 15", worktree_findings[0].message)
+        self.assertIn("first seen at line 19", worktree_findings[1].message)
 
     def test_t202_real_second_security_review(self):
         """05387a5^ (the sweep's parent): T-202 carrying a THIRD vocabulary
@@ -496,9 +561,11 @@ class FrontmatterFenceTruncation(TempDirCase):
 
 class YamlComposeSurfaceForms(unittest.TestCase):
     """Review round 3, design change (#11): check 1 is re-based on
-    yaml.compose() when PyYAML is available, closing three YAML surface
-    forms the hand-rolled scanner's _KEY_RE is structurally blind to --
-    quoted keys, hyphenated keys, and flow mappings -- all of which
+    yaml.compose() -- now the ONLY implementation (round 4: the fallback
+    scanner was deleted and PyYAML made a hard requirement, see the
+    module docstring's Ruling section) -- closing three YAML surface
+    forms a hand-rolled line scanner is structurally blind to: quoted
+    keys, hyphenated keys, and flow mappings, all of which
     yaml.safe_load() shadows silently, same failure class as the four
     incidents check 1 exists to catch."""
 
@@ -527,25 +594,63 @@ class YamlComposeSurfaceForms(unittest.TestCase):
         findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
         self.assertEqual(findings, [])
 
-    def test_compose_path_still_matches_scanner_on_the_real_regressions(self):
-        """Not a new algorithm producing new answers for the shapes both
-        paths already handled -- same four real historical incidents,
-        same result, via yaml.compose() this time."""
-        cases = [
-            ("dd7bfe7", ".claude/tasks/T-152-mysql-84-parity-cv-database.md", "worktree", None),
-            ("05387a5^", ".claude/tasks/T-202-bff-public-routing-and-auth.md", "security_review", "line 21"),
-            ("51bc931^", ".claude/tasks/T-104-project-resource.md", "review_round", "line 20"),
-        ]
-        for commit, relpath, key, first_seen in cases:
-            text = git_show(commit, relpath)
-            lines = text.split("\n")
-            end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
-            findings = bc.find_duplicate_keys(lines[1:end], 2, Path(relpath.rsplit("/", 1)[-1]))
-            dup = [f for f in findings if f.key == key]
-            self.assertTrue(dup, f"{relpath}: {[str(f) for f in findings]}")
-            if first_seen:
-                self.assertIn(first_seen, dup[0].message)
 
+class ComposeResolvedValueFalsePositives(unittest.TestCase):
+    """Round 4 review, the reviewer's own findings: _walk_compose_node
+    compared key_node.value (the raw scalar TEXT) rather than the
+    resolved identity, so a bare `yes`/`1`/`~` and its QUOTED counterpart
+    ("yes"/"1"/"~") -- which YAML resolves to bool/int/null vs string,
+    two genuinely different keys, confirmed via yaml.safe_load producing
+    {True: ..., 'yes': ...} etc, not a shadow at all -- were reported as
+    a duplicate. Fixed by comparing (tag, value) instead of value alone."""
+
+    def test_bool_resolved_key_vs_quoted_string_is_not_a_duplicate(self):
+        fm = ['a:', '  yes: x', '  "yes": y']
+        findings = bc.find_duplicate_keys(fm, 1, Path("x.md"))
+        self.assertEqual(findings, [], [str(f) for f in findings])
+
+    def test_int_resolved_key_vs_quoted_string_is_not_a_duplicate(self):
+        fm = ['a:', '  1: x', '  "1": y']
+        findings = bc.find_duplicate_keys(fm, 1, Path("x.md"))
+        self.assertEqual(findings, [], [str(f) for f in findings])
+
+    def test_null_resolved_key_vs_quoted_string_is_not_a_duplicate(self):
+        fm = ['a:', '  ~: x', '  "~": y']
+        findings = bc.find_duplicate_keys(fm, 1, Path("x.md"))
+        self.assertEqual(findings, [], [str(f) for f in findings])
+
+    def test_a_real_duplicate_of_the_same_resolved_type_is_still_caught(self):
+        """The fix must not overcorrect into missing genuine duplicates
+        that happen to share a resolved type."""
+        fm = ['a:', '  status: x', '  status: y']
+        findings = bc.find_duplicate_keys(fm, 1, Path("x.md"))
+        self.assertEqual(len(findings), 1, [str(f) for f in findings])
+        self.assertEqual(findings[0].key, "status")
+
+
+class ComposeAliasDoubleReporting(unittest.TestCase):
+    """Round 4 review, the reviewer's own finding: an alias to a mapping
+    (`a: &x {...}` / `b: *x`) made _walk_compose_node visit the SAME node
+    object twice (confirmed: compose() resolves an alias to the identical
+    Python object as its anchor), double-reporting one real duplicate.
+    De-duplicated by node id in a `visited` set, since that is exactly
+    what makes two references to the SAME anchored mapping distinguishable
+    from two independent, coincidentally-similar mappings (which must
+    each still be walked and checked on their own)."""
+
+    def test_alias_to_a_duplicate_bearing_mapping_reports_once_not_twice(self):
+        fm = ['a: &x', '  worktree: p', '  worktree: q', 'b: *x']
+        findings = bc.find_duplicate_keys(fm, 1, Path("x.md"))
+        self.assertEqual(len(findings), 1, [str(f) for f in findings])
+
+    def test_two_independent_mappings_are_each_still_checked(self):
+        """Not de-duplicating by CONTENT -- two structurally identical but
+        independently-written mappings are two different node objects and
+        must each be checked for their own duplicates."""
+        fm = ['a:', '  worktree: p', '  worktree: q',
+              'b:', '  worktree: p', '  worktree: q']
+        findings = bc.find_duplicate_keys(fm, 1, Path("x.md"))
+        self.assertEqual(len(findings), 2, [str(f) for f in findings])
 
 
 class CompactSequences(TempDirCase):
@@ -622,72 +727,21 @@ class CompactSequences(TempDirCase):
                           f"false positive on compact sequence items: {[str(f) for f in findings]}")
 
 
-class FallbackParserWithoutYAML(unittest.TestCase):
-    """The MEDIUM finding: without PyYAML, security_review: true/false must
-    coerce to real booleans, not the strings 'true'/'false' — otherwise
-    check 7 fails isinstance(sr, bool) for every task that has one."""
-
-    def test_true_false_coerce_to_bool(self):
-        # Exercise the coercion function directly so this test doesn't
-        # depend on whether PyYAML happens to be installed on the machine
-        # running it -- parse_frontmatter_dict dispatches on _HAVE_YAML,
-        # captured at import time.
-        self.assertIs(bc._coerce_fallback_scalar("true"), True)
-        self.assertIs(bc._coerce_fallback_scalar("false"), False)
-        self.assertIs(bc._coerce_fallback_scalar("TRUE"), True)
-        self.assertIsNone(bc._coerce_fallback_scalar(""))
-
-    def test_non_boolean_vocabulary_still_fails_the_check(self):
-        # 'required' was a real historical value for this key (2026-08-17
-        # sweep) — coercion must not swallow it into looking valid.
-        self.assertEqual(bc._coerce_fallback_scalar("required"), "required")
-
-    def test_fallback_produces_no_false_positives_on_the_live_board(self):
-        """End-to-end: force the no-PyYAML code path and confirm the live
-        board produces ZERO findings under it, same as with PyYAML.
-
-        Deliberately UNFILTERED. An earlier version of this test narrowed
-        the assertion to `f.key == "security_review"` right after fixing
-        the boolean-coercion bug -- which made the test's NAME claim the
-        general "no false positives without PyYAML" property while its
-        ASSERTION checked only the one case already fixed. 59 real
-        depends_on false positives (flow-sequence values comma-split into
-        garbage: '[]', '[T-013', 'T-202]') sailed straight past it, caught
-        only by stage-4 QA running the fallback directly rather than
-        trusting this test. That is the T-101 clientSuppliedIdInThePostBody
-        pattern -- a green assertion that measures a narrower thing than
-        its name promises -- arriving inside the tool built to catch it.
-        No filtering here again, on purpose: if any future check regresses
-        under the fallback, this test must fail."""
-        had_yaml = bc._HAVE_YAML
-        bc._HAVE_YAML = False
-        try:
-            findings = bc.run(LIVE_TASKS_DIR)
-        finally:
-            bc._HAVE_YAML = had_yaml
-        self.assertEqual(findings, [], [str(f) for f in findings])
-
-    def test_quoted_hash_not_treated_as_comment(self):
-        """Review round 3, LOW #6: the old `value.split('#', 1)[0]` was not
-        quote-aware, so `pr: "#53"` -- '#nn' is TASKS.md's own spelling for
-        a PR number -- read as empty rather than the string '#53'."""
-        self.assertEqual(bc._strip_fallback_comment('"#53"'), '"#53"')
-        self.assertEqual(bc._coerce_fallback_scalar('"#53"'), "#53")
-
-    def test_real_comment_after_a_quoted_value_still_stripped(self):
-        self.assertEqual(
-            bc._strip_fallback_comment('"#53"   # a trailing real comment').strip(),
-            '"#53"')
-
-
-
 class BoardRowIdColumn(TempDirCase):
     """The LOW finding: a row's id comes from the header's ID column, not
     from wherever a [T-nnn] link first appears in the row."""
 
     def test_a_link_to_another_task_in_an_earlier_cell_does_not_misattribute(self):
+        """Round 4 review, MEDIUM: with TABLE_HEADER, ID is column 0, so
+        "first [T-nnn] link anywhere in the row" still lands on the
+        correct cell by ACCIDENT (it's the first cell checked either way)
+        -- reverting parse_board_rows to scan the whole row left this
+        test green. Needs a header where ID is genuinely NOT first, and a
+        row whose non-ID cell links a DIFFERENT task ahead of the real ID
+        cell, to actually exercise the bug."""
         b = make_board(self.root)
-        b.add_task("T-993", textwrap.dedent("""            id: T-993
+        b.add_task("T-993", textwrap.dedent("""\
+            id: T-993
             status: todo
             owner:
             risk: normal
@@ -695,7 +749,8 @@ class BoardRowIdColumn(TempDirCase):
             depends_on: []
             pr:
             """), status="todo", in_board=False)
-        b.add_task("T-994", textwrap.dedent("""            id: T-994
+        b.add_task("T-994", textwrap.dedent("""\
+            id: T-994
             status: todo
             owner:
             risk: normal
@@ -703,13 +758,12 @@ class BoardRowIdColumn(TempDirCase):
             depends_on: []
             pr:
             """), status="todo", in_board=False)
-        b.write_board()
-        # Hand-write a row whose Title cell links T-993 BEFORE the row's own
-        # ID cell resolves to T-994 -- the shape that misfired under
-        # "first [T-nnn] anywhere in the row".
-        row = "| [T-994](T-994-x.md) | see also [T-993](T-993-x.md) | repo | todo | | | |"
+        # Title BEFORE ID -- the shape "first [T-nnn] anywhere" misfires on.
+        header = "| Title | ID | Repo | Status | Owner | Depends on | PR |"
+        sep = "|-------|----|------|--------|-------|------------|----|"
+        row = "| see also [T-993](T-993-x.md) | [T-994](T-994-x.md) | repo | todo | | | |"
         p = b.dir / "TASKS.md"
-        p.write_text("\n".join([TABLE_HEADER, TABLE_SEP, row]) + "\n")
+        p.write_text("\n".join([header, sep, row]) + "\n")
         findings = b.check()
         wrong = [f for f in findings
                  if "TASKS.md row names T-993" in f.message]
@@ -826,8 +880,18 @@ class DependsOnScalarForm(TempDirCase):
                              for f in findings), [str(f) for f in findings])
 
     def test_comma_separated_depends_on_is_validated(self):
+        """Round 4 review, MEDIUM: the dependency-target fixture was named
+        'T-001x' -- filename 'T-001x-x.md' fails run()'s own
+        `^T-\\d+-.+\\.md$` filter, so it never entered known_ids at all, and
+        the loose `any("T-999" in m ...)` assertion was satisfied even by
+        the UNSPLIT string 'T-001, T-999' (which literally contains
+        'T-999' as a substring). Mutating _normalize_depends_on to skip
+        comma-splitting entirely left this test green. Fixed: a
+        filename the glob filter actually matches, plus an exact-match
+        assertion that only a real split can satisfy."""
         b = make_board(self.root)
-        b.add_task("T-997", textwrap.dedent("""            id: T-997
+        b.add_task("T-997", textwrap.dedent("""\
+            id: T-997
             status: todo
             owner:
             risk: normal
@@ -835,13 +899,24 @@ class DependsOnScalarForm(TempDirCase):
             depends_on: T-001, T-999
             pr:
             """), status="todo")
-        b.add_task("T-001x", "id: T-001x\nstatus: todo\nowner:\nrisk: normal\n"
-                              "security_review: false\ndepends_on: []\npr:\n",
-                   status="todo", in_board=False)
+        b.add_task("T-001", textwrap.dedent("""\
+            id: T-001
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """), status="todo", in_board=False)
         b.write_board()
         findings = b.check()
-        names = [f.message for f in findings if f.key == "depends_on"]
-        self.assertTrue(any("T-999" in m for m in names), names)
+        dep_ids = sorted(
+            m.split("names ", 1)[1].split(",", 1)[0].strip("'")
+            for f in findings if f.key == "depends_on"
+            for m in [f.message] if "names" in m)
+        self.assertEqual(dep_ids, ["T-999"],
+                          f"T-001 must resolve (real file, not flagged) and "
+                          f"T-999 must not (no file): {[str(f) for f in findings]}")
 
 
 class ReadFailureExitCode(unittest.TestCase):
@@ -933,6 +1008,42 @@ class BoardFileAgreement(TempDirCase):
         findings = b.check()
         dupes = [f for f in findings if "expected exactly one" in f.message]
         self.assertEqual(dupes, [], [str(f) for f in findings])
+
+    def test_one_row_per_file_fires_on_a_genuine_duplicate_row(self):
+        """Round 4 review, MEDIUM: `if len(occurrences) > 1:` had only
+        NEGATIVE coverage (every existing fixture puts a task in exactly
+        one Status-bearing table) -- `if False:` survives unnoticed.
+        Duplicate rows across two Status-bearing tables is one of the
+        recurrences check 2 is explicitly named for."""
+        b = make_board(self.root)
+        b.add_task("T-920", self.base_fm(status="todo"), status="todo")
+        b.write_board()
+        # A SECOND Status-bearing table also naming T-920 -- a hand-edit
+        # slip (copy-pasted into the wrong section) this board has made.
+        extra = "\n\n" + TABLE_HEADER + "\n" + TABLE_SEP + "\n" + \
+            board_line("T-920", "x (duplicated into a second table)", "todo") + "\n"
+        p = b.dir / "TASKS.md"
+        p.write_text(p.read_text() + extra)
+        findings = b.check()
+        dupes = [f for f in findings if "expected exactly one" in f.message]
+        self.assertEqual(len(dupes), 1, [str(f) for f in findings])
+        self.assertIn("2 rows in TASKS.md", dupes[0].message)
+
+    def test_malformed_row_cell_count_mismatch_is_reported(self):
+        """Round 4 review, MEDIUM: no fixture ever produced a row whose
+        cell count disagrees with its header -- iterating an empty
+        `malformed` list survives unnoticed. A stray or missing `|` is
+        the common hand-edit slip on this board."""
+        b = make_board(self.root)
+        b.add_task("T-920", self.base_fm(status="todo"), status="todo", in_board=False)
+        # One cell short of the 7-column header -- a dropped "|".
+        bad_row = "| [T-920](T-920-x.md) | x | repo | todo | | |"
+        (b.dir / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, bad_row]) + "\n")
+        findings = b.check()
+        malformed = [f for f in findings
+                     if "column count does not match" in f.message]
+        self.assertEqual(len(malformed), 1, [str(f) for f in findings])
 
     def test_header_immediately_followed_by_a_data_row_no_separator(self):
         """Review round 3, LOW #7: `i += 2` unconditionally skipped a line
@@ -1434,6 +1545,34 @@ class NestedLineOfDepth(unittest.TestCase):
             """).split("\n")
         self.assertIsNone(bc.nested_line_of(fm, 2, "checkpoint", "pr"))
 
+
+class LineOfTopLevelOnly(unittest.TestCase):
+    """Round 4 review, LOW: `line_of` used to take a `top_level_only=True`
+    flag whose early-continue guard was never asserted -- deleting it
+    survived. Investigating WHY turned up something the mutation-testing
+    finding didn't say directly: the guard was not merely untested, it
+    was PROVABLY REDUNDANT. `pattern.match(raw)` requires the match to
+    start at column 0 of the raw (unstripped) line regardless of the
+    flag -- `re.match(r'^status:', '  status: x')` is False -- so an
+    indented line could never satisfy the pattern whether or not the
+    guard ran, and no caller anywhere ever passed `top_level_only=False`.
+    Fixed by deleting the (dead) parameter and its guard rather than
+    padding a test around behavior that never existed; this test asserts
+    the property the guard was WRITTEN for, which the simplified
+    column-anchored regex still provides on its own -- the same harm
+    NestedLineOfDepth exists to prevent (the PostToolUse hook hands the
+    model whatever line this function returns as the place to edit)."""
+
+    def test_a_nested_key_of_the_same_name_is_not_matched_at_top_level(self):
+        fm = textwrap.dedent("""\
+            id: T-933
+            checkpoint:
+              status: this is NOT the top-level status field
+            status: todo
+            """).split("\n")
+        line = bc.line_of(fm, 2, "status")
+        self.assertEqual(line, 5, f"got line {line}, expected 5 (the real "
+                                   f"top-level status:), not the nested one")
 
 
 if __name__ == "__main__":

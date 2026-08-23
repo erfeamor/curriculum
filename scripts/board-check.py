@@ -25,13 +25,16 @@ Ruling (binding, from H1 — see the task file's checkpoint.h1_rulings):
   - Check 1 never delegates to yaml.safe_load() for KEY EXTRACTION.
     safe_load() silently accepts duplicate keys and returns the LAST —
     exactly the behaviour that made all four shadowing incidents invisible.
-    Narrowed on evidence at review round 3: the original ruling read as
-    "no YAML parser, ever" and that was right about the hazard (the
-    LOADING api collapses duplicates) but wrong about the remedy. Check 1
-    now uses yaml.compose() (the COMPOSING api -- parses into a node tree,
-    duplicates intact, nothing collapsed) whenever PyYAML is available; the
-    hand-rolled raw-line scanner is kept as the fallback for when it is
-    not. See the check-1 section below for the full reasoning.
+    It uses yaml.compose() instead (the COMPOSING api -- parses into a
+    node tree, duplicates intact, nothing collapsed). Narrowed on evidence
+    at review round 3 (the original ruling read as "no YAML parser, ever",
+    right about the hazard but wrong about the remedy) and again at round
+    4: a version of this kept a hand-rolled raw-line scanner as an
+    optional fallback for when PyYAML was absent, and the dual-path
+    dispatch that required orphaned the scanner's entire test suite
+    silently. PyYAML is now a hard requirement (matching
+    qa-env-override.py's own precedent in this repo) and there is exactly
+    ONE implementation of check 1. See the check-1 section below.
   - Read-only, always. Nothing here reformats, reorders or rewrites
     frontmatter; the board's strike-don't-delete convention means these files
     carry DELIBERATE contradictions that a formatter would destroy.
@@ -46,10 +49,11 @@ Usage:
     scripts/board-check.py --tasks-dir DIR  # check a different board (tests)
     scripts/board-check.py --quiet          # print findings only, no summary
 
-Exit codes: 0 = clean, 1 = at least one finding, 2 = the board itself could
-not be read (I/O error, not a single file) or a check failed at import
-time — a false GREEN here is worse than a crash, so this deliberately does
-not swallow that class of error.
+Exit codes: 0 = clean, 1 = at least one finding OR PyYAML missing at
+import time (sys.exit(str) -- Python's own convention), 2 = the board
+itself could not be READ once running (I/O error, not a single file) --
+a false GREEN here is worse than a crash, so this deliberately does not
+swallow that class of error.
 """
 
 from __future__ import annotations
@@ -63,14 +67,26 @@ from pathlib import Path
 # duplicate keys to the last value -- fine there, that IS what ships), and
 # yaml.compose() for check 1 (preserves every key/value pair with its own
 # line, duplicates intact -- see the ruling above find_duplicate_keys).
-# Both are optional: this tool has no hard external dependency, and falls
-# back to a hand-rolled raw-line scanner for check 1 and a minimal
-# top-level-only reader for checks 2-7 when PyYAML is absent.
+#
+# HARD REQUIREMENT, not an optional fallback (round 3 review, revised
+# ruling). A prior version made PyYAML optional and hand-rolled a raw-line
+# scanner for check 1 plus a minimal top-level-only reader for checks 2-7
+# so this tool would run without it. That "no hard dependency" goal cost
+# more than it bought: the scanner alone needed five rounds of surface-
+# form-specific bug fixes (compact sequences, block-scalar chomping
+# order, bare block-scalar sequence items) and was STILL blind to quoted
+# keys, hyphenated keys and flow mappings even fixed; the dual-path
+# dispatch this forced then orphaned the scanner's entire test suite
+# (every crafted fixture exercised only the compose() path once it
+# existed, silently) -- a bug born directly from having two paths to keep
+# honest, not from either path's own logic. Matches this repo's own
+# sibling tool: qa-env-override.py has required PyYAML outright since it
+# was written, same message shape, and runs on the same machines this
+# does.
 try:
     import yaml
-    _HAVE_YAML = True
 except ModuleNotFoundError:
-    _HAVE_YAML = False
+    sys.exit("board-check: PyYAML is required (pip install pyyaml).")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TASKS_DIR = REPO_ROOT / ".claude" / "tasks"
@@ -156,228 +172,57 @@ def read_frontmatter(path: Path):
 
 
 # --------------------------------------------------------------------------
-# Check 1 — duplicate keys within a frontmatter mapping.
+# Check 1 — duplicate keys within a frontmatter mapping, via yaml.compose().
 #
-# Two implementations, in priority order:
+# T-031's original H1 ruling forbade delegating this check to a YAML
+# PARSER -- correctly: yaml.safe_load() (the LOADING api -- Composer +
+# Constructor) collapses duplicate mapping keys and returns the last
+# value, which is exactly the failure mode of all four incidents this
+# check exists to catch (T-152's triple `worktree:`, T-202's second
+# `security_review:`, T-104/T-151's `review_round` shadowing).
 #
-#   1. yaml.compose() (this file's PRIMARY path when PyYAML is available).
-#      T-031's original H1 ruling forbade delegating this check to a YAML
-#      PARSER -- correctly: yaml.safe_load() collapses duplicate mapping
-#      keys and returns the last value, which is exactly the failure mode
-#      of all four incidents this check exists to catch (T-152's triple
-#      `worktree:`, T-202's second `security_review:`, T-104/T-151's
-#      `review_round` shadowing). That ruling was right about the hazard
-#      and wrong about the remedy: yaml.compose() returns the node TREE
-#      (the Composer stage, before Construction), which preserves EVERY
-#      key/value pair with its own source line, duplicates intact -- it
-#      does not collapse anything. Re-based on evidence (round 3 review),
-#      recorded in T-031's checkpoint.h1_rulings.
+# That ruling was right about the hazard and wrong about the remedy.
+# yaml.compose() runs only the Composer stage -- it returns the node
+# TREE, one step before Construction ever collapses anything -- so every
+# key/value pair survives with its own source line, duplicates intact.
+# Re-based on evidence at review round 3, recorded in T-031's
+# checkpoint.h1_rulings.
 #
-#      This closes an entire CLASS of gap the hand-rolled scanner below
-#      kept hitting one surface form at a time across three review
-#      rounds -- compact sequences, `|2-` chomping order, bare `- |`
-#      sequence items, quoted keys (`"status":`), hyphenated keys
-#      (`review-round:`), flow mappings (`{worktree: a, worktree: none}`)
-#      -- because compose() already understands the full YAML grammar;
-#      nothing here is re-implementing it one shape at a time anymore.
-#
-#   2. _find_duplicate_keys_scan() (the FALLBACK, used only when PyYAML is
-#      absent). Raw-line, indent-tracking scanner -- narrower than (1) by
-#      construction (see its own docstring for exactly which shapes it
-#      does not understand), kept only so this tool has no hard external
-#      dependency. An 8000-document differential fuzz against a
-#      duplicate-aware loader found zero divergences between this
-#      scanner and (1) once the bare-`- |`-item bug above was fixed, so
-#      it remains trustworthy for the fallback role.
+# This replaced a hand-rolled raw-line scanner that needed FIVE rounds of
+# surface-form-specific bug fixes (compact sequences, block-scalar
+# chomping order, bare block-scalar sequence items) and, even fixed, was
+# still permanently blind to quoted keys (`"status":`), hyphenated keys
+# (`review-round:`) and flow mappings (`{worktree: a, worktree: none}`) --
+# because a hand-rolled scanner is reimplementing the YAML grammar one
+# surface form at a time, and every miss was silent. yaml.compose()
+# already understands the full grammar, so none of those are special
+# cases here. Keeping the scanner as an optional fallback (so this tool
+# would run without PyYAML) was tried and reverted at round 3: the
+# dual-path dispatch it required orphaned the scanner's ENTIRE test
+# suite (every crafted fixture exercised only the compose() path once it
+# existed, silently) -- a bug caused by having two paths to keep honest,
+# not by either path's own logic. PyYAML is now a hard requirement (see
+# the import at the top of this file), matching qa-env-override.py's own
+# long-standing precedent in this repo.
 # --------------------------------------------------------------------------
 
-_KEY_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):(\s|$)')
-_DASH_RE = re.compile(r'^(-)(\s+(.*))?$')
-# YAML permits the block-scalar chomping/indentation indicators in
-# EITHER order (`|2-` and `|-2` are both legal, likewise `>2+`/`>+2`) --
-# confirmed against yaml.safe_load, not assumed. The original
-# sign-then-digit-only pattern missed the digit-then-sign form, so a
-# `|2-` block scalar was never recognized as one and its prose content
-# was walked as structure, producing a FALSE duplicate-key finding on
-# whatever key names happened to appear twice in that prose. Dormant on
-# the live board today (nothing uses an indentation indicator), but the
-# realistic trigger is close: the deeply-nested prose-with-colons block
-# scalars (checkpoint.review_trail, checkpoint.enforcement_propagation)
-# are exactly where someone reaches for one.
-_BLOCK_SCALAR_RE = re.compile(r':\s*[|>][+-]?[0-9]?[+-]?\s*(#.*)?$')
-# Same indicator, no leading ":" -- a sequence item whose value IS a
-# block scalar ("- |") rather than a "key: value" pair.
-_BARE_BLOCK_SCALAR_RE = re.compile(r'^[|>][+-]?[0-9]?[+-]?\s*(#.*)?$')
-
-
-class _Scope:
-    __slots__ = ("indent", "keys")
-
-    def __init__(self, indent: int):
-        self.indent = indent
-        self.keys: dict[str, int] = {}
-
-
-def _find_duplicate_keys_scan(fm_lines: list[str], first_file_line: int, path: Path) -> list[Finding]:
-    """The FALLBACK path (no PyYAML): a raw-line, indent-tracking scanner.
-
-    Correctness constraint (verified against the live board, T-002 and
-    T-103): a naive "count keys at this indent" scan produces two DISTINCT
-    classes of false positive that a mapping-scope-aware scan must both
-    avoid --
-      (a) literal YAML block-sequence items ("- key: value" siblings),
-          where the same key legitimately repeats once per list item; and
-      (b) sibling nested mappings under different parent keys that happen
-          to share a child key name at the same indent (T-002's
-          `pre_apply_gate:` / `apply:` / `post_apply:` each carry their
-          own `evidence:`, `run:`, `commit:` -- three distinct rounds, not
-          one mapping with duplicates).
-    Both are handled by tracking mapping SCOPES on a stack, keyed by
-    indent, and starting a fresh (empty) scope every time indentation
-    dedents past the scope that owned it -- rather than a flat
-    per-indent-level counter.
-
-    Known to be NARROWER than yaml.compose() (the primary path, used
-    instead of this whenever PyYAML is available): quoted keys
-    (`"status":`), hyphenated keys (`review-round:`) and flow mappings
-    (`{worktree: a, worktree: none}`) are not recognized as keys at all by
-    `_KEY_RE`, so a duplicate expressed in any of those forms is invisible
-    here. This is an accepted, documented gap in the fallback, not a
-    silent one -- see the check-1 header comment above."""
-    findings: list[Finding] = []
-    stack: list[_Scope] = [_Scope(-1)]  # sentinel root scope, indent -1
-    skip_until_indent = None  # active block-scalar: exit when indent <= this
-
-    for offset, raw in enumerate(fm_lines):
-        file_line = first_file_line + offset
-        if raw.strip() == "":
-            continue
-        indent = len(raw) - len(raw.lstrip(" "))
-        content = raw.strip()
-
-        if skip_until_indent is not None:
-            if indent > skip_until_indent:
-                continue  # still inside the block scalar's content
-            skip_until_indent = None
-            # fall through: this line is structural again
-
-        if content.startswith("#"):
-            continue
-
-        # A sequence item ("- " or bare "-") starts a brand-new mapping scope
-        # for that item, regardless of whether a scope already exists at this
-        # indent — that is precisely what makes repeated keys across sibling
-        # list items legitimate rather than duplicates.
-        dm = _DASH_RE.match(content)
-        if dm:
-            # Pop only scopes STRICTLY deeper than this dash (a previous
-            # sibling list item's own scope, or anything nested further in).
-            # A "> indent" (not ">= indent") pop is load-bearing: a COMPACT
-            # sequence puts its dash at the SAME column as its sibling keys
-            # (`depends_on:\n- T-001\n- T-002\nstatus: done`), and the scope
-            # that owns that sequence sits at that identical indent. Popping
-            # on ">=" destroyed that owning scope's key registry the moment
-            # the first dash was seen, so a duplicate `status:` before an
-            # `- `-prefixed compact list went undetected — a silent
-            # false-negative in the highest-value check. Verified against the
-            # real historical T-152 (dd7bfe7), whose `h1_rulings:`-style
-            # lists are all indented, not compact, so that file was never
-            # exposed to this bug; a compact list anywhere in the board would
-            # have been.
-            while len(stack) > 1 and stack[-1].indent > indent:
-                stack.pop()
-            rest = dm.group(3) or ""
-            if not rest:
-                continue  # bare "-": nested content follows, handled below
-            if _BARE_BLOCK_SCALAR_RE.match(rest):
-                # "- |" / "- >" / "- |-" etc: the sequence item's VALUE is
-                # ITSELF a block scalar, not a "key: value" pair -- there is
-                # no ":" anywhere on this line, so _BLOCK_SCALAR_RE (which
-                # requires one) never fires here. Missing this meant a bare
-                # block-scalar list item's prose was walked as structure,
-                # producing a phantom duplicate on whatever key names
-                # happened to repeat inside it (reproduced with an
-                # h1_rulings: item written as "- |" containing two
-                # "ruling:" lines). The content is indented deeper than the
-                # dash itself, same threshold a keyed block scalar uses.
-                skip_until_indent = indent
-                continue
-            item_col = indent + (len(content) - len(rest))
-            km = _KEY_RE.match(rest)
-            if not km:
-                continue  # a scalar/quoted list item — no key to track
-            key = km.group(1)
-            scope = _Scope(item_col)
-            stack.append(scope)
-            scope.keys[key] = file_line
-            if _BLOCK_SCALAR_RE.search(raw):
-                skip_until_indent = item_col
-            continue
-
-        km = _KEY_RE.match(content)
-        if not km:
-            continue  # not a recognizable "key:" line — leave it alone
-        key = km.group(1)
-
-        while len(stack) > 1 and stack[-1].indent > indent:
-            stack.pop()
-
-        if stack[-1].indent == indent:
-            scope = stack[-1]
-        else:
-            scope = _Scope(indent)
-            stack.append(scope)
-
-        if key in scope.keys:
-            findings.append(Finding(
-                path, file_line, key,
-                f"duplicate key {key!r} in the same mapping — first seen at "
-                f"line {scope.keys[key]}. YAML keeps the LAST occurrence, so "
-                f"the value at line {scope.keys[key]} is silently shadowed."))
-            # Keep tracking the newest line so a THIRD occurrence (T-152's
-            # shape: three `worktree:` keys) reports each shadow in turn.
-            scope.keys[key] = file_line
-        else:
-            scope.keys[key] = file_line
-
-        if _BLOCK_SCALAR_RE.search(raw):
-            skip_until_indent = indent
-
-    return findings
-
-
 def find_duplicate_keys(fm_lines: list[str], first_file_line: int, path: Path) -> list[Finding]:
-    """Dispatcher: yaml.compose() when PyYAML is available (understands the
-    full YAML grammar -- see the check-1 header comment), the hand-rolled
-    _find_duplicate_keys_scan() otherwise."""
-    if _HAVE_YAML:
-        result = _find_duplicate_keys_compose(fm_lines, first_file_line, path)
-        if result is not None:
-            return result
-        # yaml.compose() raised: the document isn't valid YAML at all, so
-        # "duplicate key" isn't a meaningful thing to report about it --
-        # parse_frontmatter_dict's own yaml.safe_load call (run() calls it
-        # right after this) is what reports the parse-error finding for
-        # this file. Nothing further for check 1 to add.
-        return []
-    return _find_duplicate_keys_scan(fm_lines, first_file_line, path)
-
-
-def _find_duplicate_keys_compose(fm_lines: list[str], first_file_line: int, path: Path):
-    """The PRIMARY path (PyYAML available): walk yaml.compose()'s node
-    tree. Returns None (not []) on a YAML error, so the caller can tell
-    "valid YAML, no duplicates" apart from "not valid YAML at all"."""
+    """Returns [] on a YAML error: "duplicate key" isn't a meaningful
+    thing to report about a document that isn't valid YAML at all;
+    parse_frontmatter_dict's own yaml.safe_load() call (run() calls it
+    right after this) is what reports the parse-error finding for it."""
     text = "\n".join(fm_lines)
     try:
         root = yaml.compose(text, Loader=yaml.SafeLoader)
     except yaml.YAMLError:
-        return None
+        return []
     findings: list[Finding] = []
-    _walk_compose_node(root, first_file_line, path, findings)
+    _walk_compose_node(root, first_file_line, path, findings, set())
     return findings
 
 
-def _walk_compose_node(node, first_file_line: int, path: Path, findings: list) -> None:
+def _walk_compose_node(node, first_file_line: int, path: Path, findings: list,
+                        visited: set) -> None:
     """Recurse through a yaml.compose() node tree, reporting duplicate keys
     within each MappingNode. compose() preserves every key/value pair with
     its own line/column, duplicates intact (unlike yaml.safe_load(), which
@@ -387,35 +232,52 @@ def _walk_compose_node(node, first_file_line: int, path: Path, findings: list) -
     -- for both `checkpoint:\n  worktree: a` and `{worktree: a, worktree:
     none}`), and quoted/hyphenated keys uniformly with plain ones (the key
     is read from ScalarNode.value, not re-derived from a "bare identifier"
-    regex the way the fallback scanner's _KEY_RE has to)."""
-    if node is None:
+    regex the way a hand-rolled scanner would have to).
+
+    `visited`: node ids already walked, so an ALIAS to an already-visited
+    mapping (`a: &x {...}` / `b: *x`) is not walked a second time --
+    compose() resolves an alias to the SAME node OBJECT as its anchor
+    (confirmed empirically: `id(alias_target) == id(anchor_target)`), so
+    without this a single real duplicate inside the anchored mapping
+    would be reported twice, once per reference to it. Anchors/aliases
+    are unused on this board today; guarded anyway since a silent double
+    count is cheap to prevent and expensive to notice."""
+    if node is None or id(node) in visited:
         return
+    visited.add(id(node))
     if isinstance(node, yaml.MappingNode):
-        seen: dict[str, int] = {}
+        seen: dict[tuple, int] = {}
         for key_node, value_node in node.value:
-            key_str = key_node.value if isinstance(key_node, yaml.ScalarNode) else None
-            line = first_file_line + key_node.start_mark.line
-            if key_str is not None:
-                if key_str in seen:
+            if isinstance(key_node, yaml.ScalarNode):
+                # Compare the RESOLVED identity (tag + raw text), not the
+                # raw text alone. YAML resolves a bare `yes`/`1`/`~` to
+                # bool/int/null while a QUOTED "yes"/"1"/"~" stays a
+                # string -- yaml.safe_load() agrees ({'yes': ...} and
+                # {True: ...} are different keys there too) -- so
+                # comparing key_node.value alone invented duplicates
+                # between values that were never shadowed at all. The
+                # resolver already did this classification; `key_node.tag`
+                # is where it is recorded.
+                key_id = (key_node.tag, key_node.value)
+                line = first_file_line + key_node.start_mark.line
+                if key_id in seen:
                     findings.append(Finding(
-                        path, line, key_str,
-                        f"duplicate key {key_str!r} in the same mapping — "
-                        f"first seen at line {seen[key_str]}. YAML keeps "
-                        f"the LAST occurrence, so the value at line "
-                        f"{seen[key_str]} is silently shadowed."))
-                seen[key_str] = line
-            _walk_compose_node(value_node, first_file_line, path, findings)
+                        path, line, key_node.value,
+                        f"duplicate key {key_node.value!r} in the same "
+                        f"mapping — first seen at line {seen[key_id]}. "
+                        f"YAML keeps the LAST occurrence, so the value at "
+                        f"line {seen[key_id]} is silently shadowed."))
+                seen[key_id] = line
+            _walk_compose_node(value_node, first_file_line, path, findings, visited)
     elif isinstance(node, yaml.SequenceNode):
         for item in node.value:
-            _walk_compose_node(item, first_file_line, path, findings)
-    # ScalarNode (and AliasNode, unused on this board): nothing to recurse into.
+            _walk_compose_node(item, first_file_line, path, findings, visited)
+    # ScalarNode: nothing further to recurse into.
 
 
 # --------------------------------------------------------------------------
-# A small, deliberately narrow frontmatter reader for checks 3-7. Delegates
-# to PyYAML when available (parsing everything BUT duplicate keys is not the
-# load-bearing part of this tool), and falls back to a minimal top-level
-# scanner if PyYAML is absent, so this tool has no hard external dependency.
+# A small, deliberately narrow frontmatter reader for checks 3-7 (never
+# used for check 1 -- see above).
 # --------------------------------------------------------------------------
 
 def parse_frontmatter_dict(fm_lines: list[str], path: Path):
@@ -423,98 +285,28 @@ def parse_frontmatter_dict(fm_lines: list[str], path: Path):
     for check 1 (duplicate keys), which must see raw lines regardless of
     what parses the rest — see the ruling above find_duplicate_keys."""
     text = "\n".join(fm_lines)
-    if _HAVE_YAML:
-        try:
-            data = yaml.safe_load(text)
-        except yaml.YAMLError as exc:
-            return None, f"YAML parse error: {exc}"
-        return (data if isinstance(data, dict) else {}), None
-    # Minimal fallback: only top-level `key: value` lines, no nesting.
-    # Handles both this board's real vocabularies at top level: scalars
-    # (coerced true/false -> bool) and flow sequences (`depends_on: []`,
-    # `depends_on: [T-013, T-202]` -> a real Python list, not left as the
-    # bracketed STRING that used to comma-split into '[]' / '[T-013' /
-    # 'T-202]' and fail check 6 on nearly every file). checkpoint.worktree
-    # (check 4) and checkpoint.pr (half of check 5) are nested and still
-    # degrade to "not checked" without PyYAML — see the check-4 gate in
-    # run() and the warning printed at startup.
-    data = {}
-    for line in fm_lines:
-        m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$', line)
-        if m and not line.startswith((" ", "\t")):
-            key = m.group(1)
-            raw_val = _strip_fallback_comment(m.group(2)).strip()
-            data[key] = _coerce_fallback_value(raw_val)
-    return data, None
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        return None, f"YAML parse error: {exc}"
+    return (data if isinstance(data, dict) else {}), None
 
 
-def _strip_fallback_comment(value: str) -> str:
-    """Truncate a raw `key: value` tail at the first '#' that starts a
-    comment -- quote-aware. The old `value.split("#", 1)[0]` truncated
-    blindly, so `pr: "#53"` (`#nn` is TASKS.md's own spelling for a PR
-    number, e.g. its T-401 row) read as empty rather than the string
-    '#53'."""
-    in_quote = None
-    for i, ch in enumerate(value):
-        if in_quote:
-            if ch == in_quote:
-                in_quote = None
-            continue
-        if ch in ("'", '"'):
-            in_quote = ch
-            continue
-        if ch == "#":
-            return value[:i]
-    return value
 
+def line_of(fm_lines: list[str], first_file_line: int, key: str) -> int | None:
+    """First file line where `key:` appears at column 0 (top-level).
 
-_FLOW_LIST_RE = re.compile(r'^\[(.*)\]$')
-
-
-def _coerce_fallback_value(raw: str):
-    """Top-level value coercion for the no-PyYAML fallback: a flow sequence
-    (`[...]`) becomes a real list (comma-split, each item stripped of
-    surrounding whitespace/quotes — this board never nests a comma inside a
-    quoted depends_on item, so this is not a general YAML flow parser and
-    does not try to be one); anything else is a scalar, handled by
-    _coerce_fallback_scalar."""
-    m = _FLOW_LIST_RE.match(raw)
-    if m:
-        inner = m.group(1).strip()
-        if not inner:
-            return []
-        return [item.strip().strip("'\"") for item in inner.split(",")]
-    return _coerce_fallback_scalar(raw)
-
-
-def _coerce_fallback_scalar(raw: str):
-    """PyYAML resolves an unquoted `true`/`false` scalar to a real bool;
-    this fallback parser must do the same for exactly those two spellings —
-    the board's own vocabulary for `security_review` — or every boolean
-    field reads as the STRING 'true'/'false' and check 7's
-    `isinstance(sr, bool)` fails for every task that has one. That produced
-    49 false findings on the clean live board with PyYAML absent: the
-    validator itself becoming the noise it exists to prevent. Deliberately
-    narrow (not PyYAML's full yes/no/on/off resolver) — this board writes
-    only `true`/`false`, and a wider net risks silently coercing a real
-    string value (a task id, a URL) that happens to spell "on" or "off"."""
-    if raw == "":
-        return None
-    stripped = raw.strip("'\"")
-    low = stripped.lower()
-    if low == "true":
-        return True
-    if low == "false":
-        return False
-    return stripped
-
-
-def line_of(fm_lines: list[str], first_file_line: int, key: str, top_level_only=True) -> int | None:
-    """First file line where `key:` appears at column 0 (top-level)."""
+    Round 4 review, LOW: this used to take a `top_level_only=True` flag
+    with an "opt out to match at any depth" escape hatch that no caller
+    ever used AND that could never have worked -- `pattern.match(raw)`
+    requires the match to start at index 0 of the RAW (unstripped) line
+    regardless of the flag, so an indented line can never satisfy the
+    pattern whether or not the flag's own early-continue guard runs.
+    Confirmed empirically (`re.match(r'^status:', '  status: x')` is
+    False) before removing it: the guard was provably redundant, not
+    merely untested, so the fix is deletion, not a test asserting nothing."""
     pattern = re.compile(rf'^{re.escape(key)}:')
     for offset, raw in enumerate(fm_lines):
-        if top_level_only and (raw.startswith(" ") or raw.startswith("\t")):
-            continue
         if pattern.match(raw):
             return first_file_line + offset
     return None
@@ -887,8 +679,7 @@ def run(tasks_dir: Path) -> list[Finding]:
         task_files[task_id] = (path, data.get("status"))
 
         findings.extend(check_status_owner_coherence(data, fm_lines, first_line, path))
-        if _HAVE_YAML:
-            findings.extend(check_worktree_cleared(data, fm_lines, first_line, path))
+        findings.extend(check_worktree_cleared(data, fm_lines, first_line, path))
         findings.extend(check_pr_present(data, fm_lines, first_line, path))
         findings.extend(check_depends_on(data, fm_lines, first_line, path, known_ids))
         findings.extend(check_vocabularies(data, fm_lines, first_line, path, task_id))
@@ -915,23 +706,6 @@ def main(argv=None) -> int:
     tasks_dir = Path(args.tasks_dir)
     if not tasks_dir.is_dir():
         ap.error(f"--tasks-dir is not a directory: {tasks_dir}")
-
-    if not _HAVE_YAML:
-        print("board-check: WARNING — PyYAML not installed. This warning "
-              "has been wrong about its own blast radius twice before "
-              "(security_review boolean coercion, then depends_on flow "
-              "sequences), so it now names checks by number rather than "
-              "promising a blanket 'top-level is fine': checks 3 and 7 read "
-              "only top-level scalars and are unaffected. Check 6 "
-              "(depends_on) is handled for this board's real usage — flow "
-              "sequences (`[T-013, T-202]`) and bare/comma-separated "
-              "scalars — but the fallback is NOT a general YAML flow "
-              "parser (no quoted-comma handling, no nesting). Check 4 "
-              "(checkpoint.worktree) is skipped entirely — it is nested "
-              "and the fallback reads no nested keys at all. Check 5 "
-              "(pr:) runs its top-level half; the checkpoint.pr "
-              "consistency half is skipped for the same nested-key reason.",
-              file=sys.stderr)
 
     try:
         findings = run(tasks_dir)
