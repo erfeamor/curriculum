@@ -178,7 +178,21 @@ def find_duplicate_keys(fm_lines: list[str], first_file_line: int, path: Path) -
         # list items legitimate rather than duplicates.
         dm = _DASH_RE.match(content)
         if dm:
-            while stack and stack[-1].indent >= indent:
+            # Pop only scopes STRICTLY deeper than this dash (a previous
+            # sibling list item's own scope, or anything nested further in).
+            # A "> indent" (not ">= indent") pop is load-bearing: a COMPACT
+            # sequence puts its dash at the SAME column as its sibling keys
+            # (`depends_on:\n- T-001\n- T-002\nstatus: done`), and the scope
+            # that owns that sequence sits at that identical indent. Popping
+            # on ">=" destroyed that owning scope's key registry the moment
+            # the first dash was seen, so a duplicate `status:` before an
+            # `- `-prefixed compact list went undetected — a silent
+            # false-negative in the highest-value check. Verified against the
+            # real historical T-152 (dd7bfe7), whose `h1_rulings:`-style
+            # lists are all indented, not compact, so that file was never
+            # exposed to this bug; a compact list anywhere in the board would
+            # have been.
+            while len(stack) > 1 and stack[-1].indent > indent:
                 stack.pop()
             rest = dm.group(3) or ""
             if not rest:
@@ -259,9 +273,32 @@ def parse_frontmatter_dict(fm_lines: list[str], path: Path):
     for line in fm_lines:
         m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$', line)
         if m and not line.startswith((" ", "\t")):
-            key, val = m.group(1), m.group(2).split("#", 1)[0].strip()
-            data[key] = val or None
+            key = m.group(1)
+            raw_val = m.group(2).split("#", 1)[0].strip()
+            data[key] = _coerce_fallback_scalar(raw_val)
     return data, None
+
+
+def _coerce_fallback_scalar(raw: str):
+    """PyYAML resolves an unquoted `true`/`false` scalar to a real bool;
+    this fallback parser must do the same for exactly those two spellings —
+    the board's own vocabulary for `security_review` — or every boolean
+    field reads as the STRING 'true'/'false' and check 7's
+    `isinstance(sr, bool)` fails for every task that has one. That produced
+    49 false findings on the clean live board with PyYAML absent: the
+    validator itself becoming the noise it exists to prevent. Deliberately
+    narrow (not PyYAML's full yes/no/on/off resolver) — this board writes
+    only `true`/`false`, and a wider net risks silently coercing a real
+    string value (a task id, a URL) that happens to spell "on" or "off"."""
+    if raw == "":
+        return None
+    stripped = raw.strip("'\"")
+    low = stripped.lower()
+    if low == "true":
+        return True
+    if low == "false":
+        return False
+    return stripped
 
 
 def line_of(fm_lines: list[str], first_file_line: int, key: str, top_level_only=True) -> int | None:
@@ -374,17 +411,29 @@ def check_pr_present(data: dict, fm_lines, first_line, path: Path) -> list[Findi
     return findings
 
 
+def _normalize_depends_on(raw) -> list[str]:
+    """A real YAML list (`depends_on: [T-101, T-102]`) is this board's
+    convention and the common case, but `depends_on:` is hand-edited — a
+    bare scalar (`depends_on: T-016`) or a comma-separated string
+    (`depends_on: T-016, T-018`) both parse validly under YAML as a single
+    string, and check_depends_on silently no-op'd on anything that wasn't
+    already a Python list, so a scalar depends_on was never validated at
+    all. Handled explicitly rather than assumed away."""
+    if not raw:
+        return []
+    if isinstance(raw, list):
+        return [str(d).strip() for d in raw if str(d).strip()]
+    return [d.strip() for d in str(raw).split(",") if d.strip()]
+
+
 def check_depends_on(data: dict, fm_lines, first_line, path: Path, known_ids: set) -> list[Finding]:
     findings = []
-    deps = data.get("depends_on")
+    deps = _normalize_depends_on(data.get("depends_on"))
     if not deps:
         return findings
-    if not isinstance(deps, list):
-        return findings
     dep_line = line_of(fm_lines, first_line, "depends_on")
-    for dep in deps:
-        dep_id = str(dep).strip()
-        if dep_id and dep_id not in known_ids:
+    for dep_id in deps:
+        if dep_id not in known_ids:
             findings.append(Finding(
                 path, dep_line, "depends_on",
                 f"depends_on names {dep_id!r}, which has no task file."))
@@ -459,12 +508,17 @@ def parse_board_rows(board_path: Path):
             if header_cols is not None:
                 is_separator = bool(re.match(r'^\|[\s:|-]+\|?$', line.strip()))
                 if not is_separator:
+                    # The ID column, not "wherever a [T-nnn] link first
+                    # appears" — this board's Title/notes cells constantly
+                    # link OTHER tasks (e.g. "unblocks T-201"), so scanning
+                    # every cell attributed rows to the wrong id whenever
+                    # that link preceded the row's own ID cell.
+                    id_col = header_cols.index("ID") if "ID" in header_cols else None
                     id_match = None
-                    for c in cells:
-                        m = re.search(r'\[T-(\d+)\]', c)
+                    if id_col is not None and id_col < len(cells):
+                        m = re.search(r'\[T-(\d+)\]', cells[id_col])
                         if m:
                             id_match = "T-" + m.group(1)
-                            break
                     if id_match:
                         if len(cells) == len(header_cols):
                             status_cell = cells[header_cols.index("Status")]
@@ -517,6 +571,8 @@ def check_board_agreement(tasks_dir: Path, board_path: Path, task_files: dict) -
             continue
         board_status, line_no = occurrences[0]
         file_path, file_status = task_files[tid]
+        if file_status is None:
+            continue  # frontmatter failed to parse; already reported above
         if board_status != file_status:
             findings.append(Finding(
                 board_path, line_no, None,
@@ -551,6 +607,14 @@ def run(tasks_dir: Path) -> list[Finding]:
         data, err = parse_frontmatter_dict(fm_lines, path)
         if err:
             findings.append(Finding(path, first_line, None, err))
+            # Still register the id: it HAS a task file (that's not in
+            # dispute — only its YAML failed to parse), so check 2 must not
+            # ALSO report "no task file" or "orphan board row" for it. The
+            # status is genuinely unknown here, not merely absent — status=
+            # None is the signal check_board_agreement uses to skip the
+            # (meaningless) status comparison rather than raise a second,
+            # misdirected finding on top of the real one just appended.
+            task_files[task_id] = (path, None)
             continue
 
         parsed[task_id] = (path, data, fm_lines, first_line)
@@ -589,11 +653,30 @@ def main(argv=None) -> int:
 
     if not _HAVE_YAML:
         print("board-check: WARNING — PyYAML not installed; check 4 "
-              "(checkpoint.worktree) is skipped and nested-value parsing "
-              "for other checks is degraded to a top-level-only fallback.",
+              "(checkpoint.worktree) is skipped entirely, and any check "
+              "that reads a NESTED frontmatter value (e.g. checkpoint.pr "
+              "consistency in check 5) degrades to top-level-only. "
+              "Top-level checks (3, 6, 7, and the top-level half of 5) "
+              "still run at full accuracy — true/false coercion for "
+              "security_review is handled by the fallback parser too.",
               file=sys.stderr)
 
-    findings = run(tasks_dir)
+    try:
+        findings = run(tasks_dir)
+    except (OSError, UnicodeDecodeError) as exc:
+        # The docstring's exit-code contract promises 2 here — a board that
+        # cannot be READ at all (permissions, encoding, a vanished file
+        # between glob() and read_text()) is not "drift"; folding it into
+        # the findings list at exit 1 is a false GREEN's cousin: test-all.sh
+        # reads it as an ordinary failing check, and the PostToolUse hook
+        # would present a raw traceback to the model captioned "found
+        # frontmatter drift introduced by this edit" — actively misleading.
+        # Caught narrowly (not bare Exception) so an actual bug in this
+        # tool still surfaces as the traceback it should be, not a quiet 2.
+        print(f"board-check: could not read the board "
+              f"({exc.__class__.__name__}: {exc}) — this is a read failure, "
+              f"not content drift; nothing was checked.", file=sys.stderr)
+        return 2
 
     for f in sorted(findings, key=lambda f: (f.file.name, f.line or 0)):
         print(str(f))

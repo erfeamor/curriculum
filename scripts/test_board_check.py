@@ -14,6 +14,7 @@ Run:  python3 -m unittest discover -s scripts -p 'test_*.py'
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 import tempfile
@@ -297,6 +298,320 @@ class DuplicateKeyRegressions(TempDirCase):
         self.assertTrue(mismatch, [str(f) for f in findings])
         self.assertIn("'in_review'", mismatch[0].message)
         self.assertIn("'done'", mismatch[0].message)
+
+
+def git_show(commit: str, relpath: str) -> str:
+    """The exact historical content of a tracked file, straight from git —
+    not a hand-built approximation of it. The PO's escalation exists because
+    a hand-built T-152 fixture used indent-2 dashes while the real file's
+    lists (h1_rulings:, reviewers:, etc.) all indent to 4; the approximation
+    passed while the artifact it was supposed to stand in for was never
+    actually run through the checker."""
+    proc = subprocess.run(
+        ["git", "show", f"{commit}:{relpath}"],
+        cwd=str(REPO_ROOT), capture_output=True, text=True, check=True)
+    return proc.stdout
+
+
+class RealHistoricalIncidents(unittest.TestCase):
+    """Check 1 against the ACTUAL commits, not reconstructions of them.
+    Each commit below is the last one carrying the bug, verified by hand
+    with `git show <commit>:<path> | grep -n <key>` before being pinned
+    here — see the task report for the transcript."""
+
+    def duplicates_in(self, commit: str, relpath: str):
+        text = git_show(commit, relpath)
+        lines = text.split("\n")
+        assert lines[0].strip() == "---", "not a frontmatter-fenced file"
+        end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
+        fm_lines, first_line = lines[1:end], 2
+        return bc.find_duplicate_keys(fm_lines, first_line,
+                                       Path(relpath.rsplit("/", 1)[-1]))
+
+    def test_t152_real_triple_worktree_and_shadowed_pr(self):
+        """dd7bfe7: T-152 as merged, before the 05387a5 sweep demoted the
+        shadowing keys. Three `worktree:` + a second, empty `pr:` under
+        checkpoint: — the close-out's clearing of worktree was inert and the
+        merged PR URL was shadowed by a blank, and nothing complained until
+        this incident was found by hand."""
+        findings = self.duplicates_in(
+            "dd7bfe7", ".claude/tasks/T-152-mysql-84-parity-cv-database.md")
+        by_key = {}
+        for f in findings:
+            by_key.setdefault(f.key, []).append(f)
+        self.assertEqual(len(by_key.get("worktree", [])), 2,
+                          "3 worktree: keys -> 2 shadow findings (2nd shadows "
+                          f"1st, 3rd shadows 2nd): {[str(f) for f in findings]}")
+        self.assertEqual(len(by_key.get("pr", [])), 1,
+                          [str(f) for f in findings])
+        self.assertIn("first seen at line 17", by_key["pr"][0].message)
+
+    def test_t202_real_second_security_review(self):
+        """05387a5^ (the sweep's parent): T-202 carrying a THIRD vocabulary
+        for security_review ('done'), shadowing the boolean the 2026-08-17
+        sweep had already normalized the rest of the board to."""
+        findings = self.duplicates_in(
+            "05387a5^", ".claude/tasks/T-202-bff-public-routing-and-auth.md")
+        dup = [f for f in findings if f.key == "security_review"]
+        self.assertEqual(len(dup), 1, [str(f) for f in findings])
+        self.assertIn("first seen at line 21", dup[0].message)
+
+    def test_t104_real_review_round_shadowing(self):
+        """51bc931^ (the fix commit's parent): T-104's review_round: 0
+        reintroduced BY THE DRIVER hours after sweeping for this exact bug —
+        the incident that got this whole validator filed."""
+        findings = self.duplicates_in(
+            "51bc931^", ".claude/tasks/T-104-project-resource.md")
+        dup = [f for f in findings if f.key == "review_round"]
+        self.assertEqual(len(dup), 1, [str(f) for f in findings])
+        self.assertIn("first seen at line 20", dup[0].message)
+
+    def test_t151_real_review_round_shadowing(self):
+        """Same incident, same commit, the sibling file (T-104 and T-151
+        were shadowed the same way in the same sweep)."""
+        findings = self.duplicates_in(
+            "51bc931^", ".claude/tasks/T-151-dev-seeds-cv-sections.md")
+        dup = [f for f in findings if f.key == "review_round"]
+        self.assertEqual(len(dup), 1, [str(f) for f in findings])
+        self.assertIn("first seen at line 17", dup[0].message)
+
+
+class CompactSequences(TempDirCase):
+    """The HIGH finding: a compact-style sequence (dash at the SAME column
+    as its sibling keys, e.g. `depends_on:\n- T-001`) must not destroy the
+    key registry of the mapping that owns it. Every existing fixture before
+    this used INDENTED (`  - `) sequences, which never exposed the bug —
+    matching this board's own real lists, all of which happen to indent."""
+
+    def test_compact_sequence_at_top_level_does_not_hide_a_straddling_duplicate(self):
+        b = make_board(self.root)
+        b.add_task("T-990", textwrap.dedent("""            id: T-990
+            status: todo
+            depends_on:
+            - T-001
+            - T-002
+            status: in_progress
+            owner: someone
+            risk: normal
+            security_review: false
+            pr:
+            """), status="in_progress")
+        b.write_board()
+        findings = b.check()
+        dup = [f for f in findings if f.key == "status"]
+        self.assertEqual(len(dup), 1,
+                          f"compact sequence ate the parent scope: {[str(f) for f in findings]}")
+
+    def test_compact_sequence_inside_checkpoint_does_not_hide_a_straddling_duplicate(self):
+        b = make_board(self.root)
+        b.add_task("T-991", textwrap.dedent("""            id: T-991
+            status: done
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: https://example.invalid/pr/1
+            checkpoint:
+              stage: done
+              blockers:
+              - none currently
+              stage: pr
+              worktree: none
+            """), status="done")
+        b.write_board()
+        findings = b.check()
+        dup = [f for f in findings if f.key == "stage"]
+        self.assertEqual(len(dup), 1,
+                          f"compact sequence ate checkpoint's scope: {[str(f) for f in findings]}")
+
+    def test_compact_sequence_still_avoids_the_sibling_item_false_positive(self):
+        """The fix must not regress the OTHER direction: sibling compact
+        items still legitimately repeat keys without being flagged."""
+        b = make_board(self.root)
+        b.add_task("T-992", textwrap.dedent("""            id: T-992
+            status: done
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: https://example.invalid/pr/1
+            checkpoint:
+              stage: done
+              worktree: none
+              review_trail:
+              - round: 1
+                finding: first issue
+              - round: 2
+                finding: second issue
+            """), status="done")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.key in ("round", "finding") for f in findings),
+                          f"false positive on compact sequence items: {[str(f) for f in findings]}")
+
+
+class FallbackParserWithoutYAML(unittest.TestCase):
+    """The MEDIUM finding: without PyYAML, security_review: true/false must
+    coerce to real booleans, not the strings 'true'/'false' — otherwise
+    check 7 fails isinstance(sr, bool) for every task that has one."""
+
+    def test_true_false_coerce_to_bool(self):
+        # Exercise the coercion function directly so this test doesn't
+        # depend on whether PyYAML happens to be installed on the machine
+        # running it -- parse_frontmatter_dict dispatches on _HAVE_YAML,
+        # captured at import time.
+        self.assertIs(bc._coerce_fallback_scalar("true"), True)
+        self.assertIs(bc._coerce_fallback_scalar("false"), False)
+        self.assertIs(bc._coerce_fallback_scalar("TRUE"), True)
+        self.assertIsNone(bc._coerce_fallback_scalar(""))
+
+    def test_non_boolean_vocabulary_still_fails_the_check(self):
+        # 'required' was a real historical value for this key (2026-08-17
+        # sweep) — coercion must not swallow it into looking valid.
+        self.assertEqual(bc._coerce_fallback_scalar("required"), "required")
+
+    def test_fallback_produces_no_false_positives_on_the_live_board(self):
+        """End-to-end: force the no-PyYAML code path and confirm the live
+        board's real security_review values (all true/false) don't trip
+        check 7 the way they did before the coercion fix."""
+        had_yaml = bc._HAVE_YAML
+        bc._HAVE_YAML = False
+        try:
+            findings = bc.run(LIVE_TASKS_DIR)
+        finally:
+            bc._HAVE_YAML = had_yaml
+        bool_coercion_findings = [
+            f for f in findings
+            if f.key == "security_review" and "not a real boolean" in f.message]
+        self.assertEqual(bool_coercion_findings, [],
+                          f"fallback parser still misreads true/false: "
+                          f"{[str(f) for f in bool_coercion_findings]}")
+
+
+class BoardRowIdColumn(TempDirCase):
+    """The LOW finding: a row's id comes from the header's ID column, not
+    from wherever a [T-nnn] link first appears in the row."""
+
+    def test_a_link_to_another_task_in_an_earlier_cell_does_not_misattribute(self):
+        b = make_board(self.root)
+        b.add_task("T-993", textwrap.dedent("""            id: T-993
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """), status="todo", in_board=False)
+        b.add_task("T-994", textwrap.dedent("""            id: T-994
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """), status="todo", in_board=False)
+        b.write_board()
+        # Hand-write a row whose Title cell links T-993 BEFORE the row's own
+        # ID cell resolves to T-994 -- the shape that misfired under
+        # "first [T-nnn] anywhere in the row".
+        row = "| [T-994](T-994-x.md) | see also [T-993](T-993-x.md) | repo | todo | | | |"
+        p = b.dir / "TASKS.md"
+        p.write_text("\n".join([TABLE_HEADER, TABLE_SEP, row]) + "\n")
+        findings = b.check()
+        wrong = [f for f in findings
+                 if "TASKS.md row names T-993" in f.message]
+        self.assertEqual(wrong, [], [str(f) for f in findings])
+        missing_994 = [f for f in findings
+                        if "T-994" in f.message and "no row" in f.message]
+        self.assertEqual(missing_994, [], [str(f) for f in findings])
+
+
+class ParseFailureRegistration(TempDirCase):
+    """The LOW finding: a frontmatter parse failure must not ALSO make
+    check 2 claim the file doesn't exist (or that the board row is an
+    orphan) — that's a second, misdirected finding on top of the real one."""
+
+    def test_unparseable_frontmatter_does_not_also_report_missing_file(self):
+        b = make_board(self.root)
+        # Invalid YAML: an unclosed flow sequence.
+        b.add_task("T-995", "id: T-995\nstatus: todo\ndepends_on: [T-001\n",
+                   status="todo")
+        b.write_board()
+        findings = b.check()
+        parse_errors = [f for f in findings if f.key is None and "error" in f.message.lower()]
+        self.assertTrue(parse_errors, "expected a parse-error finding")
+        misdirected = [f for f in findings if "no task file" in f.message
+                        or "no row in any Status-bearing" in f.message]
+        self.assertEqual(misdirected, [], [str(f) for f in findings])
+
+
+class DependsOnScalarForm(TempDirCase):
+    """The LOW finding: depends_on as a bare scalar or a comma-separated
+    string is hand-editable YAML too, and was silently never validated."""
+
+    def test_bare_scalar_depends_on_is_validated(self):
+        b = make_board(self.root)
+        b.add_task("T-996", textwrap.dedent("""            id: T-996
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: T-999
+            pr:
+            """), status="todo")
+        b.write_board()
+        findings = b.check()
+        self.assertTrue(any(f.key == "depends_on" and "T-999" in f.message
+                             for f in findings), [str(f) for f in findings])
+
+    def test_comma_separated_depends_on_is_validated(self):
+        b = make_board(self.root)
+        b.add_task("T-997", textwrap.dedent("""            id: T-997
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: T-001, T-999
+            pr:
+            """), status="todo")
+        b.add_task("T-001x", "id: T-001x\nstatus: todo\nowner:\nrisk: normal\n"
+                              "security_review: false\ndepends_on: []\npr:\n",
+                   status="todo", in_board=False)
+        b.write_board()
+        findings = b.check()
+        names = [f.message for f in findings if f.key == "depends_on"]
+        self.assertTrue(any("T-999" in m for m in names), names)
+
+
+class ReadFailureExitCode(unittest.TestCase):
+    """The LOW finding: a board that cannot be READ (not a single malformed
+    file, but an I/O failure) must exit 2, per the tool's own documented
+    contract -- not leak a traceback that a caller (test-all.sh, the
+    PostToolUse hook) misreads as ordinary content drift."""
+
+    def run_cli(self, *args):
+        return subprocess.run(
+            [sys.executable, str(SCRIPT), *args],
+            capture_output=True, text=True, cwd=str(REPO_ROOT))
+
+    def test_unreadable_task_file_exits_2_not_1_and_no_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bad = root / "T-998-x.md"
+            bad.write_text("---\nid: T-998\nstatus: todo\n---\nbody\n")
+            (root / "TASKS.md").write_text(
+                "\n".join([TABLE_HEADER, TABLE_SEP,
+                           board_line("T-998", "x", "todo")]) + "\n")
+            bad.chmod(0o000)
+            try:
+                if os.access(bad, os.R_OK):
+                    self.skipTest("running as a user that ignores file permissions (e.g. root)")
+                r = self.run_cli("--tasks-dir", str(root))
+            finally:
+                bad.chmod(0o644)
+            self.assertEqual(r.returncode, 2, f"stdout={r.stdout!r} stderr={r.stderr!r}")
+            self.assertNotIn("Traceback", r.stderr)
+            self.assertIn("could not read the board", r.stderr)
 
 
 # --------------------------------------------------------------------------
