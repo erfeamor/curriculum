@@ -30,6 +30,7 @@ Flow: public sites (cv-public-vanilla, and cv-public-react via ISR) → BFF → 
 ## Commands (from this directory)
 
 ```bash
+python3 scripts/board-check.py     # validate the task board (read-only; see .claude/tasks/README.md)
 ./scripts/lint-all.sh              # lint every repo per its own stack
 ./scripts/test-all.sh              # every repo's test suite
 ./scripts/build-all.sh             # every repo's build

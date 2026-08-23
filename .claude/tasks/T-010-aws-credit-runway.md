@@ -5,7 +5,7 @@ repo: cv-project (meta)
 status: done
 owner: tech-product-owner
 branch: chore/credit-runway-decision
-pr:                       # key added 2026-08-17; deliberately empty — the board records no PR for this task and none was found. Its implementable half shipped as T-011 (cv-infra#13) and its docs half rode the Free-Tier docs PR. Left blank rather than back-filled with a guess.
+pr: none                  # key added 2026-08-17, deliberately empty; sentinel added 2026-08-23 (T-031) so board-check.py can tell this apart from the T-011/T-009/T-019 class of bug rather than flagging it every run — same "none" convention checkpoint.worktree already uses. The board records no PR for this task and none was found. Its implementable half shipped as T-011 (cv-infra#13) and its docs half rode the Free-Tier docs PR. Left blank rather than back-filled with a guess.
 depends_on: []
 risk: high
 security_review: false
