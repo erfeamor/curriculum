@@ -30,7 +30,28 @@ Task IDs are grouped by layer: `T-0xx` design/meta/ops (incl. cv-infra) · `T-1x
 4. **The contract wins.** API-shaped tasks implement [docs/api-contract.md](../../docs/api-contract.md) exactly; if you believe the contract is wrong, set the task `blocked` and open a PR against the contract instead of improvising.
 5. **Before opening the PR**: the repo's own tests and lint pass locally (each repo's CLAUDE.md documents the commands), and the repo's CI pipeline file covers your new code path.
 6. **On PR open**: set `status: in_review` and paste the PR URL into `pr:`. **On merge**: set `status: done`.
-7. Board-state edits (status/owner flips) are working-tree edits in the meta repo — batch-commit them via a `chore/board-sync` PR periodically or when a milestone completes; don't open a PR per status flip.
+7. **Check the board after editing it.** `python3 scripts/board-check.py` is read-only and exits 0 when the board is consistent. It catches what re-reading has repeatedly missed by eye — **duplicate frontmatter keys** above all, because YAML keeps the *last* one, so a shadowed `worktree:`/`pr:`/`security_review:`/`review_round:` leaves the line you actually edited looking correct while the file means the opposite. It also catches board-row/file status disagreement, a `todo` holding an owner, a `done` task still declaring a `checkpoint.worktree`, a missing `pr:`, unresolved `depends_on`, and vocabulary drift. `scripts/test-all.sh` runs it too.
+
+   **Optional: run it automatically.** `scripts/board-check-hook.py` is a `PostToolUse` hook that stays silent unless the edit touched `.claude/tasks/`. It is **not** registered for you — deliberately. A hook committed to shared config executes on every clone with no prompt, which would make that script a supply-chain surface for anyone who ever collaborates here. Opt in per checkout by adding this to your own **`.claude/settings.local.json`** (personal, gitignored):
+
+   ```json
+   {
+     "hooks": {
+       "PostToolUse": [
+         {
+           "matcher": "Edit|Write|MultiEdit",
+           "hooks": [
+             { "type": "command",
+               "command": "python3 \"${CLAUDE_PROJECT_DIR}/scripts/board-check-hook.py\"",
+               "timeout": 20 }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+
+8. Board-state edits (status/owner flips) are working-tree edits in the meta repo — batch-commit them via a `chore/board-sync` PR periodically or when a milestone completes; don't open a PR per status flip.
 
 ## Current work — three tracks
 

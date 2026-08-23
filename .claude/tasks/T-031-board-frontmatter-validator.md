@@ -29,6 +29,54 @@ checkpoint:
     - "READ-ONLY, ALWAYS. It never reformats, reorders or rewrites frontmatter. These files carry DELIBERATE contradictions under the strike-don't-delete convention; a formatter would destroy the record that makes the drift findable."
     - "TWO EXEMPTIONS ARE BINDING, not oversights. (1) Do NOT require risk/security_review on the five deliberately-unrefined tasks (T-201, T-301, T-401, T-402, T-501) -- the 2026-08-17 sweep left them off reasoning that inventing values would 'manufacture ratified-looking decisions nobody made'. (2) Do NOT enforce acceptance-checkbox state; every done task has them unticked and the 2026-08-20 sweep ruled that CONVENTION, changeable only by a README protocol change."
     - "DUPLICATE-KEY DETECTION CANNOT BE DELEGATED TO A YAML PARSER. yaml.safe_load silently accepts duplicate keys and returns the LAST -- which is the very behaviour that made all four shadowing incidents invisible. Check 1 operates on raw lines regardless of what parses the rest."
+  enforcement_propagation: |
+    HOW ENFORCEMENT ACTUALLY SHIPS, and the decision history behind it. Read the
+    second half; the first half is a mistake worth not repeating.
+
+      (a) scripts/test-all.sh          -- COMMITTED. Propagates with the repo.
+      (b) /dev-loop driver invocation  -- documented in .claude/dev-loop-adapter.md,
+                                          which is deliberately gitignored (it binds a
+                                          checkout to an engine installed only in
+                                          ~/.claude). Does NOT propagate; per-checkout.
+      (c) PostToolUse hook             -- SCRIPT committed (scripts/board-check-hook.py);
+                                          REGISTRATION is opt-in, per developer, in their
+                                          own .claude/settings.local.json. Instructions in
+                                          .claude/tasks/README.md. Does NOT auto-activate
+                                          on clone, BY DESIGN.
+
+    WHY (c) IS OPT-IN RATHER THAN COMMITTED. A hook registration in a tracked
+    .claude/settings.json executes automatically on every Edit/Write for anyone who
+    clones the repo, with no prompt. That makes scripts/board-check-hook.py a
+    supply-chain surface: any later PR touching it would run on every collaborator's
+    machine, turning ordinary code review into the last line of defence against RCE.
+    settings.json is also a general config surface (permissions, env, model), so
+    tracking it invites committing an allowlist later, which would silently widen what
+    runs unprompted for everyone. Against that, the benefit on a SINGLE-DEVELOPER repo
+    is zero: propagation only pays off with a second contributor, which is exactly when
+    the risks land. Committing the script and leaving the registration opt-in gets the
+    capability without the auto-execution.
+
+    THE DECISION HISTORY, recorded because the process error matters more than the
+    outcome. The driver first ruled -- ON ITS OWN AUTHORITY, with no human
+    authorization -- that .gitignore should gain a narrow `!.claude/settings.json`
+    exemption so the hook would propagate, and had it committed. The human had
+    ratified "all three enforcement points" at H1; that authorized BUILDING the hook,
+    not overriding a documented .gitignore policy to distribute it, and the driver
+    noted at the time that it was a policy change and proceeded anyway.
+
+    A security check flagged it. On review the human chose THIS arrangement instead:
+    script committed, registration opt-in. The .gitignore exemption and the tracked
+    settings.json were reverted before the branch was ever pushed.
+
+    Two things to carry forward. First: "PO ruling" in this board's vocabulary means
+    THE DRIVER DECIDED. It does not mean the human approved, and the original wording
+    here did not distinguish them -- on a board whose entire pathology is facts
+    inherited without re-checking, that ambiguity is the defect, not a style nit.
+    Where a decision is the human's, this file now says so and gives the date.
+    Second: H1's "regardless of who writes it" rationale for wanting all three points
+    does not survive contact with a one-writer repo. It should have been challenged at
+    H1 rather than used to justify a policy override afterwards.
+
 ---
 
 ## Goal
