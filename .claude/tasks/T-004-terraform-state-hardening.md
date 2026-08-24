@@ -2,8 +2,8 @@
 id: T-004
 title: Harden Terraform state — permissions now, remote backend properly
 repo: cv-infra
-status: in_progress
-owner: infrastructure-engineer
+status: todo
+owner:
 branch: chore/tf-state-hardening
 pr:
 depends_on: []
@@ -11,6 +11,7 @@ risk: normal
 security_review: true
 checkpoint:
   stage: part-1-done
+  claim_reset: "2026-08-24, on the human's instruction. This was status:in_progress with owner:infrastructure-engineer after part 1 (the chmod) was done by hand — but there is no branch, no PR and nobody driving it, so under board rule 1 it read as claimed and blocked re-pickup. Reset to todo with the checkpoint KEPT, which is the T-018/T-014 pattern: an unowned task carrying recorded prior work is re-pickable, an owned one is not. NOT a fresh todo — part 1 is genuinely complete and verified; whoever claims this starts at part 2 (the S3 backend), not at the chmod."
   part_1_completed: 2026-08-24
   part_1_note: |
     Both terraform.tfstate and terraform.tfstate.backup verified at 0600 (rw-------)
