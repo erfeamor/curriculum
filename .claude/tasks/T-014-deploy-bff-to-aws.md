@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: feat/deploy-bff-node
 pr:
-depends_on: [T-013, T-202]
+depends_on: [T-013, T-202, T-201]   # T-201 added 2026-08-24 on the human's instruction, as a SEQUENCING decision, not a technical one — T-014 can deploy without it. Ruling 7 (below) had this task knowingly deploy an image that 404s the contract's aggregate, with NO task on T-501's path owning the redeploy that fixes it: the task that rebuilds and rolls the BFF container is T-203, which is DOWNSTREAM of this one and is absent from T-501's depends_on (the board calls it "off the critical path"), so the milestone could verify end-to-end against a BFF still 404ing /cv. So a manual redeploy was baked into the plan and assigned to nobody — the hot-potato shape T-404 was filed for. Deploying T-201's code in the FIRST image removes that step and lets this task's one expensive apply verify /cv in the stage-4 run it is already paying for. Encoded as depends_on rather than prose per T-016's precedent ("this board has repeatedly lost gating conditions that lived only in prose"). REVERSIBLE IN ONE LINE: if H1 wants the BFF deployed sooner, drop this edge and file the redeploy as its own task — but do not simply drop it and leave the redeploy unowned again.
 risk: high
 security_review: true
 checkpoint:
@@ -115,7 +115,17 @@ Found by QA while writing the test plan, verified by the driver against `cv-bff-
 
 The subtlety: `src/middleware/auth.ts:53` **already allowlists** `/people/:id/cv`. So the request passes the auth gate and then finds no handler — it returns **404, not 401**.
 
-**Ruling:** T-014 deploys the BFF as it exists; the aggregate arrives with T-201, and **no infra change will be needed then** because the route is already allowlisted and the edge behavior is path-prefix based. Acceptance criterion 1 ("a public read route returns 200") is satisfied by `GET /bff/api/v1/people/:id`. Record the `/cv` 404 in the QA report so nobody later reads it as a T-014 deployment bug.
+~~**Ruling:** T-014 deploys the BFF as it exists; the aggregate arrives with T-201, and **no infra change will be needed then** because the route is already allowlisted and the edge behavior is path-prefix based. Acceptance criterion 1 ("a public read route returns 200") is satisfied by `GET /bff/api/v1/people/:id`. Record the `/cv` 404 in the QA report so nobody later reads it as a T-014 deployment bug.~~
+
+> **REVISED 2026-08-24 on the human's instruction — T-201 now precedes this task (see `depends_on`).** The ruling above is *technically* correct and remains so: no **infra** change is needed when T-201 lands. But "no infra change" is not "no work" — **a new container image still has to be built and deployed**, and this ruling left that step off the milestone's path. [T-203](T-203-bff-ci-deploy-stage.md) — *"BFF CI: push to ECR and roll the container on master"* — is the task that would do it, but it is **downstream of this one** and is **not in [T-501](T-501-e2e-cv-milestone.md)'s `depends_on`**; the board explicitly calls it *"off the critical path"*. So the plan as written allowed T-501 to run its end-to-end verification against a live BFF that still 404s the contract's aggregate, with no board line obliged to fix it first.
+>
+> **What changes:** T-201 merges first, so the image this task deploys already serves `/cv`. **What does not change:** ruling 7's *analysis* — the allowlist genuinely does already cover `/people/:id/cv` (`src/middleware/auth.ts:53`), so no edge or auth work appears here either way.
+>
+> **Consequences for this task, both in its favour:**
+> - Stage-4 §3's auth matrix gains a second real public route to exercise, on an apply already budgeted — verifying `/cv` live otherwise needs an apply nobody has scheduled.
+> - **A 404 on `/cv` is now a FAILURE, not an expected observation.** With T-201 in the image, a 404 means the route did not ship or the edge is misrouting. **A 401 remains a real defect for the original reason** (the allowlist regex is not matching) — that half of ruling 7 is unaffected and is still the sharpest check in §3.
+>
+> Kept struck rather than deleted: the reasoning was sound for the sequencing it assumed, and the failure was the *unowned hand-off*, not the analysis.
 
 **A 401 on that path would be a real defect** — it would mean the allowlist regex is not matching, which is precisely the thing T-202 proved only in unit tests.
 

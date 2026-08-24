@@ -31,6 +31,29 @@ stage('Deploy') {
 1. **The gate can never match.** `master` is the protected mainline in all nine repos (meta `CLAUDE.md`, board `README.md` rule 2). `when { branch 'main' }` means this stage has never run and never will. It is currently harmless because the body is an `echo` — it stops being harmless the moment someone implements the body and cannot work out why deploys never fire.
 2. **The comment describes an architecture that was dismantled.** MySQL left RDS for a self-hosted 8.4 container on the domain-service EC2 (cv-infra PR #8); `cv-infra/templates/domain-service-user-data.sh:164` is the current truth. The comment also defers to "once the dev environment exists" — it exists, and has since before [T-001](T-001-selfhost-mysql-followups.md) put nightly backups on it.
 
+## Bundle with T-154 — one Jenkinsfile PR, not two (2026-08-24, on the human's instruction)
+
+**[T-154](T-154-jenkins-pipeline-timeout.md) edits the same file in the same repo with the same forced reviewer set.** Both are `cv-database/Jenkinsfile`; both carry `security_review: true` because adapter §5 makes a `Jenkinsfile` diff an unconditional `/security-review` path. Run separately they cost **two branches, two PRs, two `/security-review` rounds and two H1/H2 gate pairs** — and the second one merges into a file the first just changed.
+
+**Recommendation: one "Jenkinsfile hygiene" PR covering all of it:**
+
+| Item | From | What |
+|---|---|---|
+| `when { branch 'master' }` | this task | the gate that can never match |
+| the RDS placeholder comment | this task | describes an architecture that was dismantled |
+| `timeout {}` | [T-154](T-154-jenkins-pipeline-timeout.md) | a hung build holds the only CI host up |
+| wait for MySQL healthy before Flyway | [T-154](T-154-jenkins-pipeline-timeout.md) | its console evidence shows the retry budget is the de-facto sync mechanism on **every** build |
+
+**Why it is more than convenience:** T-154's healthcheck fix and this task's `Deploy`-stage edit are a few lines apart in one file, and a reviewer looking at the whole pipeline at once can see things neither PR shows alone — `post { always }` swallowing cleanup failures with `|| true`, and images pulled by mutable tag, both raised as NOTEs in [T-152](T-152-mysql-84-parity-cv-database.md)'s security review and both still open. **That does not mean fix them here** (board rule 3), but one review pass over the whole file is a better place to decide than two partial ones.
+
+**The tension, named:** board rule 2 says *"one branch per task"*. **H1 picks the resolution; this note does not:**
+- **(a) One task absorbs the other**, with a widened scope and merged acceptance criteria, and the absorbed task closes recording where its criteria went. Rule 2 intact. **Recommended** — and if taken, this task is the natural anchor since it is already sequenced behind T-152 for exactly this file-collision reason.
+- **(b) Both tasks stay, one PR references both**, accepting the rule-2 deviation deliberately and recording it.
+
+**Do not lose T-154's acceptance criteria in the merge.** Its *"demonstrate the guard actually fires"* is the sharpest check either task has — a timeout nobody has watched trigger is the unverified-claim class this board keeps cataloguing — and its *"check `cv-domain-service`'s pipeline for the same gap"* is a separate-repo finding that must still be filed, not fixed.
+
+**[T-017](T-017-docs-drift-rds-to-selfhosted.md)'s `cv-database` half can ride the same PR** (`CLAUDE.md:3`, `README.md:9` — naming MySQL 8.4 as the target engine). Different files, same repo, and its meta-repo half is already satisfied, so this would **close T-017 entirely**. It also sits naturally with this task's own RDS-comment fix: both are the same drift, one in a pipeline file and one in prose.
+
 ## Scope
 
 - Correct the branch condition to `master`.

@@ -40,6 +40,21 @@ Before T-152, CI validated migrations against **8.0** while production applied t
 
 **The cv-infra half is the expensive one** and carries real risk: an apply replaces the instance. Since [T-018](T-018-mysql-on-dedicated-ebs-volume.md) the datadir survives on its own volume, so this is no longer destructive to data — but confirm `/var/lib/cv-mysql` is mounted from the dedicated volume (`findmnt`) before applying, and read [T-021](T-021-mysql-password-rotation-persistent-datadir.md) first: the persistent datadir means a `db_password` change would abort the bootstrap.
 
+## Recommended outcome: STAY ON FLYWAY 10 and record why (2026-08-24, on the human's instruction)
+
+**This task's own AC1 already legitimizes it** — *"leave Flyway at 10 and document why is a legitimate outcome and must be written down if chosen"*. The recommendation is to take that branch, and the reasoning is a cost/blast-radius argument, not a shrug:
+
+1. **The warning says untested, not broken.** The entire migration set is **one file of plain DDL**, and Flyway 10 has been observed applying it correctly against real 8.4 four separate times: T-152 stage 1, the driver's local pipeline reproduction, T-152's stage-4 QA, and now Jenkins PR-4 build #2.
+2. **It is a two-major jump, not a tag bump.** The console pins the current version at **10.22.0** against **13.3.0** advertised as latest. §2's question — does a newer Flyway still bundle the MariaDB driver? — is the sharp edge: if it ships the MySQL driver instead, the `allowPublicKeyRetrieval` gotcha changes and **every JDBC URL in the workspace needs re-checking**, along with the three `CLAUDE.md` files that document it. That is a workspace-wide blast radius bought to silence a warning on a green build.
+3. **The `cv-infra` half costs a production instance replacement**, with [T-021](T-021-mysql-password-rotation-persistent-datadir.md)'s `db_password` precondition to respect on the way.
+4. **The demo is time-boxed.** [T-012](T-012-aws-endgame-decision.md) puts the Free-plan window at **2027-01-12**. Spending a three-repo change with a production apply on an untested-but-working pairing is poor value against that horizon.
+
+**The honest counter-argument, recorded so it is not lost:** the unsupported pairing is now load-bearing in the **gate** as well as production, and a future migration using anything 8.0/8.4-divergent gets its first real test the day it is written. That is a real risk and it is why this is *"stay on 10 **and record why**"*, not *"close as won't-fix"*.
+
+**Therefore, if this outcome is taken, the decision must carry a revisit condition, not just a rationale:** revisit the moment a migration beyond plain DDL is added to `sql/migrations/`, or if [T-012](T-012-aws-endgame-decision.md) chooses to extend the demo's life. Write both into the closing note. A decision with no trigger to re-examine it is how this board's stale premises are made.
+
+**This is a recommendation for H1, not a decision taken here.** The cross-repo decomposition below still applies if H1 chooses to bump.
+
 ## Decide at H1, do not assume the bump is right
 
 1. **Is the warning worth acting on at all?** It says *untested*, not *broken*. The migration set is one file of plain DDL; Flyway 10 applies it correctly against 8.4, verified repeatedly (T-152 stage 1, driver reproduction, and stage-4 QA).

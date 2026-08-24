@@ -2,13 +2,23 @@
 id: T-004
 title: Harden Terraform state — permissions now, remote backend properly
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: infrastructure-engineer
 branch: chore/tf-state-hardening
 pr:
 depends_on: []
 risk: normal
 security_review: true
+checkpoint:
+  stage: part-1-done
+  part_1_completed: 2026-08-24
+  part_1_note: |
+    Both terraform.tfstate and terraform.tfstate.backup verified at 0600 (rw-------)
+    before this task was claimed. The world-readable window is closed. Verified via:
+    ls -l /home/erfeamor/work/curriculum/cv-infra/terraform.tfstate*
+    -> -rw------- (0600) for both files.
+  part_2_status: not-started
+  part_3_status: not-started
 ---
 
 ## Why this exists

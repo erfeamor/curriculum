@@ -97,6 +97,26 @@ Three data points, and the pattern is exact:
 
 This is no longer an anecdote — it is **reproducible on demand**: stop the box, push, watch the first build die. That also makes it cheap to bisect, which the acceptance criteria below assume.
 
+## The occurrence ordinals do not reconcile — count by PR, not by ordinal (added 2026-08-24)
+
+**The section headings below number occurrences up to "sixth", but this file's own enumeration only supports five red builds.** The count is not cosmetic here: this task's argument for prioritisation is *"reproducible on demand"*, and the occurrence count is the evidence base for that claim. Enumerated from the evidence in this file, every confirmed instance is a **first build after a verified-or-inferred cold start that failed while a later build on the warm box passed**:
+
+| # | Repo / build | Task that hit it | Cold start | Console signature |
+|---|---|---|---|---|
+| 1 | `cv-domain-service` PR-4#1 | [T-106](T-106-restrict-openapi-and-actuator-exposure.md) | doorbell, seconds earlier | not obtained |
+| 2 | `cv-domain-service` PR-6#1 | [T-107](T-107-post-id-cross-person-write.md) | reaper stopped it 09:59:17 | not obtained |
+| 3 | `cv-domain-service` PR-7#1 | [T-103](T-103-skills-catalog-and-assignments.md) | reaper stopped it 12:24 prev. day | not obtained |
+| 4 | `cv-domain-service` PR-8#1 | [T-104](T-104-project-resource.md) | 42s after start | not obtained — headed *"Fifth occurrence"* below |
+| 5 | `cv-database` PR-4#1 | [T-151](T-151-dev-seeds-cv-sections.md) | **verified** via `LaunchTime` 16:18:39 | **CONFIRMED** — headed *"Sixth occurrence"* below |
+
+**Where the drift came from, as far as the record shows.** `cv-database` PR-3#1 was written up as *"fifth occurrence"*, then challenged by stage-4 QA and **de-attributed** to [T-030](T-030-pr3-build1-success-then-error.md) — correctly, since it posts `success` before `error` and no console signature was ever obtained for it. The heading was struck, but the **ordinals that had counted it were not rolled back**, so the two entries written afterwards inherited the inflated numbering. The separate *"fourth reproduction"* label on T-103 has the same shape: the *"three data points"* table directly above it counts **T-102's SUCCESS** as a data point, which it is — it is the control — but a success is not a *reproduction* of a failure.
+
+**Rulings, so this is not re-derived from the headings again:**
+1. **Five confirmed occurrences, not six.** T-030's PR-3 is excluded by this task's own axis (`pending → error` with no intervening `success`), and it must stay excluded unless its console log shows the empty-stage signature.
+2. **The headings below are left as written**, per strike-don't-delete — renumbering them would destroy the record of how the count drifted, which is the more useful artifact. **This table is the authority; the ordinals in the headings are not.**
+3. **Refer to occurrences by PR number from here on** (`cv-database PR-4#1`), never by ordinal. Every ordinal in this file has now been wrong at least once.
+4. **Nothing about the diagnosis changes.** Five is still reproducible on demand, the three measured cold-start intervals (47s, 42s, 62s) are unaffected, and occurrence 5's confirmed console log is what actually narrowed the candidate list — the count was never load-bearing for the mechanism, only for the priority argument.
+
 ## Acceptance criteria
 
 - [ ] The cause is identified from evidence (Jenkins log at boot, SSM command invocation history for the instance, `docker logs jenkins`), and written down — not inferred from this file's guesses.

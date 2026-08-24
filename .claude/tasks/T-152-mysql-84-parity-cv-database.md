@@ -47,7 +47,7 @@ checkpoint:
   pr: https://github.com/erfeamor/cv-database/pull/3
   commit: b0f346c
   worktree_history: /home/erfeamor/work/cvdl-worktrees/T-152   # was `worktree:`; DEMOTED 2026-08-22 -- it shadowed the cleared key above. The directory is gone; the path is kept as a record of where the task ran.
-  blocked_criterion: "CI-side version proof (Flyway banner from Jenkins build #2). Console is authenticated; fetching it needs the SSM jenkins-admin-password, which this machine's permission policy declined. Pipeline DEFINITION verified locally instead; pipeline RUN is not. Needs a human with Jenkins access, or an explicit permission grant."
+  blocked_criterion: "CLOSED 2026-08-22 by checkpoint.ci_console_proof ABOVE — SUPERSEDED, kept verbatim per strike-don't-delete. This key still read as an open blocker on a merged task, contradicting both `outstanding: CLOSED` and `ci_console_proof` earlier in the same mapping; anyone reading it in isolation would have gone looking for a Jenkins credential that is no longer needed. It read: 'CI-side version proof (Flyway banner from Jenkins build #2). Console is authenticated; fetching it needs the SSM jenkins-admin-password, which this machine's permission policy declined. Pipeline DEFINITION verified locally instead; pipeline RUN is not. Needs a human with Jenkins access, or an explicit permission grant.' The human supplied the console text directly on 2026-08-22 — see ci_console_proof for the substitution (PR-4 build #2 rather than the PR-3 build #2 named here) and why it is stronger evidence."
 
   updated: 2026-08-22
   developer: backend-developer
