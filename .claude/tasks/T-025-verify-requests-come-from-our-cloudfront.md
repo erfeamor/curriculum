@@ -27,6 +27,28 @@ T-022 scoped port 8080 to `com.amazonaws.global.cloudfront.origin-facing`, which
 
 The JWT-gated routes still return `401`, so this is information disclosure and edge-control bypass, **not** authenticated access. What it defeats is every control that lives at our edge: the `/v3/api-docs` 403, and any future WAF rule, header policy or behaviour-level restriction.
 
+## Recommended: take this decision AT T-014's H2, and expect "documented accepted risk" (2026-08-24, on the human's instruction)
+
+**Decide it cheaply, and decide it in the right room.** Two things make this task's *decision* worth more than its implementation right now:
+
+**1. The leak it was filed for is already closed.** [T-106](T-106-restrict-openapi-and-actuator-exposure.md) merged — `/v3/api-docs` and `/swagger-ui/**` no longer answer anonymously. The concrete attack path in §"The attack path, concretely" step 3 (*"returns 200 with the full springdoc document"*) **no longer reproduces**. What remains is the bypass *class*: a foreign CloudFront distribution can still reach the origin, and would still meet whatever edge controls exist **later**. There is currently nothing behind that door worth walking through — JWT-gated routes still 401.
+
+**2. The right moment is [T-014](T-014-deploy-bff-to-aws.md)'s H2, not a separate gate.** Three of this task's own DoR items point at T-014 rather than at itself:
+- DoR **1** — the filter must not break the BFF's container-to-container path, and *"getting this wrong breaks the BFF the day T-014 lands"*.
+- DoR **3** — *"Does this belong on port 3000 too? **Yes**"*. So deciding **after** T-014 means retrofitting both ports; deciding **at** T-014 means one decision covering both.
+- T-014's own ruling-1 note already sends the reader here before deciding how much to carry.
+
+At T-014's H2 the human is weighing this exact surface — a second port behind the same "some CloudFront distribution" proof — with the live system in front of them. Convening a separate gate to re-derive the same trade-off is the expensive path.
+
+**Why "accepted risk" is the likely and defensible answer:**
+- Two cross-repo PRs with a **mandatory ordering** (send the header, *then* enforce it — enforcing first takes the live API down), plus a rotation procedure, to protect against an attacker who currently gains **nothing** by bypassing.
+- DoR **4** already concedes the header travels **edge-to-origin over plain HTTP** (`origin_protocol_policy = "http-only"`), so anyone positioned to observe it can replay it. The control is real but not strong, which lowers what deferring it costs. *(If TLS to the origin is ever taken up, see [T-033](T-033-ci-host-tls.md) — different host, same underlying "plaintext in transit" theme.)*
+- The single-user demo has one credential set, and [T-012](T-012-aws-endgame-decision.md) time-boxes the whole thing.
+
+**If accepted, the decision must name its own expiry** — the same requirement put on [T-155](T-155-flyway-version-supports-mysql-84.md): revisit **the moment an edge control worth bypassing exists** (a WAF rule, a behaviour-level restriction, a header policy, or a second user). Without that trigger this becomes another premise nobody re-checks, which is the failure mode this board exists to catch. Record it on this task and cross-reference it from T-014's H2 note.
+
+**This is a recommendation, not a decision taken here** — it is a security posture call and belongs to the human. If they choose to implement, everything below stands unchanged.
+
 ## Scope
 
 **cv-infra** — add a `custom_header` to the `domain-service-api` origin in `frontend.tf`, value from SSM (`/cv-project/<env>/edge/origin-shared-secret`) per the repo's existing secrets flow. Never in a committed `.tf` or tfvars.

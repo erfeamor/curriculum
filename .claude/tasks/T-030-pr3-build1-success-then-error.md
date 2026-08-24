@@ -33,7 +33,7 @@ Read via `gh api repos/erfeamor/cv-database/commits/b0f346c/statuses`:
 - What is actually known is a *status sequence* on the same host, in a repo wired to the same doorbell. Suggestive; not diagnostic.
 - T-026's occurrence count is the evidence base for its claim of being "reproducible on demand". Padding it with an unverified instance would corrode exactly the thing that makes it actionable.
 
-**The distinguishing detail is that build #1 posted `success` first.** All four confirmed T-026 occurrences are a build that fails outright. A build that succeeds and then invalidates itself one second later points at something *after* completion — status reporting, a post-build step, the multibranch scan — rather than at a build that never started. If that holds, it is a different defect with a different fix.
+**The distinguishing detail is that build #1 posted `success` first.** All confirmed T-026 occurrences *(“four” as written on 2026-08-22; the reconciled count is **five** — see T-026's 2026-08-24 occurrence table, which found the ordinals inflated by a withdrawn attribution: this one)* are a build that fails outright. A build that succeeds and then invalidates itself one second later points at something *after* completion — status reporting, a post-build step, the multibranch scan — rather than at a build that never started. If that holds, it is a different defect with a different fix.
 
 ## The one action that settles it
 

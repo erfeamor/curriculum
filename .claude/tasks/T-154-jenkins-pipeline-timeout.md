@@ -25,6 +25,18 @@ The reviewer flagged this **moderately urgent for a cost reason, not a correctne
 
 **It is latent, not live.** `allowPublicKeyRetrieval` is verified intact at `flyway.conf:6` and `Jenkinsfile:22` as of [T-152](T-152-mysql-84-parity-cv-database.md) (2026-08-22). This task adds the guard that makes the failure loud if it ever regresses.
 
+## Bundle with T-153 — see that task for the full proposal (2026-08-24, on the human's instruction)
+
+**[T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) edits the same file, in the same repo, with the same forced `/security-review`.** Running both separately spends two of everything — branches, PRs, security reviews, gate pairs — on one file. **The proposal, options and the board-rule-2 tension are written up in [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md); H1 decides.**
+
+**What must survive the merge, if it happens** — these are this task's contributions and they are the substantive half:
+- **`timeout {}` with a justified bound**, not a copied number.
+- **The healthcheck wait** (below): the console evidence shows Flyway's retry budget is the pipeline's *actual* synchronisation mechanism on **every** build, not a dormant safety net.
+- **"Demonstrate the guard actually fires."** A timeout nobody has watched trigger is exactly the unverified-claim class this board keeps finding. Force a hang on a scratch branch and show the build failing at the bound.
+- **The `cv-domain-service` check** — same gap, different repo, so it is *filed*, never fixed here (board rule 3).
+
+**Do not let this become "T-153 plus a timeout".** The healthcheck finding below changed this task's premise after it was filed — the hang is not latent — and that is the more valuable half.
+
 ## Scope
 
 - Wrap the pipeline (or at minimum the `Validate migrations` stage) in `timeout(time: N, unit: 'MINUTES')`. Pick N from observed build times — successful builds run ~90–100s, so a generous bound is still an order of magnitude tighter than "forever". **Justify the number rather than copying one.**

@@ -66,6 +66,20 @@ So the drift sat in the most-read file in the workspace for four days with no ow
 > Found by the reviewer of a task that was *forbidden* from fixing it (board rule 3), which is the boundary working as intended: the finding was routed here rather than silently absorbed into T-016.
 
 
+## Bundle this with T-003's one surviving line — 2026-08-24, on the human's instruction
+
+**[T-003](T-003-ci-docs-reflect-jenkins.md) has been re-scoped down to a single line** (`docs/architecture.md:39`, which still asserts the legacy Free Tier rule and `t2/t3.micro` sizing — the claim [T-020](T-020-cost-model-correction.md) corrected in both `CLAUDE.md` files but never in that third location). Three of its four original scope bullets are dead or undeliverable; see its re-scope block.
+
+**Both tasks are: the meta repo, docs-only, `risk: trivial`, `security_review: false`, no shared files, no interdependency.** Run separately they cost two branches, two PRs and two H1/H2 gate pairs to change five lines. **Recommendation: one PR carries both**, and it is the cheapest correct outcome.
+
+**The tension, named rather than glossed:** board rule 2 says *"one branch per task"*. A shared PR bumps it. Two ways to resolve, and **H1 picks one** — this note does not:
+- **(a)** Fold T-003's surviving line into this task's scope and **close T-003** as absorbed, recording where its line went. One task, one branch, rule 2 intact. Cleanest, and honest about the fact that T-003 no longer holds a task's worth of work.
+- **(b)** Keep both tasks and let one PR reference both, accepting the rule-2 deviation deliberately and recording it.
+
+**(a) is recommended.** T-003's remaining content is one line of prose; keeping a board row alive for it costs more attention than the fix does.
+
+**[T-027](T-027-contract-ordering-note-sql-vs-jpql.md) is a candidate rider but is NOT recommended by default** — it is also meta-repo, docs-only and `trivial`, but its acceptance criteria require an **empirical Hibernate check** first (does JPQL accept the literal `ORDER BY x IS NULL`?), which is not docs work and would hold this PR up. Let it ride only if that experiment has already been run.
+
 ## Acceptance criteria
 
 - [ ] `grep -rn "3000/api/v1" .` across the meta repo returns nothing that documents a current command.

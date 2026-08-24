@@ -35,6 +35,15 @@ checkpoint:
     NOT VERIFIED: the admin UI loading its people list with a real Cognito JWT. That needs an
     interactive login and is the one acceptance criterion still outstanding. The anonymous 401
     is strong evidence the path is intact but it is not the same check.
+    CLOSURE PATH IDENTIFIED 2026-08-24 (no work needed here): T-014's stage-4 test plan
+    section 5 already specifies this exact check -- "/api/v1/people/1 still 401s ... and the
+    live admin UI still loads its people list with a real Cognito JWT" -- against the live
+    system, with the interactive login this task could not perform. T-014 is a scheduled
+    apply with QA budgeted, so the criterion gets satisfied by work already planned rather
+    than by convening a session for one login. ACTION: when T-014's stage 4 runs, tick this
+    criterion here and cite T-014's QA report. If T-014 is abandoned or descoped, this
+    reverts to needing its own interactive check -- do not let the cross-reference become the
+    reason it is never verified.
   gates: "terraform fmt -check -recursive clean · terraform validate Success · terraform test 4 passed, 0 failed. The new assertions were proven non-vacuous by temporarily re-adding cidr_blocks 0.0.0.0/0 and confirming the guard fails."
   security_review: |
     RUN 2026-08-20 (forced by adapter §5 — security_group ingress). ONE MEDIUM finding, no HIGH.
