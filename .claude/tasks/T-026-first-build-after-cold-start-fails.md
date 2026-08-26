@@ -3,7 +3,7 @@ id: T-026
 title: "First build after a Jenkins restart fails — ROOT CAUSE FOUND: JENKINS-23152 build-number collision (the DSL seed recreates the jobs every boot against a persistent JENKINS_HOME)"
 title_note: "Retitled 2026-08-26. The old title — 'the first Jenkins build after a cold start fails' — named a CORRELATE as the cause and survived five weeks of investigation unchallenged. The cold start is only when Jenkins happens to restart on this host; the collision fires on ANY restart, and only on a branch whose builds/1 already exists."
 repo: cv-infra
-status: in_review
+status: done
 owner: infrastructure-engineer
 branch: fix/dsl-seed-idempotent   # was fix/first-build-after-cold-start — renamed to match the fix, which is the DSL seed, not the cold start
 pr: https://github.com/erfeamor/cv-infra/pull/21
@@ -11,11 +11,11 @@ depends_on: [T-019]
 risk: normal
 security_review: true    # CORRECTED 2026-08-26 by A1's re-check against the REAL diff, per adapter §5. The stage-0 value was `false` ("CI reliability, not exposure"), which was right about the SYMPTOM and wrong about the fix: the diff edits templates/jenkins-provision.sh, the script that fetches secrets and writes the CI job definitions. /security-review RAN and returned no HIGH or MEDIUM findings.
 checkpoint:
-  stage: 1                 # BOUNCED BACK FROM VERIFICATION 2026-08-26. The fix was applied and is INERT — proven, not suspected. PR #21 must NOT be merged as written. See applied_result.
+  stage: done              # MERGED 2026-08-26 as cv-infra 1deebb4 (squash of #21, --admin). H2 accepted by the human.
   repo: cv-infra
   branch: fix/dsl-seed-idempotent
   worktree: none           # cv-infra has a LOCAL terraform backend (T-004 part 2 is still todo), so it cannot be worked from a worktree
-  commit: 7e0e236          # 1 commit ahead of master, pushed
+  commit: 1deebb4          # squash-merge commit on cv-infra master. Branch commits were 7e0e236 (inert attempt 1) + ad66cf4 (attempt 2, the fix).
   pr: https://github.com/erfeamor/cv-infra/pull/21
   developer: infrastructure-engineer
   reviewers: ["/security-review"]
@@ -24,7 +24,7 @@ checkpoint:
   review_round: 1
   open_findings: 0
   qa_bounces: 1
-  fix_attempts: 1
+  fix_attempts: 2          # attempt 1 (item model) INERT; attempt 2 (filesystem probe) VERIFIED
   updated: 2026-08-26
   a1: |
     GREEN, run by the driver in cv-infra/: terraform fmt -check -recursive clean,
@@ -45,83 +45,84 @@ checkpoint:
         ever corrected an admin's ACCIDENTAL edit. Recorded as an accepted trade-off in the
         body, not as a finding.
   applied_result: |
-    APPLIED 2026-08-26 from the branch. terraform apply succeeded (2 added, 2 changed,
-    2 destroyed; SSM re-provision Success in 34s; Jenkins container recreated 14:57:15).
-    THE FIX IS INERT. Measured, not inferred:
-      - the guard IS in the deployed /var/lib/jenkins-casc/jenkins.yaml (lines 56/61/106/111)
-      - the DSL ran: 2x "Processing provided DSL script"
-      - createOrUpdateConfig STILL ran for BOTH jobs -> it did not skip
-      - no JCasC error, no exception, no sandbox rejection
-    So getItemByFullName returned NULL while the jobs existed on disk.
+    ===== ATTEMPT 1 (commit 7e0e236) -- APPLIED AND PROVEN INERT. Kept for the record.
+    The guard asked Jenkins.get().getItemByFullName(...). It deployed cleanly, the DSL ran,
+    and createOrUpdateConfig STILL ran for BOTH jobs -- so the lookup returned null while the
+    jobs existed on disk. CAUSE: JCasC runs job-dsl BEFORE Jenkins loads jobs from disk. Boot
+    order, read off the log:
+        System config loaded -> Processing provided DSL script -> createOrUpdateConfig
+        -> System config adapted -> Loaded all jobs -> init.groovy.d -> Completed
+    At DSL time the item model is EMPTY, so the guard could never fire. The fail-open design
+    held (no exception, job still created, outcome byte-identical to before), so nothing was
+    damaged by shipping it. Its catch was SILENT, which is why telling "returned null" from
+    "threw and was swallowed" needed a separate createOrUpdateConfig check.
 
-    WHY, and this is the load-bearing fact for the next attempt: JCasC's job-dsl runs
-    BEFORE Jenkins loads jobs from disk. Boot sequence, read off the log:
-        System config loaded  ->  Processing provided DSL script  ->  createOrUpdateConfig
-        ->  System config adapted  ->  LOADED ALL JOBS  ->  init.groovy.d  ->  Completed
-    At DSL time the item model is EMPTY, so Jenkins.get().getItemByFullName(...) is null
-    for every job regardless of what is on disk. The guard cannot ever fire.
+    ===== ATTEMPT 2 (commit ad66cf4) -- APPLIED 2026-08-26 AND VERIFIED FIXED.
+    Probes the FILESYSTEM instead: new File('/var/lib/jenkins/jobs/<name>/config.xml').exists().
+    The job dir is on the persistent JENKINS_HOME bind mount and IS present at DSL time. Same
+    fail-open try/catch, and the catch now LOGS (attempt 1's instrumentation flaw, fixed).
 
-    THE FAIL-OPEN DESIGN HELD, which is the one thing that went right: no exception, control
-    fell through to creating the job, and the outcome is byte-identical to before. Verified
-    after the apply: both jobs present, traits intact (BranchDiscoveryTrait x2 and
-    OriginPullRequestDiscoveryTrait x2 per job, ForkPullRequestDiscoveryTrait ABSENT),
-    branch children and their builds/ preserved. Nothing was damaged by shipping it.
+    A1 GREEN: terraform fmt -check -recursive clean, validate Success, terraform test 4/0.
+    Diff is ONE file, templates/jenkins-provision.sh, no .tf changed.
+    APPLY: 2 added / 2 changed / 2 destroyed, NO instance replacement, SSM Success in 34s,
+    Jenkins container recreated 15:19:07Z. Plan matched the prediction exactly.
 
-    ZERO JENKINS-23152 on this boot PROVES NOTHING — no push happened, so no build was
-    created, and the collision only fires when a build is created for a branch with an
-    existing builds/1. Do not read it as success.
+    VERIFICATION -- all four steps, measured on the live host, not inferred:
+      4a  Both guards fire. Log shows, every boot:
+            T-026: cv-domain-service config.xml present=true / already exists; not reseeding
+            T-026: cv-database         config.xml present=true / already exists; not reseeding
+      4b  createOrUpdateConfig count = 0. THIS IS THE DISCRIMINATOR that attempt 1 failed;
+          4a alone was silent either way. Zero across all three post-fix boots.
+      4c  Jobs present, traits intact (BranchDiscoveryTrait x2 and OriginPullRequestDiscovery
+          Trait x2 per job, ForkPullRequestDiscoveryTrait ABSENT). All branch children and
+          their builds/ preserved, and -- the load-bearing bit -- every nextBuildNumber was
+          preserved, NOT reset to 1.
+      4d  CONCLUSIVE, run twice. Throwaway branch chore/t026-verify in cv-domain-service
+          (created, built, then DELETED; the branch no longer exists):
+            build 1  a0a7dc0  warm box, negative control (no prior builds/1)  -> see caveat
+            build 2  729a8f4  cold start, branch ALREADY had builds/1         -> SUCCESS
+            build 3  02facff  cold start with the box stopped IDLE            -> SUCCESS
+          On every one of those boots: JENKINS-23152 = 0, "No build record" = 0.
+          Build 3 ran for real -- Lint checkstyle executed, 141 tests passed, all five stages
+          opened, numbering advanced 2 -> 3 -> 4 correctly. GitHub's FULL status history
+          (via the statuses API, per this task's own caution about `gh pr checks`) shows
+          pending -> success with NO `error` state, where all six recorded occurrences show
+          an `error` on the first post-restart build.
 
-    INSTRUMENTATION FLAW TO FIX NEXT TIME: the catch is SILENT, so the log cannot
-    distinguish "returned null" from "threw and was swallowed". It took a separate
-    createOrUpdateConfig check to tell them apart. The next version must log inside the
-    catch. A guard whose failure is indistinguishable from its success is the exact class
-    of defect this board keeps cataloguing, and I shipped one.
+    CAVEAT, RECORDED RATHER THAN BURIED: build 1 shows `error`, and that is the DRIVER'S
+    SETUP MISTAKE, not the defect. The box was stopped while build 1 was still downloading
+    Maven dependencies, so it was killed mid-flight and resumed into a failure after the
+    restart. Build 3 exists precisely to remove that confound -- it is the same test with
+    the box stopped IDLE and nothing in flight, and it is clean. Also worth writing down:
+    the driver first read `<result>SUCCESS</result>` out of build.xml as the verdict and was
+    WRONG -- that element is not the build's result. The real verdict is the `Finished: X`
+    line at the end of the pipeline log. A completion check that reports success on an
+    unfinished build is the same class of defect as attempt 1's silent catch.
 
-    CORRECTED APPROACH FOR ATTEMPT 2: test the FILESYSTEM, not the Jenkins model, because
-    the file exists at DSL time even though the item does not:
-        if (new File('/var/lib/jenkins/jobs/cv-domain-service/config.xml').exists()) return
-    Keep the fail-open catch AND make it log. Re-verify with the same three steps; step 3a
-    is now known to be necessary but not sufficient, so pair it with a createOrUpdateConfig
-    check, which is what actually discriminated here.
-
-    DEPLOYED STATE RIGHT NOW: S3 + the SSM SHA hold the BRANCH script (with the inert
-    guard). It is behaviourally identical to master's, so this is harmless — but it is a
-    divergence, and applying from master reverts it.
-  RESUME_AT: |
-    ATTEMPT 2 — implement the filesystem-based guard (see applied_result for the exact
-    reason the model-based one cannot work), then re-run the SAME verification.
-
-    0. START THE CI HOST FIRST — null_resource.jenkins_provision waits 300s for the SSM
-       agent then exits 1, so an apply against a stopped box fails after five minutes.
-       `aws ec2 start-instances --region eu-west-3 --instance-ids i-073e5284ca2a1ceed`
-    1. Change the guard in templates/jenkins-provision.sh to the File-exists form, and
-       MAKE THE CATCH LOG rather than swallow.
-    2. Gates: terraform fmt -check -recursive, validate, terraform test (was 4/4).
-    3. Apply FROM THE BRANCH (T-018/T-022 precedent). Plan should again be 2 add / 2 change
-       / 2 destroy with NO instance replacement.
-    4. Verify, and note step 3a alone is NOT sufficient:
-       4a. `docker logs jenkins | grep "T-026:"` -> both "not reseeding" lines.
-       4b. `docker logs jenkins | grep createOrUpdateConfig` -> MUST BE EMPTY. This is the
-           check that actually discriminated on attempt 1; 4a was silent either way.
-       4c. Jobs present, traits intact (Branch + OriginPullRequest present, ForkPullRequest
-           ABSENT), branch children and builds/ preserved.
-       4d. CONCLUSIVE: stop the box, push to a branch that HAS BUILT BEFORE, assert ZERO
-           JENKINS-23152. A fresh PR has no builds/1 and is the negative control.
-    5. Only then merge cv-infra#21 (needs --admin, the designed path here) and set `done`.
-
-    DO NOT MERGE PR #21 AS WRITTEN — it is proven inert.
+    DEPLOYED STATE: S3 + the SSM SHA hold the BRANCH script (attempt 2). Merging #21 makes
+    master identical to it and removes the divergence; applying from master BEFORE the merge
+    would revert the fix.
+  close_out: |
+    MERGED 2026-08-26T15:48:48Z as cv-infra 1deebb4, squash of #21 via --admin (the
+    designed path in this workspace -- master is protected everywhere and there is no CI
+    on cv-infra to satisfy). Branch fix/dsl-seed-idempotent deleted on merge.
+    CONVERGENCE CONFIRMED, not assumed: `terraform plan` from master immediately after the
+    merge reports "No changes. Your infrastructure matches the configuration." The branch/
+    master divergence recorded in applied_result (S3 + the SSM SHA held the branch script)
+    is therefore closed -- master is now byte-identical to what is deployed, and the warning
+    that "applying from master reverts the fix" no longer applies.
+    All four acceptance criteria were met by measurement on the live host before the merge;
+    the evidence is in applied_result above and the narrative in HISTORY.md.
   budget: |
-    HARD AT CHECKPOINT TIME — this is why the task is parked here rather than carried on.
-    Probed 2026-08-26: turns 428/400 (107%), tokens 147.5M/150M (98.4%), status HARD.
-    Spawns this session: 4 (all on T-105; this task's review was run inline by the driver).
-    Per references/budget.md a HARD reading means checkpoint and STOP — no new stage, no new
-    spawn. The apply is a new stage and was deliberately NOT started.
-    NOTE the standing caveat: this is consumption against a SELF-IMPOSED ceiling, NOT a
-    reading of remaining plan quota, which is not observable from inside a session. The
-    adapter's second calibration point says ceiling_turns:400 trips roughly 20 points before
-    real usage — so treat HARD here as "the guard did its job", not as "the plan is spent".
-    RESUMING COSTS: one apply + three verification steps + a merge. No re-brief, no rework —
-    everything needed is in RESUME_AT above.
+    Session 2 (2026-08-26, this one) re-probed on resume and INHERITED nothing that still
+    binds: the stage-4 apply + full verification cost 97/400 turns (24%) and 8.1M/150M tokens
+    (5.4%), with ZERO subagent spawns -- the whole stage ran inline in the driver, per the
+    budget guide's rule not to spawn for work the driver can do itself.
+    Session 1 had stopped at turns 428/400 (107%), tokens 147.5M/150M (98.4%), status HARD,
+    4 spawns (all on T-105). The checkpoint stop worked exactly as designed: resuming cost
+    one apply plus the verification, with no re-brief and no rework.
+    Standing caveat, restated: these are consumption figures against a SELF-IMPOSED ceiling,
+    NOT a reading of remaining plan quota, which is not observable from inside a session.
 ---
 
 ## Why this exists
