@@ -108,14 +108,35 @@ This is no longer an anecdote — it is **reproducible on demand**: stop the box
 | 3 | `cv-domain-service` PR-7#1 | [T-103](T-103-skills-catalog-and-assignments.md) | reaper stopped it 12:24 prev. day | not obtained |
 | 4 | `cv-domain-service` PR-8#1 | [T-104](T-104-project-resource.md) | 42s after start | not obtained — headed *"Fifth occurrence"* below |
 | 5 | `cv-database` PR-4#1 | [T-151](T-151-dev-seeds-cv-sections.md) | **verified** via `LaunchTime` 16:18:39 | **CONFIRMED** — headed *"Sixth occurrence"* below |
+| 6 | `cv-domain-service` PR-9#1 | [T-105](T-105-experience-ordering-retrofit.md) | **verified** via `LaunchTime` 08:41:20Z → `error` 08:42:24Z = **64s** (2026-08-26) | not obtained — console still needs credentials |
 
 **Where the drift came from, as far as the record shows.** `cv-database` PR-3#1 was written up as *"fifth occurrence"*, then challenged by stage-4 QA and **de-attributed** to [T-030](T-030-pr3-build1-success-then-error.md) — correctly, since it posts `success` before `error` and no console signature was ever obtained for it. The heading was struck, but the **ordinals that had counted it were not rolled back**, so the two entries written afterwards inherited the inflated numbering. The separate *"fourth reproduction"* label on T-103 has the same shape: the *"three data points"* table directly above it counts **T-102's SUCCESS** as a data point, which it is — it is the control — but a success is not a *reproduction* of a failure.
 
 **Rulings, so this is not re-derived from the headings again:**
-1. **Five confirmed occurrences, not six.** T-030's PR-3 is excluded by this task's own axis (`pending → error` with no intervening `success`), and it must stay excluded unless its console log shows the empty-stage signature.
+1. ~~**Five confirmed occurrences, not six.**~~ **SIX as of 2026-08-26** — row 6 (`cv-domain-service` PR-9#1) was added by [T-105](T-105-experience-ordering-retrofit.md)'s stage 3 and is counted under this table's own axis, not by heading ordinal. The count is incremented **in the table, which rules 2–3 make the authority**; the section headings below are still not renumbered. T-030's PR-3 remains excluded by this task's axis (`pending → error` with no intervening `success`), and it must stay excluded unless its console log shows the empty-stage signature.
 2. **The headings below are left as written**, per strike-don't-delete — renumbering them would destroy the record of how the count drifted, which is the more useful artifact. **This table is the authority; the ordinals in the headings are not.**
 3. **Refer to occurrences by PR number from here on** (`cv-database PR-4#1`), never by ordinal. Every ordinal in this file has now been wrong at least once.
-4. **Nothing about the diagnosis changes.** Five is still reproducible on demand, the three measured cold-start intervals (47s, 42s, 62s) are unaffected, and occurrence 5's confirmed console log is what actually narrowed the candidate list — the count was never load-bearing for the mechanism, only for the priority argument.
+4. **Nothing about the diagnosis changes.** It is still reproducible on demand, the measured cold-start intervals (47s, 42s, 62s, **and 64s at PR-9#1**) are unaffected, and occurrence 5's confirmed console log is what actually narrowed the candidate list — the count was never load-bearing for the mechanism, only for the priority argument.
+
+## PR-9#1 — the cleanest reproduction yet, and it cost a real task a red build (2026-08-26, from [T-105](T-105-experience-ordering-retrofit.md))
+
+**The whole chain was observed live for the first time**, rather than reconstructed afterwards from status timestamps. The driver knew the box was `stopped` before pushing (checked minutes earlier), pushed, and read `describe-instances` and the statuses API in sequence:
+
+```
+08:41:20Z  instance cv-project-drone  stopped -> running   (doorbell, triggered by the push)
+08:42:09Z  pending  "scheduled to be built"
+08:42:22Z  pending  "being built"
+08:42:24Z  error    "This commit cannot be built"   <-- PR-9#1, 64s after the instance started
+08:42:25Z  pending  "being built"                   <-- PR-9#2, unattended
+```
+
+Three things this adds beyond the count:
+
+1. **The cold start is verified from the instance's own `LaunchTime`, and the interval (64s) is the longest measured** — the four known intervals now span 42–64s, all inside the first ~65 seconds after boot. That is a tight, consistent window and it is what a bisect should target.
+2. **The push-then-PR double delivery fired again**, exactly as recorded for `cv-database` PR-7: opening the PR is a *second* webhook delivery, so build #2 started 1 second after #1 died, **unattended**. Nobody retriggered anything. This is why the defect stays invisible in the normal workflow — and why it is *not* invisible for a push to an existing branch.
+3. **`gh pr checks` is worse here than in the plain-red case**, matching [T-030](T-030-pr3-build1-success-then-error.md)'s warning rather than this task's: the `error` is sandwiched **between two `pending`s**, so even a careful reader skimming the check list sees only "pending → …" and never the failure. Read `gh api …/statuses`.
+
+**The console signature is still unobtained** and is not being claimed — Jenkins needs credentials this machine's policy declines. Recorded as *"matches the cold-start-fails / warm-succeeds pattern, cold start verified from LaunchTime, console signature unobtained"*, which is the wording rulings 1–3 above exist to keep honest.
 
 ## Acceptance criteria
 
