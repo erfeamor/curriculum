@@ -11,7 +11,7 @@ depends_on: [T-019]
 risk: normal
 security_review: true    # CORRECTED 2026-08-26 by A1's re-check against the REAL diff, per adapter §5. The stage-0 value was `false` ("CI reliability, not exposure"), which was right about the SYMPTOM and wrong about the fix: the diff edits templates/jenkins-provision.sh, the script that fetches secrets and writes the CI job definitions. /security-review RAN and returned no HIGH or MEDIUM findings.
 checkpoint:
-  stage: qa                # PR open + all gates green. Stage 4 for an infra task IS the apply plus live verification, and NEITHER HAS HAPPENED. Nothing is deployed.
+  stage: 1                 # BOUNCED BACK FROM VERIFICATION 2026-08-26. The fix was applied and is INERT — proven, not suspected. PR #21 must NOT be merged as written. See applied_result.
   repo: cv-infra
   branch: fix/dsl-seed-idempotent
   worktree: none           # cv-infra has a LOCAL terraform backend (T-004 part 2 is still todo), so it cannot be worked from a worktree
@@ -23,8 +23,8 @@ checkpoint:
   security_review: true
   review_round: 1
   open_findings: 0
-  qa_bounces: 0
-  fix_attempts: 0
+  qa_bounces: 1
+  fix_attempts: 1
   updated: 2026-08-26
   a1: |
     GREEN, run by the driver in cv-infra/: terraform fmt -check -recursive clean,
@@ -44,53 +44,72 @@ checkpoint:
         console = RCE on a host with a mounted docker socket. The DSL re-application only
         ever corrected an admin's ACCIDENTAL edit. Recorded as an accepted trade-off in the
         body, not as a finding.
+  applied_result: |
+    APPLIED 2026-08-26 from the branch. terraform apply succeeded (2 added, 2 changed,
+    2 destroyed; SSM re-provision Success in 34s; Jenkins container recreated 14:57:15).
+    THE FIX IS INERT. Measured, not inferred:
+      - the guard IS in the deployed /var/lib/jenkins-casc/jenkins.yaml (lines 56/61/106/111)
+      - the DSL ran: 2x "Processing provided DSL script"
+      - createOrUpdateConfig STILL ran for BOTH jobs -> it did not skip
+      - no JCasC error, no exception, no sandbox rejection
+    So getItemByFullName returned NULL while the jobs existed on disk.
+
+    WHY, and this is the load-bearing fact for the next attempt: JCasC's job-dsl runs
+    BEFORE Jenkins loads jobs from disk. Boot sequence, read off the log:
+        System config loaded  ->  Processing provided DSL script  ->  createOrUpdateConfig
+        ->  System config adapted  ->  LOADED ALL JOBS  ->  init.groovy.d  ->  Completed
+    At DSL time the item model is EMPTY, so Jenkins.get().getItemByFullName(...) is null
+    for every job regardless of what is on disk. The guard cannot ever fire.
+
+    THE FAIL-OPEN DESIGN HELD, which is the one thing that went right: no exception, control
+    fell through to creating the job, and the outcome is byte-identical to before. Verified
+    after the apply: both jobs present, traits intact (BranchDiscoveryTrait x2 and
+    OriginPullRequestDiscoveryTrait x2 per job, ForkPullRequestDiscoveryTrait ABSENT),
+    branch children and their builds/ preserved. Nothing was damaged by shipping it.
+
+    ZERO JENKINS-23152 on this boot PROVES NOTHING — no push happened, so no build was
+    created, and the collision only fires when a build is created for a branch with an
+    existing builds/1. Do not read it as success.
+
+    INSTRUMENTATION FLAW TO FIX NEXT TIME: the catch is SILENT, so the log cannot
+    distinguish "returned null" from "threw and was swallowed". It took a separate
+    createOrUpdateConfig check to tell them apart. The next version must log inside the
+    catch. A guard whose failure is indistinguishable from its success is the exact class
+    of defect this board keeps cataloguing, and I shipped one.
+
+    CORRECTED APPROACH FOR ATTEMPT 2: test the FILESYSTEM, not the Jenkins model, because
+    the file exists at DSL time even though the item does not:
+        if (new File('/var/lib/jenkins/jobs/cv-domain-service/config.xml').exists()) return
+    Keep the fail-open catch AND make it log. Re-verify with the same three steps; step 3a
+    is now known to be necessary but not sufficient, so pair it with a createOrUpdateConfig
+    check, which is what actually discriminated here.
+
+    DEPLOYED STATE RIGHT NOW: S3 + the SSM SHA hold the BRANCH script (with the inert
+    guard). It is behaviourally identical to master's, so this is harmless — but it is a
+    divergence, and applying from master reverts it.
   RESUME_AT: |
-    STAGE 4 = APPLY + VERIFY. Do it in this order; step 0 is not optional.
+    ATTEMPT 2 — implement the filesystem-based guard (see applied_result for the exact
+    reason the model-based one cannot work), then re-run the SAME verification.
 
-    0. START THE CI HOST FIRST. It is `stopped` (reaper, 2026-08-26 11:29:17 GMT).
-       null_resource.jenkins_provision polls for the SSM agent to report Online with a
-       300s timeout and then `exit 1`, so APPLYING AGAINST A STOPPED BOX FAILS AFTER FIVE
-       MINUTES. Either `aws ec2 start-instances --region eu-west-3 --instance-ids
-       i-073e5284ca2a1ceed`, or let a push wake it through the doorbell.
+    0. START THE CI HOST FIRST — null_resource.jenkins_provision waits 300s for the SSM
+       agent then exits 1, so an apply against a stopped box fails after five minutes.
+       `aws ec2 start-instances --region eu-west-3 --instance-ids i-073e5284ca2a1ceed`
+    1. Change the guard in templates/jenkins-provision.sh to the File-exists form, and
+       MAKE THE CATCH LOG rather than swallow.
+    2. Gates: terraform fmt -check -recursive, validate, terraform test (was 4/4).
+    3. Apply FROM THE BRANCH (T-018/T-022 precedent). Plan should again be 2 add / 2 change
+       / 2 destroy with NO instance replacement.
+    4. Verify, and note step 3a alone is NOT sufficient:
+       4a. `docker logs jenkins | grep "T-026:"` -> both "not reseeding" lines.
+       4b. `docker logs jenkins | grep createOrUpdateConfig` -> MUST BE EMPTY. This is the
+           check that actually discriminated on attempt 1; 4a was silent either way.
+       4c. Jobs present, traits intact (Branch + OriginPullRequest present, ForkPullRequest
+           ABSENT), branch children and builds/ preserved.
+       4d. CONCLUSIVE: stop the box, push to a branch that HAS BUILT BEFORE, assert ZERO
+           JENKINS-23152. A fresh PR has no builds/1 and is the negative control.
+    5. Only then merge cv-infra#21 (needs --admin, the designed path here) and set `done`.
 
-    1. APPLY FROM THE BRANCH, not from master — T-018/T-022 precedent and T-014's rule that
-       "H2 must gate the apply, not just the merge". If it misbehaves, master stays clean.
-       `terraform apply` is deliberately kept in `ask` in settings.local.json; do NOT
-       allowlist it to speed this up.
-
-    2. WHAT THE APPLY DOES — plan captured 2026-08-26, NO INSTANCE REPLACEMENT:
-         aws_s3_object.jenkins_provision             updated in-place
-         aws_ssm_parameter.jenkins_provision_sha256  updated in-place
-         local_file.jenkins_provision_script         replaced (local file)
-         null_resource.jenkins_provision             replaced (script_sha trigger)
-         Plan: 2 to add, 2 to change, 2 to destroy.
-       Chain: new script to S3 + new SHA to SSM -> null_resource re-runs provisioning over
-       SSM -> jenkins.yaml rewritten with the guard -> JENKINS_CONFIG_HASH changes ->
-       recreate_if_needed recreates the Jenkins CONTAINER -> Jenkins boots -> JCasC applies
-       the guarded DSL. Expect ~60s of Jenkins downtime; the script health-checks
-       /jenkins/login through ci-proxy before returning, so a failure surfaces in the apply.
-       JENKINS_HOME is a BIND MOUNT, so `docker rm -f -v` does not touch the jobs — which is
-       exactly what the guard needs to find.
-
-    3. VERIFY, IN THIS ORDER:
-       3a. `docker logs jenkins | grep "T-026:"` -> expect BOTH "already exists; not
-           reseeding" lines. THIS IS THE CHECK THAT DISTINGUISHES WORKING FROM INERT: their
-           absence means the guard never fired (the sandbox case), not that it failed.
-       3b. Confirm both jobs still exist and their `traits` are intact — the guard must not
-           have skipped a job that actually needed creating.
-       3c. THE CONCLUSIVE TEST, and it is NOT satisfied by 3a: stop the box, push to a
-           branch that HAS BUILT BEFORE, assert ZERO JENKINS-23152 for that boot. The
-           post-apply boot alone proves nothing, because the collision only fires when a
-           BUILD IS CREATED for a branch with an existing builds/1 — if indexing finds no
-           new commits, you get zero warnings whether or not the fix works. A fresh PR has
-           no builds/1 and is the NEGATIVE CONTROL, not the test.
-
-    4. THEN merge cv-infra#21 and set this task `done`. PR #21 is OPEN/BLOCKED — same
-       ruleset as every other repo here (`RepositoryRole: always` bypass), so it needs
-       `--admin`, which is the designed path, not a circumvention. See T-105's merge note.
-
-    ROLLBACK: revert the commit and re-apply. The jobs themselves are untouched by this
-    change, and the guard cannot leave a job in a less-restricted state.
+    DO NOT MERGE PR #21 AS WRITTEN — it is proven inert.
   budget: |
     HARD AT CHECKPOINT TIME — this is why the task is parked here rather than carried on.
     Probed 2026-08-26: turns 428/400 (107%), tokens 147.5M/150M (98.4%), status HARD.
