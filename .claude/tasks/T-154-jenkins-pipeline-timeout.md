@@ -91,4 +91,17 @@ Database: jdbc:mysql://cv-mysql-ci-2:3306/cv?allowPublicKeyRetrieval=true (MySQL
 
 **Sharpen the argument accordingly.** The observed backoff **doubles** (1, 2, 4, 8 …) against `FLYWAY_CONNECT_RETRIES=60`. If MySQL fails to come up at all — a bad image pull, a full disk, the 8.4 tag moving — the build does not fail fast; it walks that backoff to exhaustion while **holding the only CI host up**, defeating [T-019](T-019-ci-host-on-demand.md)'s reaper exactly as this task predicts. Do not put a number on the total in the task record without checking Flyway 10's `connectRetriesInterval` cap; the point stands without one, and an unverified figure here would be the kind of claim this board keeps having to retract.
 
-**A second, cheaper fix is now visible** and should be priced at H1 alongside `timeout {}`: **wait for the MySQL container to report healthy before invoking Flyway**, so the retry budget stops being the synchronisation mechanism. That does not replace the timeout — a timeout bounds *every* hang, not just this one — but it removes the path that currently exercises it on every single build.
+**A second, cheaper fix is now visible** and should be priced at H1 alongside `timeout {}`: **wait for the MySQL container to report healthy before invoking Flyway**, so the retry budget stops being the synchronisation mechanism.
+
+
+## This task's cost premise is CONFIRMED against the reaper's source (2026-08-26)
+
+Read while investigating [T-026](T-026-first-build-after-cold-start-fails.md)/[T-030](T-030-pr3-build1-success-then-error.md), and recorded because **this task's premise has already been falsified once** (the retry loop was called latent and is not) — so confirming the *other* premise on evidence rather than leaving it inherited is worth the two minutes.
+
+The claim under test is this file's central cost argument: *"A hung build defeats the 'stopped when quiet' half: the reaper sees an active build and leaves the box up."* **True, and by explicit design.** `lambda/ci_reaper/index.py` requires **two independent signals** to agree, and its docstring rejects the alternative in terms:
+
+> *"CPU is a VETO, never the sole signal — the failure mode ruling 2 rejected was inferring idleness FROM CPU, which kills a build that is waiting on a download. Here a low-CPU build is still protected by signal 1."*
+
+Signal 1 is `jenkins_is_idle()`, which reads `/queue/api/json` and `busyExecutors` and returns **False (busy) on any unclear answer**. A Flyway retry loop burns almost no CPU, so it sails through the CPU veto — and is then held up by the executor count, indefinitely, exactly as this task predicts. **`IDLE_WINDOW_MINUTES = 20` never elapses in Jenkins' eyes while the build is running.**
+
+**A tempting inversion was considered and is wrong** — recorded so nobody re-derives it: the reaper's *first* check is `cpu_quiet_over_window()`, which on a hung, sleeping build passes. It is easy to read that and conclude the box would be reaped mid-build. It would not; the Jenkins check runs second and vetoes, and it is deliberately re-run a second time to close the race. So this task's cost argument stands **and** the reaper is not a mitigation for it — the `timeout {}` really is the only bound. That does not replace the timeout — a timeout bounds *every* hang, not just this one — but it removes the path that currently exercises it on every single build.

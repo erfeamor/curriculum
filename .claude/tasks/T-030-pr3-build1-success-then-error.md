@@ -133,7 +133,11 @@ Stated carefully, because overstating an attribution is the error that created t
 
 **These remain two distinct defects** — the discriminator settled that. But this log is the first **direct, logged evidence that Jenkins restarts mid-build on this host**, nine seconds after a build started, inside the cold-start window. T-026's leading candidate — promoted when the PR-4 console arrived — is *"SSM re-provisioning orphaning the in-flight record"*, the only candidate that predicts *checkout succeeds, then the record vanishes*.
 
-This is exactly that event, **survived**. The most economical reading of both tasks:
+~~This is exactly that event, **survived**.~~ **CORRECTED THE SAME DAY, 2026-08-26 — the SSM half of that sentence is REFUTED.** The invocation history was read hours after this section was written: **44 invocations, and not one on 2026-08-20, 08-21 or 08-22.** So the restart observed here was **not** SSM re-provisioning, and neither were the T-026 occurrences. What survives is the weaker but still useful half — *a restart happens mid-build, inside the first minute after boot* — with its **cause now open**, not identified. Full elimination table on [T-026](T-026-first-build-after-cold-start-fails.md).
+
+**Recorded as a correction rather than an edit**, because the shape is this board's signature: a plausible attribution written down confidently, going stale within hours, in a task whose entire reason for existing is that exact error being made once already. Caught this time by reading the artifact instead of stopping at the narrative.
+
+The most economical reading of both tasks:
 
 | | Restart happens mid-build, and… | Result |
 |---|---|---|

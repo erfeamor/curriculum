@@ -158,6 +158,51 @@ The economical reading of both tasks, stated as a hypothesis and not as a unific
 
 **One trigger, two outcomes, depending on whether the build record survived.** Not proven — deliberately not written into the occurrence table, and the count stays six. What it changes is the *diagnostic target*: the two artifacts named below are now more likely to settle both tasks at once, and the SSM invocation history is the one that discriminates.
 
+## CANDIDATE 1 IS REFUTED — the SSM invocation history was read, and there is nothing there (2026-08-26)
+
+**This task's leading candidate is dead, and it was killed by the artifact this file has been asking for since 2026-08-22.** The acceptance criterion names *"SSM command invocation history for the instance"*; it was read for the whole retention window.
+
+```
+aws ssm list-command-invocations --instance-id i-073e5284ca2a1ceed
+  ... 2026-08-19T11:15:13  Failed   AWS-RunShellScript      <-- T-019's work
+  ... 2026-08-26T10:41:43  Success  AWS-UpdateSSMAgent      <-- agent self-update
+```
+
+**44 invocations total. The history jumps from 2026-08-19 straight to 2026-08-26 — there is not one SSM invocation on 08-20, 08-21 or 08-22**, the three days carrying five of the six occurrences. So *"SSM re-provisioning orphaning the in-flight record"* did not happen on any of them. It was the only candidate predicting *checkout succeeds, then the record vanishes*, and it is now excluded on evidence rather than demoted on argument.
+
+**Three more mechanisms were eliminated in the same pass**, each by a different artifact:
+
+| Eliminated | How, and it is a negative rather than an absence of looking |
+|---|---|
+| **user_data re-running `jenkins-provision.sh`** (which *would* `docker rm -f jenkins`, via `recreate_if_needed`) | user_data is **plain shell**, not `#cloud-config`, with no `cloud-init-per`/`scripts-user: always` marker anywhere — so cloud-init runs it **once per instance**, not per boot. `ci.tf` says so in its own words: *"user_data reads the CI parameters at first boot"*. The obvious mechanism, and it does not fire on a stop→start. |
+| **Kernel OOM kill of the JVM** (plausible on a 2 GB `t3.small` during a `mysql:8.4` pull) | `get-console-output` for the most recent boot carries the full session through `reboot: Power down` at 1424s uptime and contains **no OOM-killer line**. An OOM kill writes to the kernel ring buffer and would appear here. |
+| **The reaper racing the boot** | Its own logs exonerate it: `07:44:15 nothing to do; instance is stopped`, then nothing until `08:09:15`. It never touched the instance across the 07:47:16 restart. And it is built not to: `jenkins_is_idle()` treats an **unreachable Jenkins as BUSY**, precisely so a booting box is not stopped under it. |
+| **A double `StartInstances` from the doorbell** | CloudTrail shows exactly **one** at 07:46:16Z for this event. (It does show doubles and triples on other days — 3× on 08-21 09:13:28 — but `StartInstances` on a running instance is a no-op.) |
+
+### What the same pass established positively — the window is now measured, not estimated
+
+CloudTrail pins the boot: **`StartInstances` by `cv-project-ci-doorbell` at 2026-08-22T07:46:16Z**. [T-030](T-030-pr3-build1-success-then-error.md)'s build began 51s later and Jenkins restarted at **60s after boot**. That drops it into the same band as every occurrence here:
+
+| Occurrence | Seconds after instance start |
+|---|---|
+| `cv-domain-service` PR-8#1 | 42 |
+| `cv-domain-service` PR-4#1 | ~47 |
+| `cv-database` PR-4#1 | 62 |
+| `cv-domain-service` PR-9#1 | 64 |
+| *(T-030, not an occurrence — a survived restart)* | *60* |
+
+**Everything happens inside the first 42–65 seconds after boot, with no external actor involved.** Combined with the eliminations above, the cause is now confined to the box's own start-up: docker restarting the `--restart unless-stopped` Jenkins container, and whatever happens to that container in its first minute. Nothing outside the instance is touching it.
+
+### The three artifacts that would finish this — all require the box RUNNING
+
+The remaining candidates are on-box and none is readable while the instance is stopped, which it now is (reaper, 09:44:17 GMT):
+
+- `docker inspect jenkins --format '{{.RestartCount}} {{.State.StartedAt}} {{.State.ExitCode}}'` — settles in one line whether the **container** restarted, and why it exited.
+- `docker logs jenkins --since <boot>` and `journalctl -u docker --since <boot>` — separates a container restart from Jenkins restarting *itself*.
+- `/var/lib/jenkins/logs/` — Jenkins' own view of its shutdown.
+
+**Ordering note for whoever runs them:** the box must be woken deliberately (or by a push) and the commands run **within the first two minutes of boot**, because that is the entire window in which this happens. Waiting for a convenient moment loses the evidence.
+
 **Residual defect inherited from T-030, recorded here because T-030 closed:** every Jenkins restart mid-build also produces a **spurious `error` status after a `success`** on whatever build was in flight. Both symptoms plausibly share this task's fix — stop Jenkins restarting while builds are in flight, i.e. sequence the cold-start provisioning so Jenkins does not accept work until provisioning is done. **Hardening the `post` block against a lost `FilePath` is explicitly NOT the recommended primary fix**: it would quieten the symptom while the restart kept happening, and it would leave this task's fatal variant untouched. Written down here rather than left implied by a closed task — the [T-002](T-002-jenkins-on-drone-host.md)→[T-005](T-005-ci-secret-blast-radius.md) TLS hand-off sat unowned for eleven days for exactly that reason, and became [T-033](T-033-ci-host-tls.md).
 
 ## Acceptance criteria
