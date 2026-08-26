@@ -3,10 +3,10 @@ id: T-026
 title: "First build after a Jenkins restart fails — ROOT CAUSE FOUND: JENKINS-23152 build-number collision (the DSL seed recreates the jobs every boot against a persistent JENKINS_HOME)"
 title_note: "Retitled 2026-08-26. The old title — 'the first Jenkins build after a cold start fails' — named a CORRELATE as the cause and survived five weeks of investigation unchallenged. The cold start is only when Jenkins happens to restart on this host; the collision fires on ANY restart, and only on a branch whose builds/1 already exists."
 repo: cv-infra
-status: todo
-owner:
-branch: fix/first-build-after-cold-start
-pr:
+status: in_review
+owner: infrastructure-engineer
+branch: fix/dsl-seed-idempotent   # was fix/first-build-after-cold-start — renamed to match the fix, which is the DSL seed, not the cold start
+pr: https://github.com/erfeamor/cv-infra/pull/21
 depends_on: [T-019]
 risk: normal
 security_review: false   # no security path in adapter §5 — CI reliability, not exposure
@@ -220,6 +220,38 @@ The root cause is **the DSL seed recreating the multibranch jobs on every boot**
 **Verification is now cheap and exact, which it never was before:** stop the box, push to a branch that has built before, and assert **zero** `JENKINS-23152` lines in `docker logs jenkins` for that boot. That is a real test, unlike this file's original *"push twice in a row and see"*.
 
 **A caution for whoever runs it:** `builds/1` already exists for every branch listed above, so any *existing* PR reproduces it. Use one of those, not a fresh PR — a fresh PR is the negative control, not the test.
+
+## FIX IMPLEMENTED — [cv-infra#21](https://github.com/erfeamor/cv-infra/pull/21), NOT YET APPLIED (2026-08-26)
+
+Option 1 from the fix list above: **make the DSL seed idempotent.** 35 lines in `templates/jenkins-provision.sh`, no behaviour change on a clean `JENKINS_HOME`. Each of the two `jobs:` DSL scripts now returns early when the item already exists.
+
+**The `try/catch` is the safety property, not decoration.** A raised exception inside a JCasC document aborts the *entire* document and the box comes up with **no jobs at all** — a failure mode `jenkins-provision.sh` already warns about in its own comments. So if the lookup is ever unavailable, `existing` stays null and control falls through to creating the job: today's behaviour, never worse. The fail-open direction is also the *safer* one, because creating the job re-applies the restrictive `traits`.
+
+The `println` is deliberate — it is the observable that proves the guard ran, and step 1 of verification below depends on it.
+
+**Gates:** `terraform fmt -check -recursive` clean · `terraform validate` succeeds · `terraform test` **4/4**. `/security-review`: **no HIGH or MEDIUM findings**.
+
+### The trade-off, recorded as a decision rather than absorbed
+
+Re-running the DSL on every boot was **also acting as drift correction** for the `traits` block, which pins fork-PR discovery **off** — and the file says why in terms: *"Public repo + mounted docker.sock: an untrusted Jenkinsfile is RCE-on-host… fork PRs deliberately absent. Not boilerplate; do not delete."* With this guard, a job edited through the UI is no longer silently re-asserted on the next boot.
+
+**Taken deliberately.** A first build that fails after every restart is a daily cost; the drift this protected against requires **Jenkins admin access**, and an admin already has the script console — i.e. RCE on a host with a mounted docker socket. So the DSL re-application was never a boundary against an *attacker*, only against an admin's accidental edit. Real reduction, low marginal risk, written down rather than discovered later.
+
+**Operational consequence, which is the part most likely to bite:** changing a job definition now requires **deleting the job** (or a one-off manual DSL run) for the change to take effect. A future task that edits the DSL and sees nothing happen should read this paragraph first.
+
+### The one unverified assumption
+
+Whether JCasC job-dsl scripts run **sandboxed** on this Jenkins. If they do, `jenkins.model.Jenkins.get()` is rejected and the guard silently never fires. Evidence says unsandboxed — no `javaposse.jobdsl.plugin.GlobalJobDslSecurityConfiguration.xml` on disk, and **zero** sandbox rejections across 15 boots of container log — but that is suggestive, not proof, and it is exactly what the fail-open catch exists to survive.
+
+### Verification at apply time — in this order
+
+1. **`docker logs jenkins | grep "T-026:"`** → expect both `already exists; not reseeding` lines. **Their absence means the guard did not run** (sandbox), and the fix is inert rather than broken.
+2. Confirm both jobs still exist and their `traits` are intact — the guard must not have skipped a job that needed creating.
+3. **The real test:** stop the box, push to a branch that **has built before**, assert **zero** `JENKINS-23152` for that boot. A fresh PR has no `builds/1` and is the *negative control*, not the test.
+
+Rollback is a revert plus re-apply; the jobs themselves are untouched by this change.
+
+**This task stays `in_review` until applied and verified** — a merged PR that changes a script fetched at boot is not the same as a fixed CI host, and `terraform apply` is deliberately gated (`settings.local.json` keeps it in `ask`).
 
 ## CANDIDATE 1 IS REFUTED — the SSM invocation history was read, and there is nothing there (2026-08-26)
 
