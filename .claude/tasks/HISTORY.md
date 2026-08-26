@@ -729,3 +729,17 @@ Same fail-open `try/catch` — on any failure the job is still created, never wo
 **What this unblocks:** [T-019](T-019-ci-host-on-demand.md)'s acceptance criterion — *"a build that needs the host actually completes end to end while the automation owns the lifecycle"* — is now met by the build the automation itself triggered, which is what T-026 had silently weakened since 2026-08-20.
 
 **Cost note.** The whole stage — apply, four verification steps, merge — ran **inline in the driver with zero subagent spawns**, at 24% of the turn ceiling. The previous session had stopped at `HARD` (107% of turns) with the checkpoint written; resuming cost one apply plus the verification, no re-brief and no rework. The checkpoint protocol did exactly what it is for.
+
+### [T-019](T-019-ci-host-on-demand.md)'s criteria reconciled — one closed, one found never to have been tested (2026-08-26)
+
+Follow-on from T-026's close-out, which met T-019's last narrative criterion: *"a build that needs the host actually completes end to end while the automation owns the lifecycle."* It had been claimed on 2026-08-20 and carried an asterisk ever since — it was satisfied by build **#3**, never by build **#1**, the one the doorbell itself caused. With T-026 fixed, the first build after a cold start is now the build that counts, so the asterisk is gone and the criterion is ticked.
+
+**The reconciliation found something the tick would otherwise have hidden.** T-019's acceptance list had been left **entirely unticked since 2026-08-19**, with all the evidence sitting in `checkpoint.stage4` instead. Ticking one box made the list read as though it were the only one done, so the whole list was checked against the file's own evidence. Five more were met and are now ticked with pointers. One was not:
+
+> **"The host stops automatically when idle, and a build in progress is never killed."** The first half is well evidenced — the reaper stops the box and honours `CIKeepAlive`. **The second half has never been tested.** None of the 14 live checks started a build and watched it survive a shutdown window, and nothing since supplied one.
+
+**And T-026's verification must not be misread as that proof**, which is the trap worth writing down: a build *was* killed mid-flight that day (`chore/t026-verify` build 1, dead while downloading Maven dependencies), but by a **manual `stop-instances` issued by the driver**, not by the reaper's idle check. It demonstrates that a mid-build stop is fatal — the thing the criterion exists to prevent — while saying nothing about whether the reaper would have declined. Settling it needs a live test: start a build, let the ~20-minute window elapse across it, confirm the pre-`StopInstances` re-check sees the busy executor and backs off.
+
+So T-019 has **two** criteria open, not one: the billing-week rate (elapsed as of today, deliberately left for [T-032](T-032-board-check-re-review-after-live-use.md)'s session rather than convening one to read a single number) and the mid-build survival test. The task stays `done` — its PR merged — per the rule this board adopted after repeatedly having to unpark tasks left in `in_review` behind residual criteria.
+
+**One caution for whoever reads the billing rate:** 2026-08-26 carries three extra cold starts, three real builds and a `terraform apply` from T-026's verification. Read the rate across the window, not off that day, or the reaper will look worse than it is.

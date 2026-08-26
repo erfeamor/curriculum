@@ -54,7 +54,7 @@ checkpoint:
     Merged as bd65353 (cv-infra#17), so this task is `done` by board rule 6. The two
     criteria above are recorded here rather than held open as a status, because a task
     parked in `in_review` after its PR merged is what this board keeps having to fix.
-  remaining: |
+  SUPERSEDED_remaining_3: |
     CORRECTED AGAIN 2026-08-20, later the same day. The block above predicted its own
     proof ("the NEXT push -- T-102 supplies it for free") and then the proof ARRIVED and
     was never written back here. It is stale; this is what is true:
@@ -74,6 +74,44 @@ checkpoint:
         Applied 2026-08-19, so this needs ~6 more days of elapsed time, not work.
     The lesson this file keeps demonstrating: a note that says "X will prove this" has to
     be revisited when X happens, or it goes on asserting the opposite of the record.
+  remaining: |
+    CORRECTED 2026-08-26. The block above demonstrated its own stated lesson a THIRD time:
+    it recorded an asterisk and a waiting period, and both resolved without being written
+    back. What is true now:
+      - THE ASTERISK IS GONE. "A build that needs the host completes end to end while the
+        automation owns the lifecycle" is met UNCONDITIONALLY, by the build the doorbell
+        itself caused. T-026 -- the defect that killed build #1 on every cold start -- was
+        root-caused (JENKINS-23152 build-number collision from the JCasC DSL reseeding the
+        jobs on every boot) and FIXED, merged as cv-infra 1deebb4 (#21) on 2026-08-26.
+        Verified by the shape this criterion always wanted: box stopped IDLE, real push ->
+        doorbell -> StartInstances -> Jenkins boot -> build on a branch that already had
+        builds/1 -> Finished: SUCCESS, Lint executed, 141 tests, and GitHub's full status
+        history showing pending -> success with NO `error` state.
+      - CORRECTION TO THE COUNT ABOVE: "reproduced 3-for-3 since" was true when written and
+        was never updated. T-026's reconciled final count is SIX occurrences, and a seventh
+        JENKINS-23152 warning belongs to T-030. Not edited in place, per strike-don't-delete.
+      - THE BILLING WEEK HAS NOW ELAPSED. The automation applied 2026-08-19, so the full
+        week completed TODAY, 2026-08-26. That criterion is therefore READY to read but is
+        deliberately NOT read here: it is already assigned to ride T-032's session (dated
+        not before 2026-08-30), and convening a separate session to read one Cost Explorer
+        number is the expensive path this board already ruled against.
+      - TWO acceptance criteria are still open, not one. Corrected within the same edit
+        that first wrote "exactly ONE" here -- reconciling the checkbox list immediately
+        showed the second:
+          (a) the billing-week rate, waiting on T-032's scheduled session, not on work;
+          (b) "a build in progress is never killed", whose FIRST half (the reaper stops the
+              box, and honours CIKeepAlive) is evidenced, and whose SECOND half has never
+              been tested -- no live check ever started a build and watched it survive a
+              shutdown window. See the criterion itself for what would settle it, and for
+              why T-026's mid-flight build death does NOT count (a manual stop-instances
+              issued by the driver, not the reaper's idle check).
+        Every other criterion is met, and the checkbox list now says so -- it had been left
+        entirely unticked since 2026-08-19 with the evidence sitting in checkpoint.stage4,
+        which is how (b) stayed invisible for a week.
+    NOTE ON THE MEASUREMENT WINDOW, for whoever reads the rate: 2026-08-26 includes THREE
+    extra cold starts and three real builds fired by T-026's own verification, plus a
+    terraform apply. That is a legitimately busier day than a normal one. Read the rate
+    across the window, not off 08-26 alone, or the reaper will look worse than it is.
   note: "SUPERSEDED 2026-08-24 — DO NOT READ AS CURRENT; kept verbatim per strike-don't-delete. It described stage 0 and was never updated as the task ran to completion, so this key contradicted `stage: done` and the merge/apply records ABOVE it in the same mapping. A resumed session reading top-down would have been told the task was pre-H1 with nothing built. It read: 'Stage 0 refinement done 2026-08-19; §4 was ratified the same day (build it) and §§1-3 are ruled on below, PENDING H1 RATIFICATION. Nothing is implemented yet — T-019's own DoR §1 forbids writing code before the replay design is chosen.' What is actually true: H1 was ratified, all five rulings were implemented, PR #17 merged as bd65353, and the automation is applied and live."
   repo: cv-infra
   branch: feat/ci-host-on-demand
@@ -241,16 +279,27 @@ The hooks currently point at the EIP (`ci.tf` header, manual step 5). While the 
 
 ## Acceptance criteria
 
-- [ ] A push to a watched repo starts the CI host, and the build **actually runs** — proven end to end with a real push, not by reading the Terraform.
+- [x] A push to a watched repo starts the CI host, and the build **actually runs** — proven end to end with a real push, not by reading the Terraform.
+  - Met 2026-08-20 by T-106's push (delivery 200 → `StartInstances` → scan → build); evidence in `checkpoint.SUPERSEDED_remaining_3`. Re-proven 2026-08-26 during T-026's verification.
 - [ ] The host stops automatically when idle, and **a build in progress is never killed** — proven by starting a build and confirming it survives the shutdown window.
-- [ ] An unsigned or wrongly-signed request to the Function URL changes nothing and starts no instance (test it).
-- [ ] IAM is scoped to the single instance ARN and to start/stop only.
-- [ ] The webhook secret lives in SSM, not in a committed file.
-- [ ] `terraform fmt -check -recursive`, `terraform validate`, `terraform test` pass offline, with assertions for the new Lambda, its IAM policy and the schedule.
+  - **Still open, and narrowed 2026-08-26 — read this before ticking it.** The *first* half is well evidenced (the reaper stops the box, and it honours `CIKeepAlive` — `checkpoint.stage4`). The **second half has never actually been tested**: none of the 14 live checks started a build and watched it survive a shutdown window, and no later event supplied one either.
+  - **Do not read T-026's verification as that proof.** A build *was* killed mid-flight on 2026-08-26 (`chore/t026-verify` build 1, dead while downloading Maven dependencies), but it was killed by a **manual `stop-instances` issued by the driver**, not by the reaper — so it says nothing about whether the idle check would have spared it. If anything it is a reminder that the box stopping mid-build is genuinely fatal to that build, which is exactly what this criterion exists to prevent.
+  - **What would settle it:** start a real build, let the 4-consecutive-idle-check window (~20 min) elapse across it, and confirm the reaper's pre-`StopInstances` re-check sees the busy executor and declines. That is a live test against the running host, not a config read.
+- [x] An unsigned or wrongly-signed request to the Function URL changes nothing and starts no instance (test it).
+  - Met 2026-08-19: three live checks (unsigned, wrong signature, and a signed push for a repo outside the allowlist → 403), all leaving the box `stopped`. Evidence in `checkpoint.stage4`.
+- [x] IAM is scoped to the single instance ARN and to start/stop only.
+  - Met 2026-08-19: both policies read back **from the live account**, ARN-scoped to `i-073e5284ca2a1ceed`, start/stop only, no destructive actions. Evidence in `checkpoint.stage4`.
+- [x] The webhook secret lives in SSM, not in a committed file.
+  - Met 2026-08-19: parameter confirmed `SecureString`. Evidence in `checkpoint.stage4`.
+- [x] `terraform fmt -check -recursive`, `terraform validate`, `terraform test` pass offline, with assertions for the new Lambda, its IAM policy and the schedule.
+  - Met at the task's A1 gate and still green: re-run 2026-08-26 during T-026's A1, `terraform test` reports 4 passed / 0 failed including `run "ci_on_demand"`.
 - [ ] The measured saving is recorded against **[T-020](T-020-cost-model-correction.md)**'s cost model (not T-010's, which is superseded) after a full billing week — and the rate is still at or near **$0.6837/day** *with builds running through the automation*. Added at H1 2026-08-19: the host is already stopped, so a low rate proves nothing on its own. What needs proving is that it goes back down after each build.
   - **This check should ride [T-032](T-032-board-check-re-review-after-live-use.md)'s session — 2026-08-24, on the human's instruction.** ~~The billing week has now elapsed~~ **— corrected the same day it was written: it had NOT.** The automation applied 2026-08-19, so a full week completes **2026-08-26**; the claim was written on 08-24, two days early. The same sentence also said *"six cold starts recorded in T-026"* — T-026's reconciled count is **five**, and the inflated ordinal was written hours after the same session fixed T-026's ordinals. Both errors are the board's signature class, caught by the next review rather than by the writer. **The arrangement itself survives its premises being corrected:** T-032 starts no earlier than 2026-08-30, by which point the week (complete 08-26) genuinely has elapsed, and real builds ran through the automation on 2026-08-20/21/22 (T-106, T-107, T-103, T-104, T-151 — five confirmed cold starts), so Cost Explorer will hold a full automated week by then. T-032 is already dated *"not before 2026-08-30"* and is a meta-repo, read-only, no-apply session — exactly the shape that can run `aws ce get-cost-and-usage` alongside its own work. **One session closes both**; convening a separate one to read a single number is the expensive path.
   - **What to check, so it is not read too loosely:** the daily rate across a window containing those build days must sit at or near **$0.6837/day**. A *higher* sustained rate means the reaper is not stopping the box after builds — which is the only thing this criterion was ever testing, since the box was already stopped by hand before the task shipped (see the H1 ruling above). Record the figure against T-020's model either way.
-- [ ] **A build that needs the host actually completes end to end while the automation owns the lifecycle** — pick one of T-102/T-103/T-104's PRs, or an equivalent push to `cv-domain-service`, and confirm Jenkins reports a commit status. This is the criterion that connects the task to why it was ratified.
+- [x] **A build that needs the host actually completes end to end while the automation owns the lifecycle** — pick one of T-102/T-103/T-104's PRs, or an equivalent push to `cv-domain-service`, and confirm Jenkins reports a commit status. This is the criterion that connects the task to why it was ratified.
+  - **MET 2026-08-26, and met without the asterisk it carried for six days.** It was first claimed on 2026-08-20 by T-106's push, but only build **#3** satisfied it — build **#1**, the one the doorbell itself caused, failed every time with `No build record … could be located`. That defect was [T-026](T-026-first-build-after-cold-start-fails.md), and while it stood, this criterion was met by a *retry*, not by the automation.
+  - **[T-026](T-026-first-build-after-cold-start-fails.md) is now fixed and merged** (cv-infra `1deebb4`, [#21](https://github.com/erfeamor/cv-infra/pull/21)) — root cause was a JENKINS-23152 build-number collision, the JCasC DSL reseeding the jobs on every boot against a persistent `JENKINS_HOME`. **The proof is the exact shape this criterion always wanted:** box stopped *idle* → real push → doorbell → `StartInstances` → Jenkins boot → build on a branch that already had `builds/1` → `Finished: SUCCESS`, Lint executed, 141 tests green. GitHub's **full status history** (statuses API, not `gh pr checks`) shows `pending → success` with **no `error` state** — against six recorded occurrences that every one show one.
+  - **So the first build after a cold start is now the build that counts**, which is what "the automation owns the lifecycle" meant. Evidence in T-026's `applied_result` and the 2026-08-26 HISTORY.md entry.
 
 ## Definition of done
 
