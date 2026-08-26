@@ -9,7 +9,100 @@ branch: fix/dsl-seed-idempotent   # was fix/first-build-after-cold-start — ren
 pr: https://github.com/erfeamor/cv-infra/pull/21
 depends_on: [T-019]
 risk: normal
-security_review: false   # no security path in adapter §5 — CI reliability, not exposure
+security_review: true    # CORRECTED 2026-08-26 by A1's re-check against the REAL diff, per adapter §5. The stage-0 value was `false` ("CI reliability, not exposure"), which was right about the SYMPTOM and wrong about the fix: the diff edits templates/jenkins-provision.sh, the script that fetches secrets and writes the CI job definitions. /security-review RAN and returned no HIGH or MEDIUM findings.
+checkpoint:
+  stage: qa                # PR open + all gates green. Stage 4 for an infra task IS the apply plus live verification, and NEITHER HAS HAPPENED. Nothing is deployed.
+  repo: cv-infra
+  branch: fix/dsl-seed-idempotent
+  worktree: none           # cv-infra has a LOCAL terraform backend (T-004 part 2 is still todo), so it cannot be worked from a worktree
+  commit: 7e0e236          # 1 commit ahead of master, pushed
+  pr: https://github.com/erfeamor/cv-infra/pull/21
+  developer: infrastructure-engineer
+  reviewers: ["/security-review"]
+  risk: normal
+  security_review: true
+  review_round: 1
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  updated: 2026-08-26
+  a1: |
+    GREEN, run by the driver in cv-infra/: terraform fmt -check -recursive clean,
+    terraform validate Success, terraform test 4 passed / 0 failed. Diff is ONE file,
+    +35/-0, templates/jenkins-provision.sh only. No .tf file changed.
+  security_review_result: |
+    RAN 2026-08-26. NO HIGH OR MEDIUM FINDINGS. Reviewed inline by the driver rather than
+    fanned out to subagents: a 35-line diff with full repo context already loaded, and the
+    budget guide's rule is not to spawn for work the driver can do inline.
+    Reasoning kept because a later reader will otherwise re-litigate it:
+      - No injection surface added. No interpolation, no ${} (Terraform templatefile would
+        expand it — checked), both job names are hardcoded literals, no untrusted input.
+      - The fail-open direction is toward MORE security: if Jenkins.get() throws, `existing`
+        stays null and the job IS created, which re-applies the restrictive traits.
+      - The drift-correction loss is real but NOT an exploitable boundary: editing a
+        multibranch job config requires Jenkins admin, and an admin already has the script
+        console = RCE on a host with a mounted docker socket. The DSL re-application only
+        ever corrected an admin's ACCIDENTAL edit. Recorded as an accepted trade-off in the
+        body, not as a finding.
+  RESUME_AT: |
+    STAGE 4 = APPLY + VERIFY. Do it in this order; step 0 is not optional.
+
+    0. START THE CI HOST FIRST. It is `stopped` (reaper, 2026-08-26 11:29:17 GMT).
+       null_resource.jenkins_provision polls for the SSM agent to report Online with a
+       300s timeout and then `exit 1`, so APPLYING AGAINST A STOPPED BOX FAILS AFTER FIVE
+       MINUTES. Either `aws ec2 start-instances --region eu-west-3 --instance-ids
+       i-073e5284ca2a1ceed`, or let a push wake it through the doorbell.
+
+    1. APPLY FROM THE BRANCH, not from master — T-018/T-022 precedent and T-014's rule that
+       "H2 must gate the apply, not just the merge". If it misbehaves, master stays clean.
+       `terraform apply` is deliberately kept in `ask` in settings.local.json; do NOT
+       allowlist it to speed this up.
+
+    2. WHAT THE APPLY DOES — plan captured 2026-08-26, NO INSTANCE REPLACEMENT:
+         aws_s3_object.jenkins_provision             updated in-place
+         aws_ssm_parameter.jenkins_provision_sha256  updated in-place
+         local_file.jenkins_provision_script         replaced (local file)
+         null_resource.jenkins_provision             replaced (script_sha trigger)
+         Plan: 2 to add, 2 to change, 2 to destroy.
+       Chain: new script to S3 + new SHA to SSM -> null_resource re-runs provisioning over
+       SSM -> jenkins.yaml rewritten with the guard -> JENKINS_CONFIG_HASH changes ->
+       recreate_if_needed recreates the Jenkins CONTAINER -> Jenkins boots -> JCasC applies
+       the guarded DSL. Expect ~60s of Jenkins downtime; the script health-checks
+       /jenkins/login through ci-proxy before returning, so a failure surfaces in the apply.
+       JENKINS_HOME is a BIND MOUNT, so `docker rm -f -v` does not touch the jobs — which is
+       exactly what the guard needs to find.
+
+    3. VERIFY, IN THIS ORDER:
+       3a. `docker logs jenkins | grep "T-026:"` -> expect BOTH "already exists; not
+           reseeding" lines. THIS IS THE CHECK THAT DISTINGUISHES WORKING FROM INERT: their
+           absence means the guard never fired (the sandbox case), not that it failed.
+       3b. Confirm both jobs still exist and their `traits` are intact — the guard must not
+           have skipped a job that actually needed creating.
+       3c. THE CONCLUSIVE TEST, and it is NOT satisfied by 3a: stop the box, push to a
+           branch that HAS BUILT BEFORE, assert ZERO JENKINS-23152 for that boot. The
+           post-apply boot alone proves nothing, because the collision only fires when a
+           BUILD IS CREATED for a branch with an existing builds/1 — if indexing finds no
+           new commits, you get zero warnings whether or not the fix works. A fresh PR has
+           no builds/1 and is the NEGATIVE CONTROL, not the test.
+
+    4. THEN merge cv-infra#21 and set this task `done`. PR #21 is OPEN/BLOCKED — same
+       ruleset as every other repo here (`RepositoryRole: always` bypass), so it needs
+       `--admin`, which is the designed path, not a circumvention. See T-105's merge note.
+
+    ROLLBACK: revert the commit and re-apply. The jobs themselves are untouched by this
+    change, and the guard cannot leave a job in a less-restricted state.
+  budget: |
+    HARD AT CHECKPOINT TIME — this is why the task is parked here rather than carried on.
+    Probed 2026-08-26: turns 428/400 (107%), tokens 147.5M/150M (98.4%), status HARD.
+    Spawns this session: 4 (all on T-105; this task's review was run inline by the driver).
+    Per references/budget.md a HARD reading means checkpoint and STOP — no new stage, no new
+    spawn. The apply is a new stage and was deliberately NOT started.
+    NOTE the standing caveat: this is consumption against a SELF-IMPOSED ceiling, NOT a
+    reading of remaining plan quota, which is not observable from inside a session. The
+    adapter's second calibration point says ceiling_turns:400 trips roughly 20 points before
+    real usage — so treat HARD here as "the guard did its job", not as "the plan is spent".
+    RESUMING COSTS: one apply + three verification steps + a merge. No re-brief, no rework —
+    everything needed is in RESUME_AT above.
 ---
 
 ## Why this exists
