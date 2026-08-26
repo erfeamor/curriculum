@@ -159,6 +159,33 @@ Hardening the `post` block against a lost `FilePath` would only make the symptom
 - [x] Mechanism identified — a mid-build controller restart costing the post block its `hudson.FilePath`. Not parked as "cause unknown".
 - [x] T-026's occurrence count reflects the ruling: **unchanged at six.** The evidence does not support adding this one — it now **excludes** it positively rather than for want of a log, which is a stronger statement than the provisional exclusion T-026's ruling 1 has carried since 2026-08-24.
 
+### MECHANISM SUPERSEDED THE SAME DAY — there was no mid-build restart, and the root cause is shared with T-026 (2026-08-26)
+
+**The section above says "Jenkins restarted mid-build". Measured hours later on a live control boot: it did not.** The CI host was woken with no push, so no build ran, and sampled twice:
+
+```
+RestartCount=0   StartedAt=11:03:43   OOMKilled=false
+docker events since boot:  1 × "jenkins start",  0 × "jenkins die"
+docker logs | grep -c "Running from: .../jenkins.war"  ->  one JVM start per boot
+```
+
+**Jenkins starts exactly once per instance boot and does not restart.** So *"Resuming build … after Jenkins restart"* never described a crash. The "restart" it names is the **instance stop/start** — the durable-pipeline machinery restoring a stale flow execution that the previous session left behind in `builds/1`.
+
+**And the real cause is now known, from the Jenkins log for this very build:**
+
+```
+2026-08-22T07:47:15  JENKINS-23152: .../cv-database/branches/PR-3/builds/1 already existed;
+                     will not overwrite with cv-database/PR-3 #1 but will create a fresh build #2
+2026-08-22T07:48:07  FlowExecutionList#unregister: cv-database/PR-3#1 was not in the list
+                     to begin with: [cv-database/PR-3#2]
+```
+
+`JENKINS_HOME` is a persistent host mount and the **Job DSL seed recreates the multibranch jobs on every Jenkins boot** (30 `Processing provided DSL script` lines = 2 jobs × 15 boots), so a recreated branch job numbers from #1 and collides with the `builds/1` already on disk. Build #1 is orphaned; #2 is created fresh and runs clean. **Seven such warnings exist in the whole log and they match T-026's six occurrences plus this one, 1:1.** Full analysis on [T-026](T-026-first-build-after-cold-start-fails.md).
+
+**So: the ruling stands, the mechanism does not.** This remains a *different symptom* from T-026 — build #1 here resumed a stale execution and completed its body before dying in the `post` block, where T-026's build #1 never runs a step at all — and it stays out of T-026's occurrence count for that reason. But **the root cause is one and the same**, and *"a mid-build Jenkins restart"* was the wrong description of it. `success`-then-`error` is what an orphaned-but-resumed build looks like from GitHub's side.
+
+**Second correction in one day on this task**, both in the same direction: a plausible cause written down before the artifact that would test it had been read. The discriminator did its job — it correctly separated the *symptoms* — and then the causal story attached to it was wrong twice. Recorded rather than tidied, because the tidy version would read as though the diagnosis had been right all along.
+
 ### The prediction this task was filed to correct, closed out honestly
 
 The board said four times that *"one Jenkins login closes four items"*. It did not: PR-4's console closed T-026's signature and T-152's criterion, and this needed **its own** log, obtained four days later. The count was wrong because nobody re-derived which PR each item actually belonged to. That is the whole reason this task exists as a separate line, and it is the reason it was right to keep it separate.

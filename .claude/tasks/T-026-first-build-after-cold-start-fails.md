@@ -1,6 +1,7 @@
 ---
 id: T-026
-title: "The first Jenkins build after a cold start fails: 'No build record could be located'"
+title: "First build after a Jenkins restart fails — ROOT CAUSE FOUND: JENKINS-23152 build-number collision (the DSL seed recreates the jobs every boot against a persistent JENKINS_HOME)"
+title_note: "Retitled 2026-08-26. The old title — 'the first Jenkins build after a cold start fails' — named a CORRELATE as the cause and survived five weeks of investigation unchallenged. The cold start is only when Jenkins happens to restart on this host; the collision fires on ANY restart, and only on a branch whose builds/1 already exists."
 repo: cv-infra
 status: todo
 owner:
@@ -157,6 +158,68 @@ The economical reading of both tasks, stated as a hypothesis and not as a unific
 | **this task** | the build record **does not survive** | `No build record … could be located`; the stage never runs a single `sh`; `Finished: FAILURE` |
 
 **One trigger, two outcomes, depending on whether the build record survived.** Not proven — deliberately not written into the occurrence table, and the count stays six. What it changes is the *diagnostic target*: the two artifacts named below are now more likely to settle both tasks at once, and the SSM invocation history is the one that discriminates.
+
+## ROOT CAUSE FOUND — JENKINS-23152, a build-number collision. Seven warnings, seven events, 1:1 (2026-08-26)
+
+**This is no longer a narrowing. The cause is identified from evidence, which is acceptance criterion 1.** The CI host was woken deliberately and its Jenkins container log — which persists across every boot since 2026-08-19 on the `/var/lib/jenkins` host mount — was read directly.
+
+```
+2026-08-22T07:47:15  WARNING  j.model.lazy.LazyBuildMixIn#newBuild: JENKINS-23152:
+  /var/lib/jenkins/jobs/cv-database/branches/PR-3/builds/1 already existed;
+  will not overwrite with cv-database/PR-3 #1 but will create a fresh build #2
+
+2026-08-22T07:48:07  WARNING  o.j.p.w.f.FlowExecutionList$DefaultStorage#unregister:
+  cv-database/PR-3#1 was not in the list to begin with: [cv-database/PR-3#2]
+```
+
+### The correlation is exact — 7 warnings, 7 events, no misses and no false positives
+
+`docker logs jenkins | grep -c JENKINS-23152` → **7**, and every one lands on a known event:
+
+| JENKINS-23152 | Job | This board's record |
+|---|---|---|
+| 2026-08-20T08:13:17 | `cv-domain-service/PR-4#1` | occurrence 1 ([T-106](T-106-restrict-openapi-and-actuator-exposure.md)) |
+| 2026-08-20T11:38:19 | `cv-domain-service/PR-6#1` | occurrence 2 ([T-107](T-107-post-id-cross-person-write.md)) |
+| 2026-08-21T06:46:18 | `cv-domain-service/PR-7#1` | occurrence 3 ([T-103](T-103-skills-catalog-and-assignments.md)) |
+| 2026-08-22T07:47:15 | `cv-database/PR-3#1` | **[T-030](T-030-pr3-build1-success-then-error.md)** |
+| 2026-08-22T15:35:15 | `cv-domain-service/PR-8#1` | occurrence 4 ([T-104](T-104-project-resource.md)) |
+| 2026-08-22T16:20:16 | `cv-database/PR-4#1` | occurrence 5 ([T-151](T-151-dev-seeds-cv-sections.md)) |
+| 2026-08-26T08:42:17 | `cv-domain-service/PR-9#1` | occurrence 6 ([T-105](T-105-experience-ordering-retrofit.md)) |
+
+**Six occurrences plus T-030 is exactly seven.** No occurrence lacks a warning and no warning lacks an occurrence. After five weeks of status-sequence archaeology, the defect has a name and a log line.
+
+### The mechanism
+
+1. **`JENKINS_HOME` is a persistent host mount** (`/var/lib/jenkins`, mounted at an identical path per `jenkins-provision.sh`), so `jobs/*/branches/*/builds/` **survives every instance stop/start**.
+2. **The Job DSL seed re-runs on every Jenkins boot** — `Processing provided DSL script` appears **30 times = 2 jobs × 15 boots**, each followed by `createOrUpdateConfig for cv-domain-service` / `cv-database`. The multibranch jobs are recreated from scratch on each start.
+3. A recreated branch child job starts numbering at **#1** while `builds/1` **already exists on disk** from an earlier session.
+4. `LazyBuildMixIn#newBuild` detects the collision, **refuses to overwrite, and creates a fresh #2 instead**. Build #1 — already running — is orphaned: it is not in the `FlowExecutionList` and has no valid record. That *is* `ERROR: No build record … could be located`.
+5. **Build #2 is validly numbered and runs clean.**
+
+### The consequence that reframes this entire task
+
+**"Warm box succeeds" was never about warmth.** Build #2 succeeds because it is the build that got a valid number — not because the machine had warmed up. Every "cold start fails / warm start passes" data point in this file is the same collision seen from outside, and the `t3.small`, the boot window, the 42–65 second band and the doorbell are all **correlates, not causes**. They correlate only because a Jenkins restart is what reseeds the jobs, and on this host Jenkins restarts when the instance does.
+
+**This task's title is therefore wrong** and is corrected above: it is not *first build after a cold start*, it is **first build after any Jenkins restart on a branch that has built before**. A brand-new PR with no `builds/1` on disk should not hit it — a cheap, falsifiable prediction, and every one of the seven is a branch that had built at least once.
+
+### What this closes, and what it kills
+
+- **Candidate 1 (SSM re-provisioning): already refuted below, and now moot.**
+- **Candidate "Jenkins mid-initialisation": was weakened in this file as *"a not-ready Jenkins does not clone a repo first"* — that weakening was wrong**, and the correct version is now the answer. Jenkins *does* clone during the window: branch indexing runs while the init reactor is still finishing.
+- **The `t3.small` / memory line of inquiry is dead.** Measured on a live boot: `OOMKilled=false`, no OOM in `dmesg`, 1.1 GB available with swap untouched.
+- **The "restart" in T-030's console was never a crash.** Measured on a control boot with no build running: `RestartCount=0`, exactly **one** `jenkins start` docker event, one JVM start per boot. Jenkins does not restart mid-build on this host. The *"Resuming build … after Jenkins restart"* line is the durable-pipeline machinery restoring a stale flow execution left in `builds/1` by the previous session — the "restart" it names is the instance stop/start itself.
+
+### The fix — for whoever implements it
+
+The root cause is **the DSL seed recreating the multibranch jobs on every boot** against a persistent `JENKINS_HOME`. Options, cheapest first, to be priced at H1:
+
+1. **Make the seed idempotent / skip it when the job already exists.** The jobs only need creating once; `JENKINS_HOME` persists them. This is the smallest change and it removes the trigger entirely.
+2. **Seed with `nextBuildNumber` reconciled** to `max(existing builds)+1` for each branch.
+3. **Do not persist `builds/` across restarts** — rejected on sight: it destroys build history, which is the thing `JENKINS_HOME` is mounted for.
+
+**Verification is now cheap and exact, which it never was before:** stop the box, push to a branch that has built before, and assert **zero** `JENKINS-23152` lines in `docker logs jenkins` for that boot. That is a real test, unlike this file's original *"push twice in a row and see"*.
+
+**A caution for whoever runs it:** `builds/1` already exists for every branch listed above, so any *existing* PR reproduces it. Use one of those, not a fresh PR — a fresh PR is the negative control, not the test.
 
 ## CANDIDATE 1 IS REFUTED — the SSM invocation history was read, and there is nothing there (2026-08-26)
 
