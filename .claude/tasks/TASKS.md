@@ -10,10 +10,11 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-102](T-102-education-resource.md) | Education resource in the domain API | cv-domain-service | done | backend-developer | — | [#5](https://github.com/erfeamor/cv-domain-service/pull/5) |
 | [T-103](T-103-skills-catalog-and-assignments.md) | Skill catalog + person-skill assignments | cv-domain-service | done | backend-developer | — | [#7](https://github.com/erfeamor/cv-domain-service/pull/7) |
 | [T-104](T-104-project-resource.md) | Project resource in the domain API | cv-domain-service | done | backend-developer | — | [#8](https://github.com/erfeamor/cv-domain-service/pull/8) |
-| [T-105](T-105-experience-ordering-retrofit.md) | Retrofit contract ordering onto the merged Experience resource | cv-domain-service | in_progress (**stage 0 done, H1 presented** — start at implementation) | backend-developer | T-006 ✔ | |
+| [T-105](T-105-experience-ordering-retrofit.md) | Retrofit contract ordering onto the merged Experience resource | cv-domain-service | done | backend-developer | T-006 ✔ | [#9](https://github.com/erfeamor/cv-domain-service/pull/9) |
 | [T-106](T-106-restrict-openapi-and-actuator-exposure.md) | Stop serving the OpenAPI spec and Prometheus metrics anonymously | cv-domain-service | done | backend-developer | — | [#4](https://github.com/erfeamor/cv-domain-service/pull/4) |
 | [T-107](T-107-post-id-cross-person-write.md) | **POST with a client-supplied id overwrites another person's row** (person, experience) | cv-domain-service | done | backend-developer | — | [#6](https://github.com/erfeamor/cv-domain-service/pull/6) |
 | [T-108](T-108-untransacted-update-read-modify-write.md) | **PUT is an untransacted read-modify-write** — a concurrent DELETE makes it re-INSERT the row under a new id (all three section resources) | cv-domain-service | todo | | — | |
+| [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** — every ordered collection except experience | cv-domain-service | todo | | T-105 | |
 | [T-151](T-151-dev-seeds-cv-sections.md) | Dev seed data for CV sections | cv-database | done | backend-developer | — | [#4](https://github.com/erfeamor/cv-database/pull/4) |
 | [T-201](T-201-bff-cv-aggregate.md) | BFF: aggregated public CV endpoint | cv-bff-node | todo | | T-101…T-104, T-006 | |
 | [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |
@@ -23,7 +24,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 ### Parallelization notes (read before claiming)
 
-- **Wave 1 complete:** T-101 (`09282ed`), T-102 (`42abe91`), T-103 (`2e54394`), T-104 (`7677fee`), T-151 (`865784f`) all merged. **Wave 2 unblocked:** T-201 and T-301 may start against the contract (mocked upstreams). **Wave 3:** T-401 and T-402 after T-201 (run in parallel); T-501 strictly last. **T-105** is still `todo` and blocks T-501 — it is the only task making Experience contract-compliant on ordering.
+- **Wave 1 complete:** T-101 (`09282ed`), T-102 (`42abe91`), T-103 (`2e54394`), T-104 (`7677fee`), T-151 (`865784f`) all merged. **Wave 2 unblocked:** T-201 and T-301 may start against the contract (mocked upstreams). **Wave 3:** T-401 and T-402 after T-201 (run in parallel); T-501 strictly last. ~~**T-105** is still `todo` and blocks T-501 — it is the only task making Experience contract-compliant on ordering.~~ **T-105 MERGED 2026-08-26** (`1b9b398`, [#9](https://github.com/erfeamor/cv-domain-service/pull/9)) — all four section collections are now contract-compliant on ordering, and **T-501's last M2-domain blocker is gone**. What still gates T-501 is the deployment chain (T-014 → T-403/T-404) plus T-201/T-301/T-401/T-402. **[T-201](T-201-bff-cv-aggregate.md) is the head of everything remaining**: it is claimable today and T-014 waits on it.
 - **Concurrency lesson from T-103:** highest-risk tasks (composite key, upsert, 409) should start first so review convergence failures surface earliest.
 - **T-105 was unowned by anything until 2026-08-17.** It is critical to the milestone yet appeared in no `depends_on` — an ordering retrofit needed for T-501's final check.
 
