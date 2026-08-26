@@ -113,7 +113,7 @@ This is no longer an anecdote — it is **reproducible on demand**: stop the box
 **Where the drift came from, as far as the record shows.** `cv-database` PR-3#1 was written up as *"fifth occurrence"*, then challenged by stage-4 QA and **de-attributed** to [T-030](T-030-pr3-build1-success-then-error.md) — correctly, since it posts `success` before `error` and no console signature was ever obtained for it. The heading was struck, but the **ordinals that had counted it were not rolled back**, so the two entries written afterwards inherited the inflated numbering. The separate *"fourth reproduction"* label on T-103 has the same shape: the *"three data points"* table directly above it counts **T-102's SUCCESS** as a data point, which it is — it is the control — but a success is not a *reproduction* of a failure.
 
 **Rulings, so this is not re-derived from the headings again:**
-1. ~~**Five confirmed occurrences, not six.**~~ **SIX as of 2026-08-26** — row 6 (`cv-domain-service` PR-9#1) was added by [T-105](T-105-experience-ordering-retrofit.md)'s stage 3 and is counted under this table's own axis, not by heading ordinal. The count is incremented **in the table, which rules 2–3 make the authority**; the section headings below are still not renumbered. T-030's PR-3 remains excluded by this task's axis (`pending → error` with no intervening `success`), and it must stay excluded unless its console log shows the empty-stage signature.
+1. ~~**Five confirmed occurrences, not six.**~~ **SIX as of 2026-08-26** — row 6 (`cv-domain-service` PR-9#1) was added by [T-105](T-105-experience-ordering-retrofit.md)'s stage 3 and is counted under this table's own axis, not by heading ordinal. The count is incremented **in the table, which rules 2–3 make the authority**; the section headings below are still not renumbered. T-030's PR-3 remains excluded by this task's axis (`pending → error` with no intervening `success`), ~~and it must stay excluded unless its console log shows the empty-stage signature.~~ **That log arrived 2026-08-26 and does NOT show the signature — no `No build record`, and the stage executed real steps. [T-030](T-030-pr3-build1-success-then-error.md) is now excluded POSITIVELY, on evidence, rather than provisionally for want of a log.** The count stays at six.
 2. **The headings below are left as written**, per strike-don't-delete — renumbering them would destroy the record of how the count drifted, which is the more useful artifact. **This table is the authority; the ordinals in the headings are not.**
 3. **Refer to occurrences by PR number from here on** (`cv-database PR-4#1`), never by ordinal. Every ordinal in this file has now been wrong at least once.
 4. **Nothing about the diagnosis changes.** It is still reproducible on demand, the measured cold-start intervals (47s, 42s, 62s, **and 64s at PR-9#1**) are unaffected, and occurrence 5's confirmed console log is what actually narrowed the candidate list — the count was never load-bearing for the mechanism, only for the priority argument.
@@ -138,9 +138,32 @@ Three things this adds beyond the count:
 
 **The console signature is still unobtained** and is not being claimed — Jenkins needs credentials this machine's policy declines. Recorded as *"matches the cold-start-fails / warm-succeeds pattern, cold start verified from LaunchTime, console signature unobtained"*, which is the wording rulings 1–3 above exist to keep honest.
 
+## [T-030](T-030-pr3-build1-success-then-error.md)'s console CORROBORATES the leading candidate — and hands this task a residual defect (2026-08-26)
+
+T-030 is **not** an occurrence of this defect; its log settled that and the count above is unchanged. But it supplies something this task has never had: **direct, logged evidence that Jenkins restarts mid-build on this host.**
+
+```
+[Pipeline] { (Validate migrations)
+Resuming build at Sat Aug 22 07:47:16 UTC 2026 after Jenkins restart
+```
+
+Nine seconds after that build started. **This task's leading candidate — SSM re-provisioning orphaning the in-flight record — predicts exactly this class of event**, and until now it was inferred from *"checkout succeeds, then the record vanishes"* rather than observed. Now the restart itself is in a log.
+
+The economical reading of both tasks, stated as a hypothesis and not as a unification:
+
+| | Restart happens mid-build, and… | Result |
+|---|---|---|
+| **T-030** | the build record **survives**; durability resumes the build | body succeeds; the `post` block loses its `hudson.FilePath` → spurious `error` one second after `success`; `Finished: SUCCESS` |
+| **this task** | the build record **does not survive** | `No build record … could be located`; the stage never runs a single `sh`; `Finished: FAILURE` |
+
+**One trigger, two outcomes, depending on whether the build record survived.** Not proven — deliberately not written into the occurrence table, and the count stays six. What it changes is the *diagnostic target*: the two artifacts named below are now more likely to settle both tasks at once, and the SSM invocation history is the one that discriminates.
+
+**Residual defect inherited from T-030, recorded here because T-030 closed:** every Jenkins restart mid-build also produces a **spurious `error` status after a `success`** on whatever build was in flight. Both symptoms plausibly share this task's fix — stop Jenkins restarting while builds are in flight, i.e. sequence the cold-start provisioning so Jenkins does not accept work until provisioning is done. **Hardening the `post` block against a lost `FilePath` is explicitly NOT the recommended primary fix**: it would quieten the symptom while the restart kept happening, and it would leave this task's fatal variant untouched. Written down here rather than left implied by a closed task — the [T-002](T-002-jenkins-on-drone-host.md)→[T-005](T-005-ci-secret-blast-radius.md) TLS hand-off sat unowned for eleven days for exactly that reason, and became [T-033](T-033-ci-host-tls.md).
+
 ## Acceptance criteria
 
 - [ ] The cause is identified from evidence (Jenkins log at boot, SSM command invocation history for the instance, `docker logs jenkins`), and written down — not inferred from this file's guesses.
+  - **Sharpened 2026-08-26 by T-030's console:** the SSM command invocation history is now the highest-value of the three. A restart mid-build is *observed*; what is still unknown is what caused it. If an SSM invocation overlaps the build window, candidate 1 is confirmed and the fix is **sequencing**, not a readiness probe — and a readiness probe on the doorbell was already ruled incapable of fixing this (the doorbell finishes long before branch indexing starts).
 - [ ] A push to a **stopped** CI host produces a build that **succeeds on the first attempt** — proven by actually stopping the box and pushing, twice in a row so it is not luck.
 - [ ] If the fix is "wait until Jenkins is ready before scanning", the readiness check is a real probe (Jenkins `/login` 200, or the job's API answering), not a fixed sleep.
 - [ ] `terraform fmt -check -recursive`, `terraform validate`, `terraform test` pass.

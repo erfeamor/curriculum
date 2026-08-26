@@ -1,12 +1,13 @@
 ---
 id: T-030
-title: "A Jenkins build posted success and then error one second later — cause unknown, not yet attributable to T-026"
+title: "A Jenkins build posted success then error one second later — DIAGNOSED: a mid-build Jenkins restart, NOT T-026"
 repo: cv-infra
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: fix/build-status-success-then-error
-pr:
+pr: none                  # deliberately empty, same sentinel and reason as T-010: this task's four acceptance criteria are ALL DIAGNOSTIC ("obtain the log", "record a ruling", "identify the mechanism", "reflect the count"), so it closes on evidence, not on a diff. No code change was ever in its scope. The residual DEFECT it uncovered is handed to T-026 explicitly — see the resolution section and T-026's own "shared trigger" entry — rather than left implied by a closed task.
 depends_on: []
+resolved: 2026-08-26
 risk: normal
 security_review: false   # CI reliability, not exposure — same rationale as T-026
 ---
@@ -74,3 +75,86 @@ Observed on [T-152](T-152-mysql-84-parity-cv-database.md)'s PR, 2026-08-22. Misa
 **One more reason to expect the second outcome.** T-026's confirmed mechanism is *the build record disappearing mid-build*, and a build in that state never reaches a terminal `success` — build #1 of PR-4 went straight to `FAILURE`. T-030's sequence has a **`success` posted first**, which means the build completed and reported. Those are hard to reconcile, so the prior mildly favours "different defect" — but that is an argument, and this task exists because an argument was mistaken for evidence once already. **Fetch the log.**
 
 `http://13.39.59.12/jenkins/job/cv-database/job/PR-3/1/consoleText`
+
+
+## RESOLVED — the console arrived, and this task's own discriminator ruled it a DIFFERENT DEFECT (2026-08-26)
+
+The human supplied both consoles: `cv-database` PR-3 build **#1** and build **#2**. The discriminator table above was applied as written, and it landed on the second row.
+
+### The signature, stated as this task required
+
+**`No build record … could be located` appears NOWHERE in build #1's log**, and the `Validate migrations` stage did **not** open and close empty. It executed real steps, exactly the second row's wording:
+
+```
+[Pipeline] { (Validate migrations)
+Resuming build at Sat Aug 22 07:47:16 UTC 2026 after Jenkins restart   <-- THE CAUSE
+[Pipeline] sh
++ docker network create cv-db-ci-1
++ docker run -d --rm --name cv-mysql-ci-1 ... mysql:8.4
++ docker run --rm ... flyway/flyway:10 migrate
+Successfully applied 1 migration to schema `cv`, now at version v1
+```
+
+**So: NOT [T-026](T-026-first-build-after-cold-start-fails.md). A distinct defect.** The prior recorded above — *"mildly favours the second outcome"* — was right, and it was right for the stated reason: T-026's mechanism kills a build before it reports anything, and this build reported `success` first because **its body genuinely succeeded**. `Finished: SUCCESS`.
+
+### The mechanism — identified, not parked
+
+**Jenkins restarted mid-build.** Build #1 started 07:47:07, cloned and checked out normally, entered `Validate migrations`, and then the controller went down. Pipeline durability **resumed** it at 07:47:16 (the log says so in as many words), it re-queued for an executor — *"Still waiting to schedule task / Waiting for next available executor"* interleaved with the `mysql:8.4` layer pull — and ran the stage to completion. Migrations applied. Stage-level cleanup ran.
+
+Then, after `End of Pipeline`, the log shows a **second** resumption (`Ready to run at Sat Aug 22 07:48:05 UTC 2026`) and the actual failure:
+
+```
+Error when executing always post condition:
+org.jenkinsci.plugins.workflow.steps.MissingContextVariableException:
+    Required context class hudson.FilePath is missing
+        at WorkflowScript.run(WorkflowScript:32)
+```
+
+**`Jenkinsfile:32` is the `sh` inside `post { always }`** (the `docker rm -f` / `network rm` cleanup); the second, identical exception at `WorkflowScript:9` is the main `sh` in `steps`. Both are the same fault: **the `hudson.FilePath` — the node/workspace handle — did not survive the restart into the post block, so `sh` had no context to run in.**
+
+That is the whole `success`-then-`error` sequence, one second apart:
+
+| | |
+|---|---|
+| 07:48:06 `success` | the pipeline **body** completed — migration applied, cleanup done |
+| 07:48:07 `error` | the `post { always }` block then threw `MissingContextVariableException`, and the GitHub Branch Source plugin reported it |
+
+Note the build's own verdict is **`Finished: SUCCESS`** while GitHub's last word is `error`. The two disagree, which is why this looked inexplicable from the statuses API alone.
+
+**The `|| true` in that post block is irrelevant here** — a NOTE from [T-152](T-152-mysql-84-parity-cv-database.md)'s security review and listed out-of-scope by [T-154](T-154-jenkins-pipeline-timeout.md). It suppresses a *command's* exit code; here `sh` never ran at all.
+
+### Build #2 is the control, and it is clean
+
+Same commit, same job, triggered 07:47:15 — it waited for the executor build #1 was holding, then ran start to finish with **no restart, no resume, no exception**, `Finished: SUCCESS`, and a single `success` status. Identical input, no restart, no anomaly.
+
+### What this does for T-026 — corroboration, and a shared trigger
+
+Stated carefully, because overstating an attribution is the error that created this task in the first place.
+
+**These remain two distinct defects** — the discriminator settled that. But this log is the first **direct, logged evidence that Jenkins restarts mid-build on this host**, nine seconds after a build started, inside the cold-start window. T-026's leading candidate — promoted when the PR-4 console arrived — is *"SSM re-provisioning orphaning the in-flight record"*, the only candidate that predicts *checkout succeeds, then the record vanishes*.
+
+This is exactly that event, **survived**. The most economical reading of both tasks:
+
+| | Restart happens mid-build, and… | Result |
+|---|---|---|
+| **T-030** (this) | the build **record survives**; durability resumes it | body succeeds, post block loses its `FilePath` → spurious `error` after `success`, `Finished: SUCCESS` |
+| **T-026** | the build **record does not survive** | `No build record … could be located`, stage never runs an `sh`, `Finished: FAILURE` |
+
+**One trigger, two outcomes, depending on whether the build record survived the restart.** That is a hypothesis with strong support, not a proof — it is not being written into T-026 as a confirmed unification, and T-026's occurrence count is **unchanged at six** (see below).
+
+### The residual defect is handed to T-026, not left in a closed task
+
+The spurious `error` will recur on any Jenkins restart mid-build. **Both tasks plausibly share one fix**: stop Jenkins restarting while builds are in flight — i.e. sequence the cold-start provisioning so Jenkins does not accept work until it is done being provisioned. That is T-026's fix, and it would close this symptom as a side effect.
+
+Hardening the `post` block against a lost `FilePath` would only make the symptom quieter while the restart kept happening, so it is **explicitly not recommended as the primary fix**. Recorded on [T-026](T-026-first-build-after-cold-start-fails.md) itself so the hand-off does not evaporate the way [T-002](T-002-jenkins-on-drone-host.md)'s TLS finding did into [T-005](T-005-ci-secret-blast-radius.md) for eleven days.
+
+### Acceptance criteria — all four met
+
+- [x] Build #1's console log obtained and the signature stated: no `No build record`, stage executed real steps, `Resuming … after Jenkins restart`.
+- [x] Ruling recorded: **distinct defect**, not a duplicate of T-026.
+- [x] Mechanism identified — a mid-build controller restart costing the post block its `hudson.FilePath`. Not parked as "cause unknown".
+- [x] T-026's occurrence count reflects the ruling: **unchanged at six.** The evidence does not support adding this one — it now **excludes** it positively rather than for want of a log, which is a stronger statement than the provisional exclusion T-026's ruling 1 has carried since 2026-08-24.
+
+### The prediction this task was filed to correct, closed out honestly
+
+The board said four times that *"one Jenkins login closes four items"*. It did not: PR-4's console closed T-026's signature and T-152's criterion, and this needed **its own** log, obtained four days later. The count was wrong because nobody re-derived which PR each item actually belonged to. That is the whole reason this task exists as a separate line, and it is the reason it was right to keep it separate.
