@@ -689,3 +689,43 @@ That last one also corrects [T-030](T-030-pr3-build1-success-then-error.md)'s re
 **The fix is now small and the verification exact**, which is the real prize: make the DSL seed idempotent (or reconcile `nextBuildNumber`), then stop the box, push to a branch that has built before, and assert **zero** `JENKINS-23152` lines for that boot. Compare the original acceptance criterion — *"push twice in a row so it is not luck"* — which could only ever have measured the symptom.
 
 **One incidental measurement worth a line:** `ecs-agent`, [T-007](T-007-ecs-agent-cleanup.md)'s crash-looping leftover, logged **9 start/die cycles in the first two minutes** of the control boot — the only container churning at all, right through Jenkins' initialisation. Not the cause of anything here, but T-007 prices itself as *"a small but permanent tax"* and this is the first actual measurement of it.
+
+## [T-026](T-026-first-build-after-cold-start-fails.md) FIXED and merged — the second attempt, and the first one that does anything (2026-08-26)
+
+**Merged as cv-infra `1deebb4`** (squash of [#21](https://github.com/erfeamor/cv-infra/pull/21), `--admin`). Closes the board's longest-running defect: filed 2026-08-20, six confirmed occurrences, five weeks with a title that named a correlate as the cause.
+
+**Attempt 1 shipped and did nothing, and the board says so rather than quietly replacing it.** The guard asked `Jenkins.get().getItemByFullName('cv-domain-service')` and skipped the seed if the job came back. It deployed cleanly, threw nothing, and `createOrUpdateConfig` **still ran for both jobs**. The reason is a boot-order fact that no amount of reading the DSL would have surfaced:
+
+```
+System config loaded -> Processing provided DSL script -> createOrUpdateConfig
+   -> System config adapted -> Loaded all jobs -> init.groovy.d -> Completed
+```
+
+**JCasC runs job-dsl before Jenkins loads jobs from disk.** At DSL time the item model is empty, so the lookup is `null` for every job regardless of what exists. The guard could never fire — not "did not fire under these conditions", *could not*, on any boot.
+
+**Attempt 2 tests the filesystem instead**, because the file is there when the model is not:
+
+```groovy
+seeded = new File('/var/lib/jenkins/jobs/cv-domain-service/config.xml').exists()
+```
+
+Same fail-open `try/catch` — on any failure the job is still created, never worse than before — but **the catch now logs**. Attempt 1's was silent, so its log could not distinguish *"returned null"* from *"threw and was swallowed"*, and separating those cost a whole apply cycle. A guard whose failure is indistinguishable from its success is a defect this board has catalogued repeatedly, and attempt 1 was one.
+
+**Verified by measurement, in the order that made 4b matter:**
+
+| step | result |
+|---|---|
+| 4a guard fires | both jobs log `config.xml present=true` → `not reseeding`, on every boot |
+| **4b `createOrUpdateConfig`** | **0** — zero across all three post-fix boots. **This is the check that discriminated**; 4a alone was silent either way, and attempt 1 passed nothing like it |
+| 4c no collateral damage | traits intact (Branch + OriginPullRequest present, ForkPullRequest absent), branch children and `builds/` preserved, and every `nextBuildNumber` preserved rather than reset to 1 |
+| 4d cold-start push | **JENKINS-23152 = 0, `No build record` = 0** |
+
+4d used a throwaway `chore/t026-verify` branch in `cv-domain-service`, since every prior PR branch had been deleted from `origin` and `master` is not pushable. Three builds, branch deleted afterwards. **Build 3 is the one that counts**: box stopped *idle*, push → doorbell → Jenkins restart → build on a branch that already had `builds/1` → `Finished: SUCCESS`, Lint executed, 141 tests passed, numbering advanced 2 → 3 → 4. GitHub's **full status history** (read via the statuses API, per this task's own caution that `gh pr checks` hides a failed build behind the latest state) shows `pending → success` with **no `error` state** — against six recorded occurrences that every one show an `error` on the first post-restart build.
+
+**Two driver errors during verification, recorded because burying them would repeat the exact failure this task exists to document.** First: build 1 shows `error`, and that is the driver's setup mistake, not the defect — the box was stopped while build 1 was still downloading Maven dependencies, killing it mid-flight. Build 3 exists precisely to remove that confound. Second, and worse: the driver initially read `<result>SUCCESS</result>` out of `build.xml` as the build's verdict and reported both builds finished. **That element is not the build's result** — the verdict is the `Finished: X` line at the end of the pipeline log, and build 2 was at that moment still queued behind build 1 waiting for the single executor. A completion check that reports success on an unfinished build is the same class of defect as attempt 1's silent catch, caught here only because the `duration=0` and the missing stage lines did not fit.
+
+**Divergence closed, confirmed rather than assumed.** Before the merge, S3 and the SSM SHA held the *branch* script, so applying from `master` would have reverted the fix. `terraform plan` run from `master` immediately after the merge reports `No changes. Your infrastructure matches the configuration.`
+
+**What this unblocks:** [T-019](T-019-ci-host-on-demand.md)'s acceptance criterion — *"a build that needs the host actually completes end to end while the automation owns the lifecycle"* — is now met by the build the automation itself triggered, which is what T-026 had silently weakened since 2026-08-20.
+
+**Cost note.** The whole stage — apply, four verification steps, merge — ran **inline in the driver with zero subagent spawns**, at 24% of the turn ceiling. The previous session had stopped at `HARD` (107% of turns) with the checkpoint written; resuming cost one apply plus the verification, no re-brief and no rework. The checkpoint protocol did exactly what it is for.
