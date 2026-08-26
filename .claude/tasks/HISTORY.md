@@ -657,3 +657,35 @@ Jenkins restarted mid-build. Durability resumed it, the body ran to completion �
 What *did* change is that T-026's ruling 1 now excludes T-030 **positively, on evidence**, rather than provisionally for want of a log — and the SSM invocation history is promoted to the highest-value remaining artifact, because a restart is now observed and only its *cause* is open.
 
 **Closed with `pr: none`**, the T-010 sentinel: all four of its acceptance criteria are diagnostic, so it closes on evidence rather than a diff. **The residual defect it uncovered was handed to T-026 explicitly** — every mid-build restart also produces a spurious `error` after a `success` — with a recommendation *against* hardening the `post` block as the primary fix, since that quietens the symptom while leaving the fatal variant untouched. Written into T-026 rather than left implied by a closed task, because the [T-002](T-002-jenkins-on-drone-host.md)→[T-005](T-005-ci-secret-blast-radius.md) TLS hand-off sat unowned for eleven days for precisely that reason.
+
+## [T-026](T-026-first-build-after-cold-start-fails.md)'s root cause found — JENKINS-23152, and its title had been naming a correlate for five weeks (2026-08-26)
+
+The human authorised waking the CI host to read the on-box artifacts. Three SSM round-trips produced a named upstream bug, an exact 1:1 correlation, and the retirement of four hypotheses including this board's leading one.
+
+**The finding, in one line from the Jenkins container log** — which persists across every boot on the `/var/lib/jenkins` host mount, so the actual 2026-08-22 event was still readable four days later:
+
+```
+2026-08-22T07:47:15  JENKINS-23152: .../cv-database/branches/PR-3/builds/1 already existed;
+                     will not overwrite with cv-database/PR-3 #1 but will create a fresh build #2
+```
+
+`grep -c JENKINS-23152` returns **7**, and all seven land on known events — T-026's six occurrences **plus** [T-030](T-030-pr3-build1-success-then-error.md). No occurrence without a warning, no warning without an occurrence.
+
+**The mechanism.** `JENKINS_HOME` is a persistent host mount, so `jobs/*/branches/*/builds/` survives every stop/start. The **Job DSL seed re-runs on every Jenkins boot** — `Processing provided DSL script` appears **30 times = 2 jobs × 15 boots** — recreating the multibranch jobs. A recreated branch job numbers from **#1**, collides with the `builds/1` already on disk, and `LazyBuildMixIn` refuses to overwrite and makes a fresh **#2**. Build #1, already running, is orphaned with no record — *that* is `No build record … could be located`. Build #2 has a valid number and runs clean.
+
+**"Warm box succeeds" was never about warmth.** #2 succeeds because it is the build that got a valid number. The cold start, the boot window, the 42–65 second band, the `t3.small` — all correlates, and they correlate only because a Jenkins restart is what reseeds the jobs, and on this host Jenkins restarts when the instance does. **The task's title asserted that correlate as the cause and went unchallenged for five weeks** — this board's oldest failure mode, operating this time on its own investigation rather than on a task spec.
+
+**Four hypotheses retired, each by its own measurement:**
+
+| Killed | By |
+|---|---|
+| SSM re-provisioning (the *leading* candidate) | 44 invocations in retention; **none at all** on 08-20/21/22 |
+| user_data re-running the provisioning script | plain-shell user_data, no per-boot marker; `ci.tf` says "at first boot" |
+| OOM on the 2 GB `t3.small` | `OOMKilled=false`, no `dmesg` OOM, 1.1 GB available, swap untouched |
+| **A mid-build Jenkins restart** | **the control boot** — woken with no push, `RestartCount=0`, exactly one `jenkins start` docker event, one JVM start per boot |
+
+That last one also corrects [T-030](T-030-pr3-build1-success-then-error.md)'s resolution, written earlier the same day: *"Resuming build … after Jenkins restart"* never described a crash. It is the durable-pipeline machinery restoring a stale flow execution the previous session left in `builds/1`. **T-030's ruling stands and its mechanism does not** — different symptom, same root cause. Two causal corrections on that task in one day, both in the same direction: a plausible cause written down before the artifact that would test it had been read.
+
+**The fix is now small and the verification exact**, which is the real prize: make the DSL seed idempotent (or reconcile `nextBuildNumber`), then stop the box, push to a branch that has built before, and assert **zero** `JENKINS-23152` lines for that boot. Compare the original acceptance criterion — *"push twice in a row so it is not luck"* — which could only ever have measured the symptom.
+
+**One incidental measurement worth a line:** `ecs-agent`, [T-007](T-007-ecs-agent-cleanup.md)'s crash-looping leftover, logged **9 start/die cycles in the first two minutes** of the control boot — the only container churning at all, right through Jenkins' initialisation. Not the cause of anything here, but T-007 prices itself as *"a small but permanent tax"* and this is the first actual measurement of it.
