@@ -49,11 +49,13 @@ The reviewer flagged this **moderately urgent for a cost reason, not a correctne
 - [ ] The pipeline fails on timeout rather than hanging, with the bound and its justification recorded in the PR.
 - [ ] A normal build still passes comfortably inside the bound — verify against real build durations, not an estimate.
 - [ ] **Demonstrate the guard actually fires.** A timeout nobody has seen trigger is the same class of unverified claim this board keeps finding; force a hang (e.g. point `FLYWAY_URL` at an unreachable host on a scratch branch) and show the build failing at the bound.
-- [ ] `cv-domain-service`'s pipeline checked for the same gap, and the finding recorded either way.
+- [x] `cv-domain-service`'s pipeline checked for the same gap, and the finding recorded either way.
+  - **Done 2026-08-27, ahead of this task, and filed as [T-111](T-111-domain-service-jenkins-pipeline-timeout.md).** The gap is present: no `timeout {}` and no `options {}` block at all. **Do not re-run this check and do not fix it here** (board rule 3, which is why the criterion said *filed, never fixed*).
+  - Two findings there are new to the board rather than a restatement of this task, and one of them changes this task's own argument: **`numExecutors: 1`** (`cv-infra/templates/jenkins-provision.sh:63`) — the two repos share the single executor, and a real queue was observed on 2026-08-26 (`Still waiting to schedule task / Waiting for next available executor`). **So a hung `cv-database` build blocks `cv-domain-service`'s builds too**, which this task's cost argument never said. The other: the hang mechanism differs (Maven/`docker build` with no retry budget, versus Flyway's bounded backoff), so this task's healthcheck fix does not port to that repo.
 
 ## Watch-outs
 
-- **[T-026](T-026-first-build-after-cold-start-fails.md) applies** — the first build after idle may fail spuriously. Re-run on the warm box before debugging. Read the statuses API, not `gh pr checks`, which reports `pass` while a failed build sits in the history.
+- ~~**[T-026](T-026-first-build-after-cold-start-fails.md) applies** — the first build after idle may fail spuriously. Re-run on the warm box before debugging.~~ **FIXED 2026-08-26** (cv-infra `1deebb4`, [#21](https://github.com/erfeamor/cv-infra/pull/21)) — the first build after idle is now trustworthy, and a red one means what it says. Struck rather than deleted per strike-don't-delete. **The `gh pr checks` half of this warning still stands and is unrelated to T-026**: it reports only the latest status per context, so read `gh api repos/:owner/:repo/commits/:sha/statuses` or a failed build stays invisible behind a later green one.
 - Verifying this task means *deliberately hanging a build on the shared host*. Do it on a scratch branch, keep the bound short for the test, and confirm the box is released afterwards — the whole point is cost.
 
 ## Definition of done
