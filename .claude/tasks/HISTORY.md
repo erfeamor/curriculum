@@ -636,3 +636,24 @@ The specialist raised `education`'s tiebreak as asserted by a test that cannot g
 **A budget cap was exceeded deliberately.** Stage-4 QA was the 4th spawn against the adapter's `max_spawns_per_task: 3`. Taken knowingly: the engine's non-negotiable is that nothing merges without a QA pass, and the numeric guard — which the cap is a proxy for — was healthy at 45%/27%. The cap is a cost heuristic; the QA stage is a correctness invariant. Surfaced at H2 rather than buried in a checkpoint.
 
 **The opt-in `board-check` hook earned its keep three times in one session**, catching a task file with no board row, and twice catching a file/board status disagreement *in the same turn it was introduced* — including the `checkpoint.worktree` clear at close-out, which is [T-028](T-028-qa-env-generator-worktree-build-context.md)'s rule and the exact drift that broke the generator for T-101/T-102. Registration lives in `.claude/settings.json`, which is gitignored, so [T-031](T-031-board-frontmatter-validator.md)'s H2 ruling — *script committed, registration opt-in, never distributed* — holds in substance.
+
+## [T-030](T-030-pr3-build1-success-then-error.md) closed — the log arrived, and the task's own discriminator ruled against the convenient answer (2026-08-26)
+
+The human supplied `cv-database` PR-3 consoles **#1** and **#2**, four days after the board first predicted one Jenkins login would settle four items. T-030 was filed precisely because that prediction was wrong for this one, and it stayed wrong: PR-4's console closed [T-026](T-026-first-build-after-cold-start-fails.md)'s signature and [T-152](T-152-mysql-84-parity-cv-database.md)'s criterion, and **this needed its own log**.
+
+**Ruled a DISTINCT defect, not a sixth T-026.** The discriminator written into the task in August was applied as written and landed on its second row: `No build record … could be located` appears **nowhere**, and `Validate migrations` did not open and close empty — it created the network, pulled `mysql:8.4`, ran Flyway, and **applied the migration successfully**. The build's own verdict is `Finished: SUCCESS`.
+
+**The mechanism, identified rather than parked.** One line in the log is the whole answer:
+
+```
+[Pipeline] { (Validate migrations)
+Resuming build at Sat Aug 22 07:47:16 UTC 2026 after Jenkins restart
+```
+
+Jenkins restarted mid-build. Durability resumed it, the body ran to completion — then the `post { always }` block threw `MissingContextVariableException: Required context class hudson.FilePath is missing` at `WorkflowScript:32`, which `Jenkinsfile:32` pins to the `sh` doing the `docker rm -f` cleanup. **The workspace handle did not survive the restart into the post block.** So `success` was posted when the body finished (07:48:06) and `error` one second later when the post condition blew up (07:48:07) — while the build itself finished SUCCESS. The build's verdict and GitHub's last word disagree, which is exactly why this was inexplicable from the statuses API alone. Build #2 — same commit, no restart — is the clean control.
+
+**What it does for T-026, stated carefully.** This is the first *logged* evidence that Jenkins restarts mid-build on that host, nine seconds into a build. T-026's leading candidate is *SSM re-provisioning orphaning the in-flight record*, which predicts exactly this event; until now it was inferred from *"checkout succeeds, then the record vanishes"* rather than observed. The economical reading is **one trigger, two outcomes** — the record survives (T-030, spurious error) or it does not (T-026, fatal). **That is written down as a hypothesis and deliberately NOT folded into the occurrence table; the count stays at six.** Padding it is the exact error that created T-030, and repeating it inside T-030's own resolution would have been worse than the original.
+
+What *did* change is that T-026's ruling 1 now excludes T-030 **positively, on evidence**, rather than provisionally for want of a log — and the SSM invocation history is promoted to the highest-value remaining artifact, because a restart is now observed and only its *cause* is open.
+
+**Closed with `pr: none`**, the T-010 sentinel: all four of its acceptance criteria are diagnostic, so it closes on evidence rather than a diff. **The residual defect it uncovered was handed to T-026 explicitly** — every mid-build restart also produces a spurious `error` after a `success` — with a recommendation *against* hardening the `post` block as the primary fix, since that quietens the symptom while leaving the fatal variant untouched. Written into T-026 rather than left implied by a closed task, because the [T-002](T-002-jenkins-on-drone-host.md)→[T-005](T-005-ci-secret-blast-radius.md) TLS hand-off sat unowned for eleven days for precisely that reason.
