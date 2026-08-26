@@ -15,6 +15,8 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-107](T-107-post-id-cross-person-write.md) | **POST with a client-supplied id overwrites another person's row** (person, experience) | cv-domain-service | done | backend-developer | — | [#6](https://github.com/erfeamor/cv-domain-service/pull/6) |
 | [T-108](T-108-untransacted-update-read-modify-write.md) | **PUT is an untransacted read-modify-write** — a concurrent DELETE makes it re-INSERT the row under a new id (all three section resources) | cv-domain-service | todo | | — | |
 | [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** — every ordered collection except experience | cv-domain-service | todo | | T-105 | |
+| [T-110](T-110-domain-service-jenkins-deploy-dead-gate.md) | cv-domain-service's Jenkins `Deploy` stage is gated on `main`, a branch that does not exist here — and its placeholder still says cv-infra has yet to expose a deploy target (the ECR repo exists) | cv-domain-service | todo | | — | |
+| [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) | No `timeout {}` on cv-domain-service's pipeline — and `numExecutors: 1`, so a hang here blocks cv-database's builds too | cv-domain-service | todo | | — | |
 | [T-151](T-151-dev-seeds-cv-sections.md) | Dev seed data for CV sections | cv-database | done | backend-developer | — | [#4](https://github.com/erfeamor/cv-database/pull/4) |
 | [T-201](T-201-bff-cv-aggregate.md) | BFF: aggregated public CV endpoint | cv-bff-node | todo | | T-101…T-104, T-006 | |
 | [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |

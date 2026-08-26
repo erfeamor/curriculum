@@ -743,3 +743,23 @@ Follow-on from T-026's close-out, which met T-019's last narrative criterion: *"
 So T-019 has **two** criteria open, not one: the billing-week rate (elapsed as of today, deliberately left for [T-032](T-032-board-check-re-review-after-live-use.md)'s session rather than convening one to read a single number) and the mid-build survival test. The task stays `done` — its PR merged — per the rule this board adopted after repeatedly having to unpark tasks left in `in_review` behind residual criteria.
 
 **One caution for whoever reads the billing rate:** 2026-08-26 carries three extra cold starts, three real builds and a `terraform apply` from T-026's verification. Read the rate across the window, not off that day, or the reaper will look worse than it is.
+
+### `cv-domain-service`'s halves of [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md)/[T-154](T-154-jenkins-pipeline-timeout.md) filed as [T-110](T-110-domain-service-jenkins-deploy-dead-gate.md) and [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) (2026-08-27)
+
+Both cv-database CI tasks instruct their implementer to **check `cv-domain-service` for the same gap and file it, never fix it there** (board rule 3), and T-154 carries that as an explicit acceptance criterion. The check was run ahead of either task while reviewing what to pick up next. **Both defects are present in the second repo**, verified by reading the file rather than inferred:
+
+| Defect | cv-database | cv-domain-service |
+|---|---|---|
+| `Deploy` gated on `branch 'main'` (neither repo's `origin` has one) | T-153 | **T-110** |
+| No `timeout {}` — no `options {}` block at all | T-154 | **T-111** |
+
+**Filed as separate tasks rather than by widening the existing two**, on the human's instruction. The reason it is the better split: T-153's `depends_on: [T-152]` is *file-level* to `cv-database/Jenkinsfile` and would be meaningless in another repo, and neither new task is a duplicate.
+
+**Two findings that are new to the board, not restatements.** They matter because T-154's cost argument was built without them:
+
+- **`numExecutors: 1`** (`cv-infra/templates/jenkins-provision.sh:63`). Both repos are seeded onto one Jenkins with a single executor, so **a hang in either repo blocks every build in both**. Observed live on 2026-08-26 — a queued build logged `Still waiting to schedule task / Waiting for next available executor` and sat there until the first reached a terminal state. T-154 argued only that a hung build holds the *host* up; it never said the other repo's CI stops too.
+- **The hang mechanism differs, so T-154's cheaper fix does not port.** T-154's hang is Flyway's bounded connect-retry backoff, and its second fix is a healthcheck wait before invoking Flyway. `cv-domain-service` has no Flyway and no MySQL container: its unbounded steps are Maven resolving against `repo.maven.apache.org` and `docker build`, neither of which has a retry budget to exhaust. Only the `timeout {}` transfers.
+
+Also recorded in T-110, because it was searched for and genuinely nobody holds it: **no board task owns implementing the `cv-domain-service` deploy.** [T-203](T-203-bff-ci-deploy-stage.md) covers `cv-bff-node` only, and that repo's `Docker image` stage builds an image it never pushes. Filed as a pointer, not as a task — naming the gap is not the same as claiming it.
+
+**A stale warning cleared in three files while here.** T-153, T-154 and [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) each carried *"T-026 applies — the first build after idle may fail spuriously, re-run on the warm box before debugging."* [T-026](T-026-first-build-after-cold-start-fails.md) was fixed and merged on 2026-08-26, so that advice had inverted: it now tells the next person to **dismiss a genuine red build as a known flake**. Struck rather than deleted, per convention. **The `gh pr checks` half of the same warning is deliberately kept** — it reports only the latest status per context and is unrelated to T-026, so a failed build still hides behind a later green one.

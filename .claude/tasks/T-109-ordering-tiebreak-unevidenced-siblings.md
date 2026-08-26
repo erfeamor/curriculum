@@ -64,7 +64,7 @@ PR open against `master` from `test/ordering-tiebreak-evidence`, Jenkins green, 
 ## dev-loop notes
 
 - **Developer:** `backend-developer` (adapter §2). **Reviewers:** `/code-review` + `backend-developer` specialist lens. `risk: normal` — test-only, but it is the kind of change that can quietly assert nothing, which is the whole subject.
-- **[T-026](T-026-first-build-after-cold-start-fails.md) applies** — the first Jenkins build after idle may fail spuriously. Re-run on the warm box; read the statuses API, not `gh pr checks`, which reports `pass` while a failed build sits in the history.
+- ~~**[T-026](T-026-first-build-after-cold-start-fails.md) applies** — the first Jenkins build after idle may fail spuriously. Re-run on the warm box.~~ **FIXED 2026-08-26** (cv-infra `1deebb4`, [#21](https://github.com/erfeamor/cv-infra/pull/21)) — the first build after idle is now trustworthy, and a red one means what it says. Struck rather than deleted per strike-don't-delete. **The `gh pr checks` half of this warning still stands and is unrelated to T-026**: it reports only the latest status per context, so read `gh api repos/:owner/:repo/commits/:sha/statuses` or a failed build stays invisible behind a later green one.
 
 ## Provenance
 

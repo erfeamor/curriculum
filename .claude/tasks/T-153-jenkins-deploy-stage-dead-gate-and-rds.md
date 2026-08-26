@@ -54,6 +54,12 @@ stage('Deploy') {
 
 **[T-017](T-017-docs-drift-rds-to-selfhosted.md)'s `cv-database` half can ride the same PR** (`CLAUDE.md:3`, `README.md:9` — naming MySQL 8.4 as the target engine). Different files, same repo, and its meta-repo half is already satisfied, so this would **close T-017 entirely**. It also sits naturally with this task's own RDS-comment fix: both are the same drift, one in a pipeline file and one in prose.
 
+## The same dead gate exists in `cv-domain-service` — filed 2026-08-27 as [T-110](T-110-domain-service-jenkins-deploy-dead-gate.md)
+
+`cv-domain-service/Jenkinsfile:43-52` carries an identical `when { branch 'main' }` on its own `Deploy` stage, on a repo whose `origin` likewise holds only `master`. **Checked and filed ahead of this task; do not fix it here** (board rule 3 — different repo).
+
+It is not a pure duplicate: that repo's placeholder comment reads *"Placeholder until cv-infra exposes a deploy target"*, and `cv-infra/registry.tf:5` defines `aws_ecr_repository.domain_service` — so its stale premise is a **target that now exists**, where this task's is an architecture that was **dismantled**. Same class of drift, opposite direction. T-110 also records a gap neither task owns: **nothing on the board owns implementing the cv-domain-service deploy** ([T-203](T-203-bff-ci-deploy-stage.md) covers `cv-bff-node` only).
+
 ## Scope
 
 - Correct the branch condition to `master`.
@@ -72,7 +78,7 @@ stage('Deploy') {
 ## Watch-outs
 
 - **Verification is genuinely weak here and should be stated, not dressed up.** Nothing available on a PR build exercises a `branch 'master'` condition. The honest evidence is the diff plus the workspace-wide fact that `master` is the mainline. Do not claim a green PR build verified the gate — this board has a standing problem with green signals that measured the wrong thing ([T-107](T-107-post-id-cross-person-write.md)'s mock-measuring test, [T-028](T-028-qa-env-generator-worktree-build-context.md)'s master-building QA stack).
-- **[T-026](T-026-first-build-after-cold-start-fails.md) applies** — `cv-database` is wired to the on-demand CI host, so the first build after idle may fail spuriously with an empty stage. Re-run on the warm box before debugging. Read the statuses API, not `gh pr checks`, which reports `pass` while a failed build sits in the history.
+- ~~**[T-026](T-026-first-build-after-cold-start-fails.md) applies** — `cv-database` is wired to the on-demand CI host, so the first build after idle may fail spuriously with an empty stage. Re-run on the warm box before debugging.~~ **FIXED 2026-08-26** (cv-infra `1deebb4`, [#21](https://github.com/erfeamor/cv-infra/pull/21)) — the first build after idle is now trustworthy, and a red one means what it says. Struck rather than deleted per strike-don't-delete. **The `gh pr checks` half of this warning still stands and is unrelated to T-026**: it reports only the latest status per context, so read `gh api repos/:owner/:repo/commits/:sha/statuses` or a failed build stays invisible behind a later green one.
 
 ## Definition of done
 
@@ -106,4 +112,4 @@ The `when { branch 'main' }` gate evaluates false and the stage is skipped, on a
 Stage "Deploy" skipped due to earlier failure(s)
 ```
 
-Two different skip reasons for a stage that has never once executed. Worth recording because it is a small trap for whoever fixes this: *"Deploy was skipped"* in a log is not evidence about the branch gate unless you read **which** skip it was — and [T-026](T-026-first-build-after-cold-start-fails.md) means roughly one build in two on a cold start shows the misleading variant.
+Two different skip reasons for a stage that has never once executed. Worth recording because it is a small trap for whoever fixes this: *"Deploy was skipped"* in a log is not evidence about the branch gate unless you read **which** skip it was — and ~~[T-026](T-026-first-build-after-cold-start-fails.md) means roughly one build in two on a cold start shows the misleading variant~~ **(T-026 fixed 2026-08-26, so cold starts no longer manufacture the `earlier failure(s)` variant; the trap survives for any build that fails for an unrelated reason, which is why the distinction still matters)**.
