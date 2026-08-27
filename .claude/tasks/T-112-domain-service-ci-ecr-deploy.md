@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: chore/ci-ecr-deploy-stage
 pr:
-depends_on: [T-110]   # SCHEDULING, not file-level: T-110 fixes `when { branch 'main' }`. Landing this first would implement a stage that can never run.
+depends_on: [T-110]   # SCHEDULING, not file-level: T-110 fixes `when { branch 'main' }`. Landing this first would implement a stage that can never run. CAVEAT (review round, 2026-08-27): T-110's own H1 may BUNDLE it into T-111 under T-153's recommended option (a), in which case T-110 closes with no PR of its own and this edge points at an absorbed task. If that happens, repoint this to whichever task actually lands the `master` gate -- do not read a closed T-110 as an unmet dependency.
 risk: normal
 security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /security-review path, and this diff introduces registry credentials into CI
 ---
