@@ -75,7 +75,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-029](T-029-code-review-cannot-see-worktrees.md) | `/code-review` **silently reviews the wrong thing** without an explicit target | cv-project (meta) | todo | | — | |
 | [T-030](T-030-pr3-build1-success-then-error.md) | A Jenkins build posted `success` then `error` one second later — **DIAGNOSED: a mid-build Jenkins restart, NOT T-026** | cv-infra | done | tech-product-owner | — | none |
 | [T-031](T-031-board-frontmatter-validator.md) | **A validator for the task board** — the checks this board keeps running by hand and keeps failing | cv-project (meta) | done | infrastructure-engineer | — | [#59](https://github.com/erfeamor/curriculum/pull/59) |
-| [T-032](T-032-board-check-re-review-after-live-use.md) | Re-review `board-check.py` after a week of real use — **the finding rate never fell** — and add the **link-integrity check** (5 dead links passed as clean, 2026-08-24) | cv-project (meta) | todo | | T-031 ✔ | **not before 2026-08-30** |
+| [T-032](T-032-board-check-re-review-after-live-use.md) | Re-review `board-check.py` after a week of real use — **the finding rate never fell** — plus two blind spots found live since: the **link-integrity check** (5 dead links passed as clean, 2026-08-24) and **`pr:` presence being status-gated**, so an `in_progress` task holding an open PR passes clean (2026-08-27) | cv-project (meta) | todo | | T-031 ✔ | **not before 2026-08-30** |
 | [T-033](T-033-ci-host-tls.md) | CI host serves Jenkins login and Drone OAuth over plain HTTP on a scanned public IP — decide TLS or record the accepted risk | cv-infra | todo | | — | |
 
 ### The measured model — [T-020](T-020-cost-model-correction.md), read 2026-08-19
