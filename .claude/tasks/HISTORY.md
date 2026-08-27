@@ -763,3 +763,37 @@ Both cv-database CI tasks instruct their implementer to **check `cv-domain-servi
 Also recorded in T-110, because it was searched for and genuinely nobody holds it: **no board task owns implementing the `cv-domain-service` deploy.** [T-203](T-203-bff-ci-deploy-stage.md) covers `cv-bff-node` only, and that repo's `Docker image` stage builds an image it never pushes. Filed as a pointer, not as a task — naming the gap is not the same as claiming it.
 
 **A stale warning cleared in three files while here.** T-153, T-154 and [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) each carried *"T-026 applies — the first build after idle may fail spuriously, re-run on the warm box before debugging."* [T-026](T-026-first-build-after-cold-start-fails.md) was fixed and merged on 2026-08-26, so that advice had inverted: it now tells the next person to **dismiss a genuine red build as a known flake**. Struck rather than deleted, per convention. **The `gh pr checks` half of the same warning is deliberately kept** — it reports only the latest status per context and is unrelated to T-026, so a failed build still hides behind a later green one.
+
+## [T-201](T-201-bff-cv-aggregate.md) merged — the head of the deployment chain is gone, and a test that could not fail nearly shipped a contract violation (2026-08-27)
+
+**Merged as cv-bff-node `65f6c0a`** (squash of [#5](https://github.com/erfeamor/cv-bff-node/pull/5)). `GET /bff/api/v1/people/:id/cv` serves the contract's aggregate: person plus four sections in parallel, ids and email stripped, upstream order passed through.
+
+**What it unblocks is the point.** [T-014](T-014-deploy-bff-to-aws.md)'s last unmet dependency is gone, so the entire public-path deployment chain (T-014 → T-403/T-404 → T-015, plus T-203) is live again, along with T-401 and T-402. **T-014 is now the head of everything remaining** — and it is the expensive shape the adapter warns about: a real apply plus stage-4 AWS verification, budget the full ceiling, never run it in a wave.
+
+### The finding worth remembering
+
+Review round 1 caught a **`Promise.all` race that would have answered 502 where the contract mandates 404**. An unknown person id 404s *all five* upstreams, not just the person one — every section controller calls `requirePerson()` as the first line of `findAll`. `Promise.all` rejects with whichever rejection lands first, so over a real network a section's 404 (mapped to 502) could beat the person's.
+
+**The test written for that exact case could not fail.** Synchronous mocks resolve in array order, so the person's rejection always won and the race was invisible — the *"green check that measures nothing"* shape, inside the very task whose parallelism criterion had **already been struck for being unfalsifiable**. The lesson did not transfer from one criterion to its neighbour, in the same file, written in the same sitting.
+
+**What changed as a result is the practice, not just the code.** Both the fix's regression test and the earlier parallelism test were **run against deliberately broken implementations to prove they go red** — and the first falsification attempt itself *passed*, because it still built the promise array eagerly, which starts all five fetches whichever way you then await them. Only genuinely sequential statements are the shape the criterion is about. A falsification check that does not falsify is one more layer of the same defect, and it took two attempts to notice.
+
+Exploratory QA then held the fix to the standard a race deserves: **15 sequential + 20 concurrent + 40-way parallel requests, 75/75 returning 404, zero 502s.** One green `curl` would have proved almost nothing.
+
+### QA answered an open question rather than just passing
+
+[T-205](T-205-bff-allowlist-section-normalizers.md) asks whether the aggregate's denylist normalizers leak undeclared upstream fields. QA settled it with evidence instead of leaving it theoretical: a key-set diff of `/cv` against the **raw** domain-service responses shows only `id` removed per section (`skillId` for skills), and a recursive scan for `id`/`personId`/`skillId`/`email` returns zero matches on real seeded data. The reason was established rather than assumed — every domain entity `@JsonIgnore`s its person/identity fields, so the upstream JSON already equals the declared TypeScript shape. **T-205's exposure is latent, not active**, which is what decides its urgency.
+
+### Three tasks filed out of this one, none of them fixed inside it
+
+| Task | From | Why it was not fixed here |
+|---|---|---|
+| [T-205](T-205-bff-allowlist-section-normalizers.md) | `/security-review` | Not exploitable today; board rule 3 |
+| [T-206](T-206-person-id-guard-numeric-overflow.md) | exploratory QA | An over-long digit run passes `/^[0-9]+$/`, overflows Java `Long`, and yields 502 after five real upstream calls. Filed because the guard's **doc comment promises "must never reach an upstream URL"** while five do — and because [T-204](T-204-bff-validate-person-id-param.md) adopts that same guard |
+| [T-032](T-032-board-check-re-review-after-live-use.md) *(scope added)* | `/code-review` | `board-check.py`'s `pr:` check returns early unless status is `in_review`/`done`, so an `in_progress` task holding an open PR passes clean. Reproducible from `git show 422fbeb` |
+
+### Two process notes
+
+**`/code-review` was invoked from the meta repo**, so it reviewed the *board* diff rather than the code. It found the code bug anyway, by verifying the board's own file/line citations against the sibling repos — but that was luck, not method. Target the repo under review.
+
+**Turns bound before tokens, and that inverts the usual advice.** This session finished at ~92% of the turn ceiling with tokens under half. A background agent costs the driver ~2 turns against ~20 for the same work inline, so **spawning became the turn-efficient choice** — the opposite of the budget guide's default, which assumes tokens bind. Both remaining passes were spawned for that reason, and it also satisfied the engine's *"the writer writes"* invariant, which mattered here because review round 1 had already proved the driver had a blind spot in this exact code.

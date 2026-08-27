@@ -2,7 +2,7 @@
 id: T-201
 title: "BFF: aggregated public CV endpoint"
 repo: cv-bff-node
-status: in_review
+status: done
 owner: fullstack-developer
 branch: feat/cv-aggregate-endpoint
 pr: https://github.com/erfeamor/cv-bff-node/pull/5
@@ -10,11 +10,11 @@ depends_on: [T-101, T-102, T-103, T-104, T-006]
 risk: normal              # set at stage-0 refinement 2026-08-27; this task shipped without the key (board-check's UNREFINED_EXEMPT set)
 security_review: true     # NOT an adapter §5 path match — see ruling 2. Set deliberately: an ANONYMOUS route that fans one caller-supplied path segment out into FIVE upstream URLs.
 checkpoint:
-  stage: H2                # Review round 1 closed (8/8 resolved) and exploratory QA PASSED. Awaiting the H2 human gate, then merge cv-bff-node#5.
+  stage: done              # H2 ACCEPTED and MERGED 2026-08-27 as cv-bff-node 65f6c0a (squash of #5, --admin). Branch deleted; stale remote-tracking ref pruned.
   repo: cv-bff-node
   branch: feat/cv-aggregate-endpoint
   worktree: none
-  commit: 759fb50          # 5a749d4 = initial, 759fb50 = review-round-1 fix (the Promise.all race)
+  commit: 65f6c0a          # squash-merge commit on cv-bff-node master. Branch commits were 5a749d4 (initial) + 759fb50 (review-round-1 race fix).
   pr: https://github.com/erfeamor/cv-bff-node/pull/5
   developer: fullstack-developer
   reviewers: ["/code-review", "fullstack-developer", "/security-review"]
@@ -151,6 +151,27 @@ checkpoint:
       - a genuine mid-flight section 502 with the person succeeding -- needs fault injection,
         out of scope for a read-only pass. That path was read, not exercised.
       - the test assertions themselves; this was deliberately black-box.
+  close_out: |
+    MERGED 2026-08-27 as cv-bff-node 65f6c0a, squash of #5 via --admin. Branch
+    feat/cv-aggregate-endpoint deleted on merge; the stale origin/ remote-tracking ref was
+    pruned locally and the generated QA override (docker-compose.override.cvdl_t-201.yml,
+    gitignored) removed. No worktree was used -- checkpoint.worktree was `none` throughout.
+    Full pipeline run, every gate on the record above: stage-0 refinement (5 rulings) -> H1
+    ratified -> implement -> A1 green -> PR + repo CI green -> review round 1 (8 findings,
+    8 resolved, ONE a real defect) -> exploratory QA passed -> H2 accepted -> merge.
+    WHAT THIS UNBLOCKS, and it is the point of the task: T-014's last unmet dependency is
+    gone, so the whole public-path deployment chain (T-014 -> T-403/T-404 -> T-015, plus
+    T-203) is live again, along with T-401 and T-402. Four tasks that gated on this task
+    became claimable the moment it merged: T-014, T-401, T-402 and T-204 -- plus T-205 and
+    T-206, both filed out of this task's own review and QA.
+    THE ONE FINDING WORTH CARRYING FORWARD: review round 1 caught a `Promise.all` race that
+    would have answered 502 where the contract mandates 404, and MY OWN TEST COULD NOT SEE
+    IT -- synchronous mocks resolve in array order, so the person's rejection always won.
+    That is the "green check that measures nothing" shape, inside the very task whose
+    parallelism criterion had already been struck for being unfalsifiable. Both the fix's
+    regression test and the earlier parallelism test were subsequently PROVEN FALSIFIABLE
+    by running them against deliberately broken implementations, which is the practice this
+    task should be remembered for.
   budget: |
     SOFT and DEEPENING. Probed 2026-08-27 after QA returned: turns 368/400 (92%), tokens
     73.7M/150M (49%), subagent_tokens 176,136, spawns 2 (/code-review, quality-assurance).
