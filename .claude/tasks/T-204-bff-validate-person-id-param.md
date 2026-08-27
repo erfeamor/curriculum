@@ -6,10 +6,21 @@ status: todo
 owner:
 branch: fix/validate-person-id-param
 pr:
-depends_on: [T-202]
+depends_on: [T-202, T-201]   # T-201 ADDED 2026-08-27 by its review round 1. NOT a scheduling nicety: T-201 ruling 3 puts the shared guard in src/middleware/validate-person-id.ts precisely so this task adopts it in one line. Branching off master before T-201 merges means that file does not exist, and this task writes the SECOND implementation of one rule -- the exact outcome ruling 3 exists to prevent.
 risk: normal
 security_review: true
 ---
+
+## Use T-201's shared guard — do not write a second one (added 2026-08-27)
+
+[T-201](T-201-bff-cv-aggregate.md) ships `src/middleware/validate-person-id.ts`, an exported `isValidPersonId()` over `/^[0-9]+$/`, and applies it to the aggregate route **before any upstream call**. Its ruling 3 justifies the shared module entirely on this task adopting it:
+
+> *"A private helper would guarantee two implementations of one rule, which is exactly how this defect came to have two instances in the first place."*
+
+**That justification only holds if this task lands after T-201**, which is why `T-201` is now in `depends_on` above. It was missing when T-201 merged its refinement, and a review round caught it: nothing sequenced the two, `TASKS.md` marked this task claimable in parallel, and an implementer branching off `master` would find no such file.
+
+**What this task still owns, unchanged:** applying the guard to `GET /people/:id` in `src/routes/people.ts`, which T-201 deliberately did **not** touch (board rule 3 — T-201's acceptance criteria are its scope). The regex, its rationale, and the JS-specific note that `$` without `/m` matches only end-of-input — so the trailing-newline bypass that works in Python and Ruby does not apply here — are all settled in that module. Adopt, do not re-derive.
+
 
 ## Why this exists
 

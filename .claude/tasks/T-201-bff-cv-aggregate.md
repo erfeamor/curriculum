@@ -2,10 +2,10 @@
 id: T-201
 title: "BFF: aggregated public CV endpoint"
 repo: cv-bff-node
-status: in_progress
+status: in_review
 owner: fullstack-developer
 branch: feat/cv-aggregate-endpoint
-pr:
+pr: https://github.com/erfeamor/cv-bff-node/pull/5
 depends_on: [T-101, T-102, T-103, T-104, T-006]
 risk: normal              # set at stage-0 refinement 2026-08-27; this task shipped without the key (board-check's UNREFINED_EXEMPT set)
 security_review: true     # NOT an adapter §5 path match — see ruling 2. Set deliberately: an ANONYMOUS route that fans one caller-supplied path segment out into FIVE upstream URLs.
@@ -14,16 +14,16 @@ checkpoint:
   repo: cv-bff-node
   branch: feat/cv-aggregate-endpoint
   worktree: none
-  commit: 5a749d4
+  commit: 759fb50          # 5a749d4 = initial, 759fb50 = review-round-1 fix (the Promise.all race)
   pr: https://github.com/erfeamor/cv-bff-node/pull/5
   developer: fullstack-developer
   reviewers: ["/code-review", "fullstack-developer", "/security-review"]
   risk: normal
   security_review: true
   review_round: 1
-  open_findings: 0
+  open_findings: 0          # 8 raised, 8 resolved in round 1
   qa_bounces: 0
-  fix_attempts: 0
+  fix_attempts: 1
   updated: 2026-08-27
   h1: |
     RATIFIED 2026-08-27 by the account owner. All four questions took the recommended
@@ -34,9 +34,13 @@ checkpoint:
     GREEN, run by the driver in cv-bff-node/: npm run lint clean, npm run typecheck clean,
     npm test 30/30 passed, npm run build clean. Diff is 5 files, +499/-5.
     Risk re-check per adapter §5: stays `normal`. The trivial fast-path was never claimed,
-    so the >150-line/>5-file revocation rule does not apply. No §5 security path is touched
-    -- security_review: true here is the H1 judgement (ruling 2), NOT a path match, and the
-    task file says so rather than letting a later reader infer a rule that did not fire.
+    so the >150-line/>5-file revocation rule does not apply.
+    CORRECTED after review round 1: this block first recorded "No §5 security path is
+    touched" as an executed re-check. That was ASSERTED, not checked -- the diff adds a
+    file under src/middleware/ and edits test/auth-matrix.test.ts, and §5's auth bullet
+    says "anything under auth filters/guards". The reading still stands (a path-parameter
+    validator is not an auth filter; a test file is not a guard), but it is a judgement.
+    Immaterial to the outcome: security_review: true either way, by ruling 2.
   ci: |
     GREEN 2026-08-27. Verified via the check-runs API, NOT `gh pr checks` -- run 33019874921
     on feat/cv-aggregate-endpoint: `test` completed/success, `docker` completed/success.
@@ -44,6 +48,48 @@ checkpoint:
     commit statuses. The standing board caution is written against Jenkins' status-API
     behaviour and does not transfer verbatim to an Actions repo -- worth knowing before
     someone reads an empty statuses list here as "no CI ran".)
+  code_review_result: |
+    RAN 2026-08-27, /code-review at effort `high`. EIGHT findings, ALL RESOLVED. One is a
+    real defect in the shipped code; the rest are board hygiene the driver introduced.
+
+    SCOPING MISTAKE BY THE DRIVER, recorded because it nearly cost the finding: /code-review
+    was invoked from the META repo, so it reviewed the BOARD diff (meta #73) and not the
+    cv-bff-node code. It found the code bug anyway, by verifying the board's own file/line
+    citations against the sibling repos. The right invocation targets the repo under review.
+
+    F1 -- HIGH, A REAL BUG, fixed in 759fb50. `Promise.all` made the contract's
+      "person 404 -> 404" a RACE. An unknown person id 404s ALL FIVE upstreams, because
+      every section controller calls requirePerson() as the first line of findAll
+      (ExperienceController:47 + three siblings -- verified). Promise.all rejects with
+      whichever settles FIRST, so over a real network a section's 404 (mapped 502) could
+      beat the person's and the route would answer 502 where the contract says 404.
+      MY OWN TEST COULD NOT CATCH IT: synchronous mocks resolve in array order, so the
+      person always won and the race was invisible -- the "green check that measures
+      nothing" shape, in the very task whose parallelism criterion was struck for being
+      unfalsifiable. Fixed with Promise.allSettled plus explicit precedence; new regression
+      test forces the section 404s to land first and is PROVEN FALSIFIABLE (fails
+      "Expected: 404, Received: 502" against the old code).
+    F2 -- MEDIUM. status stayed `in_progress` with an empty `pr:` while the checkpoint
+      recorded an open PR. Board rule 6 breach. board-check.py did NOT catch it: its
+      missing-pr rule only fires on in_review/done. Fixed; worth a look at T-032.
+    F3 -- MEDIUM. The deployment-chain prose still called T-201 `todo` and "claimable now".
+      THIRD time that paragraph has gone stale about this task, and its own closing sentence
+      warns about exactly this. Struck and corrected.
+    F4 -- MEDIUM. Ruling 3's shared guard had NO board edge making T-204 land after it, so
+      the duplicate implementation it exists to prevent was still reachable. T-201 added to
+      T-204's depends_on, with a pointer section in that file and its board rows updated.
+    F5 -- LOW/MED. TASKS.md row said "at H1" in the same commit that recorded review round 1.
+    F6 -- LOW. Body read "PENDING H1" after the gate ran, and "four questions" did not
+      account for five rulings. Now records that 2/3/4 were answered explicitly and 1/5 were
+      ratified uncontested.
+    F7 -- LOW. Ruling 2's "touches none of §5's paths" was asserted, not checked -- the diff
+      adds a file under src/middleware/ and edits test/auth-matrix.test.ts. Reading still
+      stands (a param validator is not an auth filter) but it is a judgement; corrected in
+      both places. Immaterial to the outcome.
+    F8 -- LOW. T-112's depends_on [T-110] may dangle if T-110 is absorbed into T-111 under
+      its own recommended H1 option. Caveat added.
+  ci_after_fix: |
+    GREEN on 759fb50, verified via check-runs: `test` and `docker` both completed/success.
   security_review_result: |
     RAN 2026-08-27. NO HIGH OR MEDIUM FINDINGS. Run INLINE by the driver rather than fanned
     out to sub-tasks (budget guide: do not spawn for work the driver can do inline; 5-file
@@ -67,12 +113,20 @@ checkpoint:
     T-201's own no-leak test cannot catch it because it asserts against mocks built from
     the declared interface.
   budget: |
-    Probed at claim time 2026-08-27: turns 217/400 (54%), tokens 28.7M/150M (19%), spawns 0,
-    status OK. This session had already driven T-026 to merge plus three board syncs before
-    claiming this, so the turn budget is HALF SPENT before stage 1 starts. The adapter prices
-    a normal single-repo task at "2-3 spawns and well under half the turn ceiling" — that
-    fits what remains, but with little slack for a second review round. If it goes SOFT,
-    checkpoint at the round boundary rather than pushing through.
+    SOFT at checkpoint time. Probed 2026-08-27 after review round 1 was applied:
+    turns 338/400 (84.5%), tokens 63.1M/150M (42%), subagent_tokens 118,928, spawns 1.
+    Per references/budget.md a SOFT reading means FINISH THE STAGE, CHECKPOINT, then ASK
+    before starting another. The stage is finished -- review round 1 is closed with zero
+    open findings, the code fix is pushed and CI is green on it. The next stage (exploratory
+    QA against a live compose stack) was deliberately NOT started.
+    Spend history: this session drove T-026 to merge (apply + 4-step live verification),
+    filed T-110/T-111/T-112/T-205, and ran four board syncs BEFORE claiming this task -- so
+    T-201 inherited a budget already half spent. The one spawn was /code-review; the
+    security review and the implementation were both run inline by the driver, per the
+    budget guide's rule not to spawn for work the driver can do itself.
+    STANDING CAVEAT: consumption against a SELF-IMPOSED ceiling, NOT a reading of remaining
+    plan quota, which is not observable from inside a session. The adapter's second
+    calibration point says ceiling_turns:400 trips roughly 20 points before real usage.
 ---
 
 ## Goal
@@ -89,7 +143,7 @@ checkpoint:
 >
 > **No infra work belongs here.** The `/cv` path is already allowlisted at `src/middleware/auth.ts:53` and the edge behavior is path-prefix based, so this task ships route + tests only. If a live `/cv` returns **401** rather than 404 after T-014 applies, that is an allowlist-regex defect and T-014's problem, not a missing route here.
 
-## Stage-0 refinement — 2026-08-27, rulings PENDING H1
+## Stage-0 refinement — 2026-08-27, rulings RATIFIED AT H1 the same day
 
 This task was one of the five deliberately unrefined items (`board-check.py`'s `UNREFINED_EXEMPT`). Its body already carries the hard decisions — the edge path, the T-204 interaction, the struck parallelism criterion — so refinement settles what is genuinely open rather than restating them.
 
@@ -101,7 +155,7 @@ The body offers both. **Take the sibling file.** `people.ts` is 47 lines with on
 
 ### Ruling 2 — `security_review: true`, and it is NOT a path match
 
-Adapter §5's forced paths are auth/identity, secrets/env, IAM/network, CI config. **This diff touches none of them** — it is a new route file and tests. So the honest position is that A1 will *not* force `/security-review` here, and it is being set at refinement instead, deliberately:
+Adapter §5's forced paths are auth/identity, secrets/env, IAM/network, CI config. **This diff arguably touches none of them**, though the call is closer than first written — a review round pointed out that the delivered diff adds a file under `src/middleware/` and edits `test/auth-matrix.test.ts`, and §5's auth bullet reads *"anything under auth filters/guards"*. The guard is a path-parameter validator rather than an auth filter, and a test file is not a guard, so the reading here is that A1 does **not** fire — but it is a judgement, not the clean negative originally claimed. **The outcome is unaffected either way**, which is why this is recorded rather than re-litigated: `security_review: true` is set, deliberately, because:
 
 - the route is **anonymous by contract** (T-013 ratified it; there is no token check in front of it),
 - it takes one caller-supplied path segment and interpolates it into **five** upstream URLs,
@@ -140,7 +194,10 @@ Named here so they are not re-derived from memory mid-implementation. All are `$
 
 ## Definition of Ready — met
 
-Upstreams `T-101`…`T-104` and `T-006` are all `done`; the contract section is ratified and amended (T-013, T-006, T-024); the repo is at `b63eae2` with T-202's mount in place; every open design question above is ruled on. **Pending H1 ratification of rulings 1–5, and of the `security_review: true` classification in particular, since it is a judgement rather than a rule match.**
+Upstreams `T-101`…`T-104` and `T-006` are all `done`; the contract section is ratified and amended (T-013, T-006, T-024); the repo is at `b63eae2` with T-202's mount in place; every open design question above is ruled on. ~~**Pending H1 ratification of rulings 1–5**~~ — **RATIFIED 2026-08-27.** Recorded precisely, because a review round caught this section still reading "pending" after the gate had run:
+
+- **Rulings 2, 3 and 4 were put to the human as explicit questions** and all three took the recommended option.
+- **Rulings 1 and 5 were presented in this refinement and not contested** — they are ratified by the gate passing, not by an individual answer. Ruling 1 (route file) and ruling 5 (the upstream path table) are both low-stakes and neither was flagged. Saying so beats letting a later reader count three answers against five rulings and wonder which two are still open.
 
 ## Pointers
 
