@@ -75,3 +75,20 @@ PR open against `master` from `fix/person-id-guard-length-bound`, GitHub Actions
 ## Provenance
 
 Found by exploratory QA at T-201's stage-4, 2026-08-27, against the live isolated stack — a black-box probe of the guard with an oversized input, which no unit test in T-201 had tried. Filed rather than fixed inside T-201 per board rule 3: T-201's acceptance criteria are its scope and none of them cover numeric overflow. QA classified it low-severity and explicitly **not** a T-201 defect, which is the right call — the contract makes no promise here and the 502 is technically compliant. It is filed because the comment overstates, not because the status code is illegal.
+
+---
+
+## Independent corroboration — T-205's exploratory QA, 2026-08-27
+
+Reproduced a **second** time, by a separate QA run against a separate stack (`cvdl_t-205`, BFF `:3010`), while testing an unrelated change. The original observation above came from T-201's QA; this one was found by probing around T-205's test plan, not by looking for it.
+
+A **34-digit** id (the original used 20 and 300 nines) reproduces the full chain, and this run pinned down the upstream side more precisely than the first:
+
+- the guard **passes** the id, as `/^[0-9]+$/` must;
+- cv-domain-service throws `MethodArgumentTypeMismatchException` converting the value to `Long`;
+- **five identical `WARN` log lines at a single timestamp** — direct confirmation that all five parallel upstream calls were made, which the original entry inferred from the route's structure rather than measured;
+- the BFF's "any non-404 upstream failure → 502" rule fires and the client receives **502**.
+
+So both halves of this task's argument are now measured rather than reasoned: the client error surfaces as a server error, **and** the guard's documented promise that an invalid id *"must never reach an upstream URL"* is broken five times over per request.
+
+Recorded here rather than filed as a new task — same defect, second sighting. It also strengthens the sequencing note in [T-205](T-205-bff-allowlist-section-normalizers.md) and `TASKS.md` that [T-204](T-204-bff-validate-person-id-param.md) should not land before this one: T-204 adopts the shared guard, and adopting it while it still accepts overflowing digit runs propagates the weaker version to a second route.
