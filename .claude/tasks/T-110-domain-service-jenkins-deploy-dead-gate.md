@@ -37,7 +37,7 @@ stage('Deploy') {
 
 **Do not implement the deploy.** Same ruling as [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md): that is a separate, larger task with real credential and blast-radius questions ([T-005](T-005-ci-secret-blast-radius.md) is directly relevant, and [T-203](T-203-bff-ci-deploy-stage.md) is the shape it would take for the BFF). This task makes the stage honest, nothing more.
 
-> **Nothing on the board currently owns the cv-domain-service deploy.** Searched 2026-08-27: the only files mentioning it are [T-002](T-002-jenkins-on-drone-host.md) (which built the pipeline) and T-153 (the sibling repo). T-203 covers `cv-bff-node` only. Recorded as a gap for whoever refines this — **filing that task is not this task's job**, but neither should the gap be rediscovered a third time.
+> ~~**Nothing on the board currently owns the cv-domain-service deploy.**~~ **NOW OWNED — filed 2026-08-27 as [T-112](T-112-domain-service-ci-ecr-deploy.md)**, on the human's instruction, immediately after this pointer was written. The gap was real: searched 2026-08-27, the only files mentioning the deploy were [T-002](T-002-jenkins-on-drone-host.md) (which built the pipeline) and T-153 (the sibling repo), and [T-203](T-203-bff-ci-deploy-stage.md) covers `cv-bff-node` only — deliberately, in terms. **T-112 `depends_on` this task**, because implementing the deploy into a stage still gated on `main` would ship something that can never run.
 
 ## Scope
 
