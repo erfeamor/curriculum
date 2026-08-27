@@ -17,8 +17,10 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 | [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** — every ordered collection except experience | cv-domain-service | todo | | T-105 | |
 | [T-110](T-110-domain-service-jenkins-deploy-dead-gate.md) | cv-domain-service's Jenkins `Deploy` stage is gated on `main`, a branch that does not exist here — and its placeholder still says cv-infra has yet to expose a deploy target (the ECR repo exists) | cv-domain-service | todo | | — | |
 | [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) | No `timeout {}` on cv-domain-service's pipeline — and `numExecutors: 1`, so a hang here blocks cv-database's builds too | cv-domain-service | todo | | — | |
+| [T-112](T-112-domain-service-ci-ecr-deploy.md) | cv-domain-service CI: push the image to ECR and roll the container on `master` — the backend deploy is still manual (`README.md:273`), and the ECR repo it waits for already exists | cv-domain-service | todo | | T-110 | |
 | [T-151](T-151-dev-seeds-cv-sections.md) | Dev seed data for CV sections | cv-database | done | backend-developer | — | [#4](https://github.com/erfeamor/cv-database/pull/4) |
-| [T-201](T-201-bff-cv-aggregate.md) | BFF: aggregated public CV endpoint | cv-bff-node | todo | | T-101…T-104, T-006 | |
+| [T-201](T-201-bff-cv-aggregate.md) | BFF: aggregated public CV endpoint — **refined 2026-08-27, at H1** | cv-bff-node | in_progress | fullstack-developer | T-101…T-104, T-006 | |
+| [T-205](T-205-bff-allowlist-section-normalizers.md) | BFF: the aggregate's four section normalizers are **denylists** (`...rest` passes undeclared upstream fields through) where every other normalizer in the repo is an allowlist — on the one route with no auth in front of it | cv-bff-node | todo | | T-201 | |
 | [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |
 | [T-401](T-401-public-cv-sections.md) | Public site: render full CV | cv-public-vanilla | todo | | T-201 | |
 | [T-402](T-402-public-react-cv-sections.md) | Public site (React): render full CV sections | cv-public-react | todo | | T-201 | |
