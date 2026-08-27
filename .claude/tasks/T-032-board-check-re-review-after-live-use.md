@@ -37,7 +37,7 @@ A falling rate would have argued convergence. **This one did not fall.** What ch
 ## What to actually look at — evidence, not another cold read
 
 1. **Every finding it produced in the wild.** Was each one real? A false positive in check 1 is what T-031 itself calls *fatal to adoption* — the tool gets switched off, and then everyone believes the board is checked when it is not. **One confirmed false positive is a bigger result than ten true ones.**
-2. **Every board defect it MISSED.** Diff the sweeps: run the checks a human sweep would have caught by eye against what the tool reported. Check 1 missed **seven** distinct YAML surface forms across T-031's three rounds. There is no reason to assume the eighth does not exist.
+2. **Every board defect it MISSED.** Diff the sweeps: run the checks a human sweep would have caught by eye against what the tool reported. Check 1 missed **seven** distinct YAML surface forms across T-031's three rounds. There is no reason to assume the eighth does not exist. **Two misses have since arrived on their own, both in checks other than check 1** — link integrity (check 2) and `pr:` presence being status-gated (check 5, found 2026-08-27). Both have their own sections and criteria below. **Neither discharges this item:** they were found by accident, and this asks for a deliberate hunt.
 3. **Did anyone turn it off, work around it, or edit the board to silence it?** That is the adoption signal, and it is not visible from the code. Look for `--no-*` flags reached for, findings "fixed" by deleting the key rather than correcting it, and whether the opt-in hook is still registered in `settings.local.json`.
 4. **The `/dev-loop` driver invocation.** Enforcement point (b) lives in the gitignored adapter and does **not** propagate. Did the driver actually run it at each checkpoint write? T-031's whole motivation is that *all four* of the most recent shadowing incidents were driver edits.
 5. **Mutation-test the suite again.** Round 3's method — revert each fix, confirm a test dies — found 11 survivors that three prior passes missed. It is the highest-yield technique used on this task and it should be the first one reached for, not the last.
@@ -93,6 +93,50 @@ Note also that the wrong **titles** were the more dangerous half. A dead link fa
 **Fix the board if it fires today**, per T-031's H1 ruling 2 — but note the five links above were repaired on 2026-08-24, so the expected result on the current board is **zero findings**. If it finds more, that is a live defect and a second data point for this task's verdict.
 
 **Scope note, since this adds a check to a re-review task:** T-031's seven checks all trace to a recorded incident, and this now has one. It is an acceptance criterion below rather than loose prose deliberately — the 2026-08-24 review found three hand-offs that lived in prose and were held by no task's criteria, and the fix for that is not to create a fourth. If the re-review's verdict turns out to be *"the approach is wrong"* (AC5's third option), split this into its own task rather than building it into something being retired.
+
+## A blind spot in CHECK 5 — `pr:` presence is gated on status, found live 2026-08-27
+
+**Not a variant of the link-integrity item above.** That is a blind spot in check 2 (row↔file matching); this is one in check 5 (`pr:` presence). The file's earlier "eighth blind spot" numbering counts duplicate-key surface forms in check 1 and does not extend cleanly to either — **do not try to number this one**; name the check it belongs to.
+
+### What happened
+
+During [T-201](T-201-bff-cv-aggregate.md)'s review round, `/code-review` found that the task carried `status: in_progress` with an **empty top-level `pr:`**, while the `checkpoint:` block in the same file recorded an open PR, `stage: review` and a CI-green result. Board `README.md` rule 6 and adapter §1 both require `status: in_review` and the URL in `pr:` the moment a PR opens.
+
+**`board-check.py` reported `clean` throughout.** This is reproducible from git, not reconstructed: at commit `422fbeb` the frontmatter reads `status: in_progress` / `pr:` (empty) with `checkpoint.pr` populated, and that tree was validated clean in the same session that wrote it.
+
+### Why it passed — and the detail that makes it worth fixing
+
+`check_pr_present` returns early on the status:
+
+```python
+if status not in ("in_review", "done"):
+    return findings                      # board-check.py:396
+```
+
+So the one state where a task can hold an open PR *without* announcing it — `in_progress` — is the one state never examined.
+
+**The check already has everything it needs.** Twenty lines further down (`:418`) it reads `checkpoint.pr` and builds a hint from it. The data is gathered; only the status gate stops it being used. This is not a missing capability, it is an unreachable branch.
+
+### Why it matters more than a tidy-up
+
+It is the **same class as the link-integrity miss, one check over: the validator agrees with itself and pronounces the board consistent while the fields a reader actually consults disagree.** A resumed driver, or any agent following the protocol, reads the canonical `status`/`pr:` fields — not the `checkpoint:` blob — concludes no PR exists, and can open a duplicate. `TASKS.md`'s PR column stays blank for a task that has one. And the board's own resume protocol is built on the premise that `status` and `checkpoint` never disagree.
+
+Worth noting what did catch it: a review agent reading the frontmatter, not the tool. Same three-part shape this task already records twice — **the driver introduced it, the validator missed it, and something outside the validator caught it.**
+
+### The check to build
+
+**A task whose `checkpoint.pr` holds a real PR URL must not have an empty or sentinel top-level `pr:`, at ANY status** — and if `status` is `in_progress` while `checkpoint.pr` is set, that is itself the finding, because board rule 6 says a task with an open PR is `in_review`. Report the file, the line and both values.
+
+**Explicitly NOT in scope:**
+- **Do not require `pr:` on a task with no `checkpoint.pr`.** A `todo` or `in_progress` task that genuinely has no PR is the normal case and must stay silent — firing there would be the cries-wolf failure T-031 calls fatal to adoption.
+- **Do not widen the existing `done`-only `pr:` sentinel rule.** `pr: "none"` on a `done` task is deliberate (the T-010 case) and already handled.
+
+### Acceptance criteria (added to the list below)
+
+- [ ] **A task with `checkpoint.pr` set and an empty or sentinel top-level `pr:` is reported, at any status** — with `in_progress` + a set `checkpoint.pr` called out as a board-rule-6 violation in its own right.
+- [ ] **A fixture reproduces the 2026-08-27 incident specifically** — `status: in_progress`, empty `pr:`, `checkpoint.pr` holding a URL — and is **confirmed red before the check exists**, per this board's standing practice. The real instance is recoverable from `git show 422fbeb:.claude/tasks/T-201-bff-cv-aggregate.md` rather than needing to be invented.
+- [ ] **A task with no `checkpoint.pr` and no `pr:` produces no finding at any status**, with a fixture — this is the false-positive guard, and it is the half that decides whether the check survives contact with the board.
+
 
 ## One passenger, added 2026-08-24 on the human's instruction
 
