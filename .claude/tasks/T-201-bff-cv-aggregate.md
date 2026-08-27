@@ -10,7 +10,7 @@ depends_on: [T-101, T-102, T-103, T-104, T-006]
 risk: normal              # set at stage-0 refinement 2026-08-27; this task shipped without the key (board-check's UNREFINED_EXEMPT set)
 security_review: true     # NOT an adapter §5 path match — see ruling 2. Set deliberately: an ANONYMOUS route that fans one caller-supplied path segment out into FIVE upstream URLs.
 checkpoint:
-  stage: review            # H1 RATIFIED, implemented, A1 green, PR open, repo CI green. Review round 1 in flight.
+  stage: H2                # Review round 1 closed (8/8 resolved) and exploratory QA PASSED. Awaiting the H2 human gate, then merge cv-bff-node#5.
   repo: cv-bff-node
   branch: feat/cv-aggregate-endpoint
   worktree: none
@@ -24,6 +24,7 @@ checkpoint:
   open_findings: 0          # 8 raised, 8 resolved in round 1
   qa_bounces: 0
   fix_attempts: 1
+  env_slot: 0              # cvdl_t-201 -- BFF 3010, domain-service 8090, MySQL 3316
   updated: 2026-08-27
   h1: |
     RATIFIED 2026-08-27 by the account owner. All four questions took the recommended
@@ -112,9 +113,55 @@ checkpoint:
     service's ENTITY SHAPE the BFF's public anonymous payload, enforced nowhere, and
     T-201's own no-leak test cannot catch it because it asserts against mocks built from
     the declared interface.
+  qa_result: |
+    PASSED 2026-08-27. Exploratory QA against the isolated stack (cvdl_t-201: BFF 3010,
+    domain-service 8090, MySQL 3316), spawned read-only per the engine's "the writer writes"
+    invariant -- which mattered here, since review round 1 had already proved the driver had
+    a blind spot in this code. Stack torn down with `down -v` and confirmed gone.
+    NO BLOCKING DEFECTS. What was actually exercised, so coverage is on the record:
+      - THE T-205 QUESTION ANSWERED: key-set diff of /cv against the RAW domain-service
+        responses on :8090, per section. Only `id` removed from experience/education/project,
+        only `skillId` from skills; recursive scan of the whole payload for id/personId/
+        skillId/email -> ZERO matches, on real Flyway-seeded data. NOT CURRENTLY LEAKING.
+        Root cause established rather than assumed: every domain entity @JsonIgnores its
+        person/identity fields, so the upstream JSON already equals the declared TS shape.
+        T-205's exposure is therefore LATENT (a future domain-service field would pass
+        straight through), not active -- which is what decides its urgency.
+      - Contract shape field-for-field, including both naming traps (`education` singular
+        against `/educations`; skills strip `skillId` not `id`).
+      - Ordering compared programmatically against the same arrays fetched direct from
+        :8090 -- identical in every section, undated "Dotfiles" project last.
+      - THE F1 REGRESSION, under real concurrency: 15 sequential + 20 concurrent + 40-way
+        parallel requests to an unknown person -> 75/75 returned 404, zero 502s. A race
+        deserves more than one green run, and this is what that standard looks like.
+      - The id guard: 1abc, 1;DROP, ..%2F..%2Fadmin, 1%20 -> all 400, and the NO-UPSTREAM-
+        CALL property verified against the domain service's own logs rather than inferred.
+        Empty segment -> 404 from Express's router before the handler. `01` -> 200, person 1.
+      - A person created with no rows -> all four sections 200 [] (not 404), matching the
+        controllers' "an existing person with no rows is an empty collection".
+    ONE NEW FINDING, low severity, FILED AS T-206 and NOT fixed here (board rule 3): an
+    over-long digit run passes /^[0-9]+$/, overflows Java Long upstream, and yields 502
+    after five real upstream calls. QA's own classification -- not a T-201 defect, since the
+    contract makes no promise there and the mapping is compliant. Filed because the guard's
+    DOC COMMENT promises "must never reach an upstream URL" and five do; and because T-204
+    adopts this exact guard.
+    EXPLICITLY NOT COVERED, recorded rather than left implied:
+      - auth (AUTH_ENABLED=false in the dev stack; covered by unit tests, and live only by
+        T-014's stage-4).
+      - a genuine mid-flight section 502 with the person succeeding -- needs fault injection,
+        out of scope for a read-only pass. That path was read, not exercised.
+      - the test assertions themselves; this was deliberately black-box.
   budget: |
-    SOFT at checkpoint time. Probed 2026-08-27 after review round 1 was applied:
-    turns 338/400 (84.5%), tokens 63.1M/150M (42%), subagent_tokens 118,928, spawns 1.
+    SOFT and DEEPENING. Probed 2026-08-27 after QA returned: turns 368/400 (92%), tokens
+    73.7M/150M (49%), subagent_tokens 176,136, spawns 2 (/code-review, quality-assurance).
+    Earlier probe, after review round 1: turns 338/400 (84.5%), tokens 63.1M, spawns 1.
+    QA WAS RUN ON THE HUMAN'S EXPLICIT INSTRUCTION after the SOFT reading was reported --
+    the guard's ask-before-a-new-stage step worked as designed rather than being skipped.
+    NOTE WHICH CEILING BINDS: turns, at 92%, while tokens sit under half. That is why both
+    remaining passes were SPAWNED rather than run inline -- a background agent costs the
+    driver ~2 turns against ~20 for the same work inline, so spawning is the turn-efficient
+    choice here, the opposite of the usual advice. Recorded because the budget guide's
+    "do not spawn for what the driver can do" assumes tokens bind, and here they do not.
     Per references/budget.md a SOFT reading means FINISH THE STAGE, CHECKPOINT, then ASK
     before starting another. The stage is finished -- review round 1 is closed with zero
     open findings, the code fix is pushed and CI is green on it. The next stage (exploratory
