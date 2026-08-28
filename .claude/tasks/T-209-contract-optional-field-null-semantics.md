@@ -2,7 +2,7 @@
 id: T-209
 title: "Contract: say whether an optional field arrives as null or absent — three repos hold three different answers, and one of them cites the contract for a rule it does not contain"
 repo: cv-project (meta)
-status: in_review
+status: done
 owner: tech-product-owner
 branch: docs/contract-optional-null-semantics
 pr: https://github.com/erfeamor/curriculum/pull/83
@@ -10,7 +10,7 @@ depends_on: []   # leads. T-210 and T-405 consume the rule this ratifies.
 risk: normal
 security_review: false   # documentation only; no code and no runtime behaviour change
 checkpoint:
-  stage: pr
+  stage: done
   repo: cv-project (meta)
   branch: docs/contract-optional-null-semantics
   pr: https://github.com/erfeamor/curriculum/pull/83
@@ -23,6 +23,7 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   updated: 2026-08-28
+  merged: 2230f59
   budget:
     turns: 128
     total_tokens: 10500000
@@ -68,11 +69,11 @@ State the rule explicitly in `docs/api-contract.md`, in § Design rules where a 
 
 ## Acceptance criteria
 
-- [ ] `docs/api-contract.md` § Design rules states the optional-field wire rule explicitly: key always present, empty value is `null`.
-- [ ] The rule explicitly contrasts itself with required-but-nullable `endDate`, and says `endDate`'s `null` carries a *meaning* ("current") that an optional's `null` does not.
-- [ ] The amendment is recorded in the header amendment list.
-- [ ] **The four cv-domain-service test comments that state or cite this rule now resolve** — a reader following "the contract's *absent optionals serialize as null*" finds it. Verified by grepping the amended contract for the phrase those comments use. **This is the criterion that closes the actual defect.**
-- [ ] The text says plainly that this is an **amendment to a silence**, not a correction — no consumer was in violation.
+- [x] `docs/api-contract.md` § Design rules states the optional-field wire rule explicitly: key always present, empty value is `null`.
+- [x] The rule explicitly contrasts itself with required-but-nullable `endDate`, and says `endDate`'s `null` carries a *meaning* ("current") that an optional's `null` does not.
+- [x] The amendment is recorded in the header amendment list.
+- [x] **The four cv-domain-service test comments that state or cite this rule now resolve** — a reader following "the contract's *absent optionals serialize as null*" finds it. Verified by grepping the amended contract for the phrase those comments use. **This is the criterion that closes the actual defect.**
+- [x] The text says plainly that this is an **amendment to a silence**, not a correction — no consumer was in violation.
 
 ## Watch-outs
 
