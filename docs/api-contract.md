@@ -1,6 +1,6 @@
 # API contract — CV section resources (v1)
 
-Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF public edge path, anonymous reads, `/metrics` exposure) · **2026-08-13 — T-006** (collection ordering) · **2026-08-20 — T-024** (skill-assignment PUT: request body split from response body). Changes require a PR to this file plus sign-off in the task that consumes it. All tasks in `.claude/tasks/` targeting the domain model implement *this* document — when in doubt, this file wins over any task prose.
+Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF public edge path, anonymous reads, `/metrics` exposure) · **2026-08-13 — T-006** (collection ordering) · **2026-08-20 — T-024** (skill-assignment PUT: request body split from response body) · **2026-08-28 — T-209** (optional fields: `null`, key always present). Changes require a PR to this file plus sign-off in the task that consumes it. All tasks in `.claude/tasks/` targeting the domain model implement *this* document — when in doubt, this file wins over any task prose.
 
 ## Design rules
 
@@ -10,6 +10,17 @@ Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF 
 4. Validation errors return `400` with Spring's default problem body; unknown IDs return `404`; success on `DELETE` is `204`.
 5. The domain service exposes internal `id`s; the BFF **strips ids and emails** from public payloads (same rule as the existing `people/:id` normalization).
 6. Every collection response is **explicitly ordered** — see § Ordering. An endpoint returning rows in the database's natural order does not satisfy this contract.
+7. **Optional fields are always present; `null` is the empty value.** Every field this contract declares in a **response** body — section resources, the person head, and the BFF's payloads alike — is a key in that response whether or not it has a value. An optional field with no value serializes as `"fieldOfStudy": null`, never as a missing key. A consumer may assume the key exists and must handle `null`; it must not treat a missing key as the empty case.
+
+   *The producer's tests cite this rule by the phrase* **"absent optionals serialize as null"** *— they mean this paragraph.*
+
+   **Requests are the other way round, and rule 7 does not govern them.** `PUT` replaces (§ Non-goals rules out `PATCH`), so an optional omitted from a **request** body *is* the empty case and clears the stored value. This rule constrains what the API emits, never what a client must send: a client does not have to send explicit `null`s.
+
+   **`endDate` is the one field this rule does not govern.** It is absent from every section's `Required:` list — those lists govern request validation — but it is **always emitted**, and its `null` carries the specific meaning **"current"** (rule 3), not "no value". The wire shape is identical to an empty optional; the semantics are not. `endDate` is the only field whose `null` says anything beyond absence, and rule 3 continues to own it.
+
+   **End-to-end by inheritance, not by enforcement.** The BFF's public routes (§ BFF) rebuild each payload field by field and copy these values **verbatim**, so a consumer of `/bff/api/v1/people/:id` or `/bff/api/v1/people/:id/cv` sees whatever shape the domain service produced. The BFF adds no nulls and removes none — it does **not** coerce an absent upstream key into a `null`, and rule 5's id/email stripping removes those keys outright rather than nulling them. **The guarantee therefore rests on the producer honouring it, not on a BFF check**: a consumer relying on key-presence is relying on this rule, and a producer that ever stopped emitting a key would propagate that straight through to the public payload.
+
+   *Added 2026-08-28 (T-209). This is an **amendment to a silence**, not a correction — the document had never stated the rule either way. The producer has behaved this way since v1 and its tests assert it, but three consumers each had to guess and guessed differently. No consumer was in violation; there was nothing to violate.*
 
 ## Ordering
 
