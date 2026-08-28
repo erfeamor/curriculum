@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: feat/render-cv-sections
 pr:
-depends_on: [T-201]
+depends_on: [T-201, T-405]   # T-405 corrects the section types this task renders; building against the uncorrected ones means fixing these components too (T-405 provenance)
 ---
 
 ## Goal
