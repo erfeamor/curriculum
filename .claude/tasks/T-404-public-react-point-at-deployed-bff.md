@@ -40,6 +40,7 @@ Probably one Vercel environment variable — but *probably* is the reason this n
 - [ ] The `BFF_URL` value is recorded somewhere durable (repo README or `docs/`), because a Vercel project setting is invisible to Terraform, to git, and to every other check in this project.
 - [ ] No `CORS_ALLOWED_ORIGINS` entry was added for the Vercel domain, or the PR explains what changed to make one necessary.
 - [ ] If a missing/misconfigured `BFF_URL` currently degrades silently, it either fails the build or is recorded as an accepted behaviour with its reasoning.
+- [ ] **A trailing slash on `BFF_URL` must not silently 404.** `BffCvRepository` concatenates without normalizing (`src/infrastructure/BffCvRepository.ts:64`), so `https://host/` yields `https://host//bff/api/v1/...`, which CloudFront and the BFF both reject. Either trim the slash in the composition root or assert its absence — a Vercel project setting is typed by hand into a web form, which is exactly where a trailing slash gets added. Found by `/code-review` during [T-406](T-406-public-react-bff-path-missing-prefix.md), 2026-09-22; pre-existing and deliberately not fixed there (board rule 3), recorded here because this task is the one that sets the value.
 - [ ] `npm test`, `npm run typecheck`, `npm run lint`, `npm run build` pass if any code changed.
 
 ## Definition of done
