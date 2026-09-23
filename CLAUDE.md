@@ -35,7 +35,7 @@ python3 scripts/board-check.py     # validate the task board (read-only; see .cl
 ./scripts/test-all.sh              # every repo's test suite
 ./scripts/build-all.sh             # every repo's build
 docker compose -f docker-compose.dev.yml up --build   # full local stack
-curl localhost:3000/api/v1/people/1                    # E2E smoke: BFF → Java → MySQL
+curl localhost:3000/bff/api/v1/people/1                # E2E smoke: BFF → Java → MySQL
 ```
 
 Dev stack ports: BFF :3000, domain API :8080 (Swagger at `/swagger-ui.html`), MySQL :3306, Prometheus :9090, Grafana :3001 (admin/admin). Frontends run separately: `npm run dev` in their repos (:5173 admin, :4173 public).

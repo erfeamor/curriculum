@@ -244,7 +244,7 @@ cv-infra/
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
-curl http://localhost:3000/api/v1/people/1   # ruta del sitio público: BFF → servicio de dominio → MySQL
+curl http://localhost:3000/bff/api/v1/people/1   # ruta del sitio público: BFF → servicio de dominio → MySQL
 ```
 
 Levanta MySQL, las migraciones de Flyway (+seeds de desarrollo), el servicio Java de dominio, el BFF Node, Prometheus (:9090) y Grafana (:3001, admin/admin), con la autenticación desactivada vía `AUTH_ENABLED=false`. Los frontends se ejecutan aparte con `npm run dev` en sus repos.

@@ -4,7 +4,7 @@
 #   docker compose -f docker-compose.dev.yml up --build
 #
 # Then:
-#   curl http://localhost:3000/api/v1/people/1   # BFF → domain service → MySQL
+#   curl http://localhost:3000/bff/api/v1/people/1   # BFF → domain service → MySQL
 #   http://localhost:9090                        # Prometheus
 #   http://localhost:3001                        # Grafana (admin/admin)
 #
