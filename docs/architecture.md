@@ -36,6 +36,6 @@ The BFF's public read routes (`GET /bff/api/v1/people/:id` and `.../cv`) serve a
 
 - **Auth**: AWS Cognito issues JWTs. `cv-domain-service` and `cv-bff-node` both validate tokens independently; `cv-admin-react` is the only client that authenticates interactively.
 - **Observability**: metrics (Prometheus/Grafana via Micrometer / prom-client) and logs (MongoDB Atlas or CloudWatch) are deliberately separate pipelines, not a unified stack. See `cv-observability`.
-- **Infra**: all AWS resource choices stay within Free Tier limits (EC2 t2/t3.micro running a self-hosted MySQL 8.4 container — no RDS, S3+CloudFront, Cognito, CloudWatch, SSM Parameter Store). See `cv-infra`.
+- **Infra**: one `t3.micro` runs `cv-domain-service` beside a self-hosted MySQL 8.4 container (no RDS), with S3+CloudFront, Cognito, CloudWatch and SSM Parameter Store; a separate `t3.small` CI host runs Jenkins and Drone and is started only for builds. The account is on AWS's post-July-2025 Free Tier — finite credits and a 6-month window, no free EC2 allowance — so every instance-hour bills; the cost model is T-020's, the endgame T-012's. See `cv-infra`.
 
 See [../diagrams/architecture.mmd](../diagrams/architecture.mmd) for a renderable diagram.

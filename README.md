@@ -244,7 +244,7 @@ cv-infra/
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
-curl http://localhost:3000/api/v1/people/1   # vanilla-site path: BFF → domain service → MySQL
+curl http://localhost:3000/bff/api/v1/people/1   # vanilla-site path: BFF → domain service → MySQL
 ```
 
 Brings up MySQL, Flyway migrations (+dev seeds), the Java domain service, the Node BFF, Prometheus (:9090), and Grafana (:3001, admin/admin), with auth disabled via `AUTH_ENABLED=false`. Frontends run separately with `npm run dev` in their repos.
