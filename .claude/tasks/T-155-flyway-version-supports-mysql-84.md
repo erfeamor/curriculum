@@ -53,6 +53,15 @@ Before T-152, CI validated migrations against **8.0** while production applied t
 
 **The cv-infra half can cost zero extra replacements:** [T-014](T-014-deploy-bff-to-aws.md) already replaces the domain-service instance. Landing the `domain-service-user-data.sh:181` change so T-014's apply carries it removes reason 3 below as a separate cost. It adds no dependency edge — a sequencing option for H1 to price, with [T-021](T-021-mysql-password-rotation-persistent-datadir.md)'s `db_password` precondition unchanged either way.
 
+## If bumping: how the production half rides T-014 (added 2026-09-24, board review)
+
+The production pin (`cv-infra/templates/domain-service-user-data.sh:181`) is in the file [T-014](T-014-deploy-bff-to-aws.md) edits, and `compute.tf:63` sets `user_data_replace_on_change = true` — so **applied on its own, this pin replaces the domain-service instance**, and T-014 then replaces it again.
+
+- **Ride T-014's apply**: one replacement instead of two.
+- **Never merge the pin to cv-infra `master` ahead of that apply.** cv-infra is one root module with local state; a merged-but-unapplied change is applied by the next `terraform apply` of *any* cv-infra task. Same PR as T-014's, or back-to-back with nothing between.
+- **Order:** `docker-compose.dev.yml` and `cv-database`'s two pins first (no infra, and 13 gets proven in the Jenkins gate before production sees it), production last. **No new migration until all four pins agree** — 10 reading a history 13 has written to is the one untested direction.
+- **No `depends_on` edge either way** until H1 here decides to bump: T-014 is the head of the critical chain and must not wait on an open decision.
+
 ## Scope — cross-repo, decompose at refinement
 
 `flyway/flyway:10` is pinned in ~~**at least four places**~~ **exactly four places across three repos** (re-counted 2026-09-23: `cv-database` `Jenkinsfile:27` and `scripts/migrate.sh:9`, meta `docker-compose.dev.yml:33`, `cv-infra` `templates/domain-service-user-data.sh:181`). Per adapter §2's cross-repo rule and board rule 3, stage 0 must split this into dependency-ordered single-repo tasks before H1:

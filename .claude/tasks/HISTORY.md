@@ -848,3 +848,12 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 - ~~**That is a dated fact.** Once the demo holds authored CV content, this apply destroys it...~~ **RESOLVED 2026-08-14 — [T-018](T-018-mysql-on-dedicated-ebs-volume.md) is `done`** ([cv-infra#16](https://github.com/erfeamor/cv-infra/pull/16)). MySQL's datadir now lives on `vol-092113db466c84bc1`, a volume with a lifecycle independent of the instance, and survival across replacement was **proven by test**: rows written between two applies read back intact, with the volume UUID unchanged. **T-014's apply no longer destroys the database** — its watch-out to that effect (`T-014` §"user_data_replace_on_change", and its H2 note) is superseded. T-014 is still `high` risk for its other reasons (SG ingress, published ports, CORS, edge routing); it is simply no longer destructive to data.
   - Still re-check the database before T-014's apply, but the check is now cheap insurance rather than a gate: confirm `/var/lib/cv-mysql` is mounted from the dedicated volume (`findmnt`), not that the data is expendable.
 - **T-403 was not part of the original ask.** It surfaced while verifying the BFF gap; without it T-014 delivers a BFF that nothing in AWS consumes.
+
+---
+
+## Moved out of TASKS.md in the 2026-09-24 board-sync — verbatim
+
+Cost-model consequences 3 and 4 of T-020's measured model: 3 described a September that has ended; 4 recorded T-019's H1 ratification, since built and merged. Consequences 1 and 2 stay on the board.
+
+3. **The budget alarm's premise evaporated.** The `$30` monthly limit is not structurally exceeded at $20.81/month — September projects to **68%**. August still breaches once (~$34.68, 116%) on the strength of its first half. T-020 §4 now recommends **changing nothing**: a $30 limit against a $20.81 rate fires precisely when the CI host is left running, which is the one behaviour worth an alert.
+4. **Jenkins and Drone are on the stopped box, and T-102/T-103/T-104 all require "Jenkins CI green".** The M2 backend wave cannot close while it is off — so the cost model and the milestone schedule became the same decision. **[T-019](T-019-ci-host-on-demand.md)'s H1 was ratified 2026-08-19: build the start-on-push automation**, which keeps the rate *and* unblocks M2. Its "runs 24/7" premise is corrected in that file.

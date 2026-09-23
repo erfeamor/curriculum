@@ -27,6 +27,13 @@ checkpoint:
   budget_note: "Refinement only — no code, no applies. Stopped deliberately at H1 with the probe at ~70% of ceiling_turns (280/400) and ~120 turns left. T-018 cost ~190 turns from an ALREADY-REFINED start; T-014 is larger (ECR + container + edge + SG + spa-router + forced security review + live public-path verification), so implementation could not have finished in the remaining budget. Stopping at a checkpoint beats being cut off mid-apply. Implementation needs a fresh session."
 ---
 
+## Two tasks to weigh at H1/H2 without a dependency edge (added 2026-09-24, board review)
+
+- **[T-208](T-208-error-handler-status-and-metrics-cardinality.md)** — the BFF's terminal error handler answers 500 to Express's own 400s, and unmatched paths mint unbounded Prometheus labels. Both become **anonymous and internet-reachable the moment this task's apply lands**. Prefer T-208 merged first, so the first deployed image already carries it; if it has not landed, name it at H2 as a known open exposure.
+- **[T-155](T-155-flyway-version-supports-mysql-84.md)** — if H1 there decides to bump Flyway, its production pin lives in `templates/domain-service-user-data.sh:181`, the same file this task edits, and `compute.tf:63` (`user_data_replace_on_change = true`) makes any change there an instance replacement. Carrying it in **this** apply costs no extra replacement. **Do not merge that pin to `cv-infra` master ahead of this task:** cv-infra is one root module with local state, so a merged-but-unapplied change rides the *next* `terraform apply` of any cv-infra task (T-021, T-005, T-007, T-033 …), whose plan would suddenly show a replacement it never asked for. Same PR, or merged back-to-back with no other cv-infra apply between. Order of the bump itself: dev + CI pins first, production last — and no new migration until all four agree (T-155 § *Empirical answers*).
+
+Neither is a `depends_on` edge: this task is the claimable head of the chain and must not wait on either.
+
 ## Why this exists
 
 This is the task that closes the gap. `cv-bff-node` has no registry, no runtime and no route in AWS (evidence table in T-013), while `cv-infra` claims in two places that it is already running. Both the deployment and the correction of those claims live in **this** repo.

@@ -38,7 +38,7 @@ Ruling (binding, from H1 — see the task file's checkpoint.h1_rulings):
   - Read-only, always. Nothing here reformats, reorders or rewrites
     frontmatter; the board's strike-don't-delete convention means these files
     carry DELIBERATE contradictions that a formatter would destroy.
-  - Two exemptions are binding, not oversights: T-201/T-301/T-401/T-402/T-501
+  - Two exemptions are binding, not oversights: T-301/T-401/T-402/T-501
     carry no risk/security_review (2026-08-17 sweep, deliberate — see below),
     and acceptance-checkbox state is never enforced (2026-08-20 sweep ruled it
     convention).
@@ -97,9 +97,9 @@ RISK_VALUES = {"trivial", "low", "normal", "high"}
 
 # 2026-08-17 sweep ruling, binding per H1: assigning risk/security_review to
 # an unrefined task would "manufacture ratified-looking decisions nobody
-# made". These five carry neither key, on purpose. Do not invent values for
+# made". These four carry neither key, on purpose (five until T-201 was refined). Do not invent values for
 # them and do not warn on their absence.
-UNREFINED_EXEMPT = {"T-201", "T-301", "T-401", "T-402", "T-501"}
+UNREFINED_EXEMPT = {"T-301", "T-401", "T-402", "T-501"}   # T-201 left 2026-09-24: refined at stage 0 on 2026-08-27, carries both keys
 
 # Sentinel values meaning "deliberately absent", shared with
 # qa-env-override.py's _NO_WORKTREE set for checkpoint.worktree (check 4).

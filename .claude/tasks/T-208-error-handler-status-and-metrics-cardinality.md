@@ -15,6 +15,12 @@ security_review: true   # both are reachable by anonymous traffic on routes T-01
 
 Both were found by `/code-review` during [T-204](T-204-bff-validate-person-id-param.md)'s review round and **verified by the driver before filing**. They are separable fixes but share a trigger: an anonymous request that never reaches a route handler.
 
+## Goes public with T-014 — land before it, or with it (added 2026-09-24, board review)
+
+Both defects are reachable only on localhost today: `cv-bff-node` has never been deployed. [T-014](T-014-deploy-bff-to-aws.md) puts it behind CloudFront on the public `/bff/*` edge, and from that apply onward any anonymous visitor can mint 5xx responses, stack-trace log lines and new Prometheus label values at will. That is the same argument that made [T-204](T-204-bff-validate-person-id-param.md) *"not sit unfixed for long after T-014"*.
+
+**Deliberately not a `depends_on` edge in either direction** — T-014 is the claimable head of the critical chain and must not wait on this, and this task needs nothing T-014 builds. It is a *priority*, recorded in the board's Now/Next lane: claim it before T-014's apply, or at the latest let T-014's first deployed image carry it. If T-014 ships first, T-014's H2 should name this task as a known open exposure rather than let it go unmentioned.
+
 ## Part 1 — a malformed percent-encoding answers 500, where Express itself said 400
 
 Express decodes `req.params` in `Layer.match`, **before the handler runs**, and throws a `URIError` carrying `status = 400`. The terminal handler at `src/app.ts:39` maps only `UnauthorizedError` and sends everything else to 500:
