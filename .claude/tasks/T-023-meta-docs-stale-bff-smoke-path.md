@@ -1,6 +1,6 @@
 ---
 id: T-023
-title: "The documented E2E smoke command curls a path the BFF no longer serves"
+title: "Meta docs drift: the E2E smoke command curls a path the BFF no longer serves, and architecture.md still asserts the legacy Free Tier (absorbs T-003)"
 repo: cv-project (meta)
 status: todo
 owner:
@@ -41,11 +41,12 @@ So the drift sat in the most-read file in the workspace for four days with no ow
 
 ## Scope
 
-**Three files, one path each** (this said "two" until 2026-08-20; the bullet list below always had three entries, and the third was verified present that day — see it). Deliberately small — resist widening it into T-015's territory.
+~~**Three files, one path each**~~ **Five edits in five files as of 2026-09-23:** the four dead-path hits (the 2026-08-22 block below adds `docker-compose.dev.yml:7`) plus `docs/architecture.md:39` absorbed from T-003. (This said "two" until 2026-08-20; the bullet list below always had three entries, and the third was verified present that day — see it). Deliberately small — resist widening it into T-015's territory.
 
-- `CLAUDE.md:37` — the smoke command in § Commands.
+- `CLAUDE.md:37` — the smoke command in § Commands. **(Now line 38 — re-grepped 2026-09-23; all four hits below are still present.)**
 - `README.md:247` — the same command in the local-development section (note this one is annotated *"vanilla-site path"*, which makes it doubly wrong: `cv-public-vanilla` calls the BFF, and T-403 will bake the `/bff` base URL into its bundle).
 - `README.es.md:247` — the Spanish counterpart, **confirmed present 2026-08-20**, not a maybe: `curl http://localhost:3000/api/v1/people/1   # ruta del sitio público: BFF → servicio de dominio → MySQL`. Same dead path, same misleading annotation. Fix it in the same PR — the two READMEs are maintained in parallel and half-fixing them is how the next sweep finds this again.
+- **`docs/architecture.md:39` — absorbed from [T-003](T-003-ci-docs-reflect-jenkins.md) on 2026-09-23.** Replace the legacy *"stay within Free Tier limits (EC2 t2/t3.micro …)"* claim with the post-July-2025 model both `CLAUDE.md` files already state (finite credits + a 6-month window; every instance-hour bills), and stop implying the CI host is a `micro` — it is a `t3.small` (T-002's resize). Point at T-020 for the numbers rather than copying them; copied figures are what went stale here.
 - Any other file that curls port 3000. A `grep -rn "3000/api/v1"` on 2026-08-20 returned exactly these three lines and nothing else.
 
 > ## SCOPE FALSIFIED AND WIDENED — 2026-08-22, from [T-016](T-016-dev-prod-mysql-parity.md)'s data-layer review
@@ -68,6 +69,8 @@ So the drift sat in the most-read file in the workspace for four days with no ow
 
 ## Bundle this with T-003's one surviving line — 2026-08-24, on the human's instruction
 
+> **DECIDED 2026-09-23 — option (a), by the human.** T-003 is closed as absorbed; its one surviving line is now in this task's Scope and Acceptance criteria below. Re-verified the same day: `docs/architecture.md:39` still reads *"all AWS resource choices stay within Free Tier limits (EC2 t2/t3.micro …)"*. The note below is kept as the reasoning.
+
 **[T-003](T-003-ci-docs-reflect-jenkins.md) has been re-scoped down to a single line** (`docs/architecture.md:39`, which still asserts the legacy Free Tier rule and `t2/t3.micro` sizing — the claim [T-020](T-020-cost-model-correction.md) corrected in both `CLAUDE.md` files but never in that third location). Three of its four original scope bullets are dead or undeliverable; see its re-scope block.
 
 **Both tasks are: the meta repo, docs-only, `risk: trivial`, `security_review: false`, no shared files, no interdependency.** Run separately they cost two branches, two PRs and two H1/H2 gate pairs to change five lines. **Recommendation: one PR carries both**, and it is the cheapest correct outcome.
@@ -86,6 +89,8 @@ So the drift sat in the most-read file in the workspace for four days with no ow
 - [ ] Every documented curl against port 3000 uses `/bff/api/v1`, and **each one was actually run against the local stack** before the PR — the whole point of this task is that a command was written down and never executed again.
 - [ ] The domain-service smoke commands (port 8080, `/api/v1`) are left alone — that path is unchanged and correct.
 - [ ] No changes to deployment claims; those are T-015's, and duplicating them here would create a second answer.
+- [ ] **(from T-003)** `docs/architecture.md:39` no longer asserts the legacy Free Tier rule, and no longer implies the CI host is a `micro`.
+- [ ] **(from T-003)** No change to any file outside the meta repo.
 
 ## Definition of done
 
