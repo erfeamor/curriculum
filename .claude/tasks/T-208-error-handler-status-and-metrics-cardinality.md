@@ -2,13 +2,39 @@
 id: T-208
 title: "The terminal error handler turns every non-auth error into 500 — including Express's own 400s — and unmatched requests mint unbounded Prometheus labels"
 repo: cv-bff-node
-status: todo
-owner:
+status: done
+owner: fullstack-developer
 branch: fix/error-handler-status-and-metric-cardinality
-pr:
+pr: https://github.com/erfeamor/cv-bff-node/pull/11
 depends_on: []   # both defects are pre-existing on master and independent of any in-flight task
 risk: normal
 security_review: true   # both are reachable by anonymous traffic on routes T-013 ratified as public
+checkpoint:
+  stage: done   # merged 889a82f (squash of cv-bff-node#11), 2026-09-24 — H2 accepted by the human
+  repo: cv-bff-node
+  branch: fix/error-handler-status-and-metric-cardinality
+  worktree: none   # removed after merge
+  developer: fullstack-developer
+  reviewers: [code-review, security-review]
+  risk: normal
+  security_review: true
+  commit: 889a82f   # squash merge on master (branch commit was e14bd1a)
+  pr: https://github.com/erfeamor/cv-bff-node/pull/11
+  qa: pass   # stage 4, cvdl_t-208, provenance e14bd1a
+  review_round: 1
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: 1
+  wave: [T-023, T-408, T-208]   # 2026-09-24 wave, human-requested
+  updated: 2026-09-24T11:40:00+02:00
+  budget:
+    turns: 445
+    total_tokens: 125733638
+    subagent_tokens: 186000
+    spawns: 2
+    status: soft   # 83.8% of ceiling_total_tokens — ask before starting merge
+    checked: 2026-09-24T11:40:00+02:00
 ---
 
 ## Two defects, one request class
@@ -75,6 +101,69 @@ Cardinality is therefore unbounded and anonymously driven: the registry grows wi
 - [ ] An unmatched path produces a **constant** `route` label; asserted by scraping the registry after requesting two different bogus paths and confirming one series, not two.
 - [ ] A matched route still reports its route template, unchanged.
 - [ ] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` pass; GitHub Actions green.
+
+## Test plan (QA)
+
+Authored by `quality-assurance` at refinement, 2026-09-24 — the plan it executes at stage 4. Driver-verified the same day: the handler block spans `src/app.ts:39-45` on `origin/master`; `test/app.test.ts` and `test/health.test.ts` exist and neither covers the status mapping or the label value; `scripts/qa-env-override.py` repoints the build context at the worktree and stamps task/branch/commit build labels.
+
+### 0. Re-verified watch-out: does anything key on `route`?
+
+`grep -rn "\"route\"\|'route'\|route=" cv-observability/` and `grep -rln "route" cv-observability/` → no matches. Re-run at stage 4 against `cv-observability`'s current `master` (it can drift independently) before treating the watch-out as closed.
+
+### 1. Unit-level (Jest, `createApp()` + supertest, no live stack)
+
+New/modified: `test/app.test.ts` (error-handler section) and a new `test/metrics.test.ts` (or extend `test/health.test.ts`'s `/metrics` block).
+
+| # | Case | Assertion | AC |
+|---|---|---|---|
+| 1a | `GET /bff/api/v1/people/%E0%A4%A` | 400; `fetch` mock **not called**; no `stack`/message in body; `console.error` **not** called (`jest.spyOn`) | AC1, AC3 |
+| 1b | `UnauthorizedError` from a stub middleware | 401, body unchanged (`{error:'invalid or missing token'}`) | AC2 |
+| 1c | A genuine unexpected error (handler throws a plain `Error`, or upstream `fetch` rejects) | 500, `{error:'internal server error'}`, **and** `console.error` called once | AC2 — proven, not inferred from 1a |
+| 1d | Body-leak check, both directions | for 1a and 1c, body is exactly the constant shape — no `err.message`, no `.stack`, no extra keys | AC3 |
+| 1e | Clamp — `next(Object.assign(new Error('x'), { status: 302 }))` (and an out-of-range `statusCode: 600`) | never echoed: status is a sane 4xx or 500, never 302, no `location` header | Watch-out 1 |
+| 1f | Two different unmatched paths (`/bff/api/v1/does-not-exist`, `/bff/api/v1/also-missing`) | after both, `register.metrics()` shows exactly **one** distinct `route` value for unmatched traffic, equal to the constant — not either literal path | AC4 |
+| 1g | Matched route (`GET /bff/api/v1/people/1`, mocked fetch) | sample carries `route` = the Express template, unchanged | AC5 |
+
+**Red-before-green without touching the reviewed tree:** clone `cv-bff-node` at `origin/master` into the scratchpad, copy the new test file(s) from the branch in (`git show <branch>:test/…`), `npm ci && npx jest <file>`. Expected red: 1a (500 **and** `console.error` called — a fix that changes the status but still logs is half-red), 1e (302 echoed), 1f (**two** distinct `route` values). Then the same suite green on the worktree.
+
+### 2. Live stack (isolated slot 1 — BFF `:3020`)
+
+`python3 scripts/qa-env-override.py --task t-208 --slot 1 --smoke bff:/bff/api/v1/people/1`, then the printed `up` command.
+
+- **Provenance first (T-028):** `docker inspect` the `bff` image for the generator's build labels; branch = `fix/error-handler-status-and-metric-cardinality`, SHA = `git -C /home/erfeamor/work/cvdl-worktrees/t-208 rev-parse HEAD`. Nothing below counts until this passes.
+- **Malformed path:** `curl -g -s -o body.json -w '%{http_code}\n' "http://localhost:3020/bff/api/v1/people/%E0%A4%A"` → `400`, constant body.
+- **No upstream call:** `logs domain-service --since <t0>` shows no line for it — cross-checked against a known-good `/people/1` in the same window, so a silent log cannot pass by accident.
+- **No error-level log:** `logs bff --since <t0>` shows no stack for the 400 — contrasted with a genuine-500 probe so a quiet channel is not mistaken for a fixed one.
+- **Cardinality:** hit `/bff/api/v1/people/%E0%A4%A` and `/bff/api/v1/totally/bogus`, then `curl -s :3020/metrics | grep 'http_request_duration_seconds_count{'` → exactly **one distinct `route=` value** for unmatched traffic (a histogram emits `_bucket`/`_sum`/`_count` lines per series, so "one series" ≠ "one grep line"); `/people/1` still reports `route="/bff/api/v1/people/:id"`.
+- Teardown with the printed `down`; slot 0 (T-408) untouched.
+
+### 3. Gates
+
+In the worktree: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, all exit 0. GitHub Actions green on the PR — read the statuses API, not `gh pr checks`.
+
+### 4. Findings on the spec
+
+- Part 1 cites `src/app.ts:39` — the block starts there; the `res.status(500)` call is `:44`. Line drift only; the quoted shape matches.
+- AC4's *"one series, not two"* is exact for direct registry inspection; on a live scrape read it as one distinct `route` value, per §2.
+
+## QA record — stage 4, 2026-09-24 (PASS)
+
+Executed by the `quality-assurance` instance that authored the plan, against `cvdl_t-208` (slot 1, BFF `:3020`), with the three driver corrections applied (router-relative label; 1b/1c/1e are regression guards; the implementation's constants). Driver spot-checked teardown and PR head afterwards.
+
+| Item | Result | Evidence |
+|---|---|---|
+| Provenance (T-028) | PASS | generator repointed `bff` → the worktree @ `e14bd1a`; container labels `commit=e14bd1a, dirty=false` = PR #11 head |
+| Gates | PASS | lint, typecheck, 90/90, build |
+| 1a · 1d · 1f (behaviour changes) | PASS | **red on a disposable master clone** — 1a `500`, 1d `500` for 404/413, 1f two literal paths — green on the branch |
+| 1b · 1c · 1e (regression guards) | PASS | green on master **and** branch, as expected |
+| 1g matched template | PASS | `route="/people/:id"` unchanged |
+| Live malformed path | PASS | `GET /bff/api/v1/people/%E0%A4%A` → `400 {"error":"bad request"}` |
+| No upstream call | PASS | domain-service `http_server_requests_seconds_count{uri="/api/v1/people/{id}"}` counted only the genuine requests; no series for the malformed one |
+| No error log for the 400 | PASS | BFF log silent for it — **contrasted** with a forced genuine 500 (domain-service stopped) that logged a full `TypeError: fetch failed` stack in the same stream |
+| Live cardinality | PASS | three distinct bogus/malformed paths → one `route="unmatched"` (split only by `status_code` 400/404) |
+| Teardown | PASS | no `cvdl_t-208` containers, override removed; slot 0 untouched |
+
+No defect bounced. `qa_bounces: 0`.
 
 ## Watch-outs
 

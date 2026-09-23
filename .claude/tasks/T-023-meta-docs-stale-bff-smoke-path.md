@@ -2,13 +2,38 @@
 id: T-023
 title: "Meta docs drift: the E2E smoke command curls a path the BFF no longer serves, and architecture.md still asserts the legacy Free Tier (absorbs T-003)"
 repo: cv-project (meta)
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: docs/bff-smoke-path
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/88
 depends_on: []
 risk: trivial
 security_review: false
+checkpoint:
+  stage: done   # merged 26640a4 (squash of curriculum#88), 2026-09-24 — H2 accepted by the human
+  repo: cv-project (meta)
+  branch: docs/bff-smoke-path
+  worktree: none   # removed after merge
+  developer: tech-product-owner
+  reviewers: [code-review]
+  risk: trivial
+  security_review: false
+  commit: 26640a4   # squash merge on master (branch commit was c41450c)
+  pr: https://github.com/erfeamor/curriculum/pull/88
+  review_round: 1
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: none   # trivial docs task; QA is the driver running the corrected curls against the base dev stack
+  wave: [T-023, T-408, T-208]   # 2026-09-24 wave, human-requested
+  updated: 2026-09-24T11:40:00+02:00
+  budget:
+    turns: 445
+    total_tokens: 125733638
+    subagent_tokens: 0
+    spawns: 0
+    status: soft   # 83.8% of ceiling_total_tokens — ask before starting merge
+    checked: 2026-09-24T11:40:00+02:00
 ---
 
 ## Why this exists

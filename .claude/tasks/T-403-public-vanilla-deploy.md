@@ -47,6 +47,7 @@ Together these are why the public path shows nothing in AWS even once T-014 land
 - [ ] The deployed bundle contains **no** `localhost:3000` — grep the built output in CI and fail on a hit. This is the whole point of the task; a convention is not enough.
 - [ ] Loading the site through the CloudFront domain renders person data fetched from the deployed BFF (end-to-end, real request).
 - [ ] The admin at `/admin/` still works — the two apps share a bucket and a distribution.
+- [ ] **A trailing slash on `VITE_BFF_URL` must not produce `//bff/api/v1/…`.** `src/main.js` concatenates `${BFF_URL}/bff/api/v1/…` without normalising (since T-408), and this task is the one that sets the value — a hand-typed deploy variable is exactly where a trailing slash appears. Trim it in `main.js` or fail the build on it. Mirrors the AC [T-404](T-404-public-react-point-at-deployed-bff.md) carries for the React site; raised by `frontend-architect` in T-408's review, 2026-09-24.
 - [ ] `npm run lint`, `npm test`, `npm run build` pass.
 
 ## Definition of done

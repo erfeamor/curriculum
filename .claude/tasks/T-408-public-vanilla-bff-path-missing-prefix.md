@@ -2,12 +2,39 @@
 id: T-408
 title: "cv-public-vanilla calls the BFF at `/api/v1/…`, a path the BFF no longer serves — the landing page is broken today, and `main.js` has no test at all"
 repo: cv-public-vanilla
-status: todo
-owner:
+status: done
+owner: fullstack-developer
 branch: fix/bff-public-edge-path
+pr: https://github.com/erfeamor/cv-public-vanilla/pull/3
 depends_on: []
 risk: normal
 security_review: false   # no auth or exposure change; a wrong path returns 404, it does not widen access
+checkpoint:
+  stage: done   # merged 0acd7fc (squash of cv-public-vanilla#3), 2026-09-24 — H2 accepted by the human
+  repo: cv-public-vanilla
+  branch: fix/bff-public-edge-path
+  worktree: none   # removed after merge
+  developer: fullstack-developer
+  reviewers: [code-review, frontend-architect]
+  risk: normal
+  security_review: false
+  commit: 0acd7fc   # squash merge on master (branch commit was 6621ded)
+  pr: https://github.com/erfeamor/cv-public-vanilla/pull/3
+  qa: pass   # stage 4, cvdl_t-408, headless Chromium
+  review_round: 1
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: 0
+  wave: [T-023, T-408, T-208]   # 2026-09-24 wave, human-requested
+  updated: 2026-09-24T11:40:00+02:00
+  budget:
+    turns: 445
+    total_tokens: 125733638
+    subagent_tokens: 204000
+    spawns: 3
+    status: soft   # 83.8% of ceiling_total_tokens — ask before starting merge
+    checked: 2026-09-24T11:40:00+02:00
 ---
 
 ## The defect
@@ -74,6 +101,84 @@ None of them makes the page work on `master` in the near term. This one does, an
 - [ ] `.env.example` and the repo's docs agree with the code.
 - [ ] **Verified against a running stack, not only against a stub** — bring the dev stack up and confirm the page renders the person card instead of its alert state.
 - [ ] `npm run lint`, `npm test`, `npm run build` pass.
+
+## Test plan (QA)
+
+Authored by `quality-assurance` at refinement, 2026-09-24 — the plan it executes at stage 4. Facts re-verified by QA against `origin/master`, and the load-bearing ones re-checked by the driver the same day (CORS default and compose value, generator slug lowercasing, `cv-bff-node` checkout on `master`, `:4173` free).
+
+> **Driver amendments before filing (2026-09-24) — they override the plan text where the two disagree.**
+> 1. **Nothing in this plan writes to the reviewed tree.** QA drafted the falsification as `git stash` inside the repo and the live build as `.env` + `npm run build` in the main checkout. Both would mutate code under review (QA is read-only; the developer is the only writer) and the second targets the main checkout, not the task's worktree. **Both now run in a disposable clone** of the worktree branch in the QA scratchpad: `git clone --local --branch fix/bff-public-edge-path /home/erfeamor/work/cvdl-worktrees/t-408 <scratch>/t-408-qa`.
+> 2. **Falsification** = in a second disposable clone at `origin/master`, copy the new `src/main.test.js` from the branch in (`git show fix/bff-public-edge-path:src/main.test.js`), run it, and watch it fail **on the URL assertion line**. Never by reverting the fix in place.
+
+### 0. Fixed facts
+
+| Fact | Source |
+|---|---|
+| Defect: `main.js:10` builds `${BFF_URL}/api/v1/people/${PERSON_ID}`; `BFF_URL` a bare origin defaulting to `http://localhost:3000` | `src/main.js:3,10` |
+| BFF mounts only `/bff/api/v1` | `cv-bff-node/src/middleware/auth.ts:20`, `src/app.ts` |
+| BFF passes the upstream status through on `/people/:id`, so an unknown id genuinely 404s | `cv-bff-node/src/routes/people.ts:71` |
+| Error render: `<p role="alert">Could not load résumé: ${err.message}</p>` | `src/main.js:17` |
+| `git ls-files \| xargs grep -ln "api/v1"` — no extension filter — hits **only** `src/main.js`; `.env.example` is already a bare origin per the ruling | live |
+| No headless-browser tooling in the repo; Playwright's Chromium installs and launches here | `package.json`; live check |
+| **CORS allowlist is the fixed string `http://localhost:4173`** — `cv-bff-node/src/app.ts:14` default and `docker-compose.dev.yml:69`; the generator shifts host ports only, never service env | driver-verified |
+| Seed person 1 = Jane Doe / Full-Stack Engineer / Remote | `cv-database/sql/dev-seeds/afterMigrate__seed_dev.sql:6` |
+| Slot 0 → BFF `:3010`, domain `:8090`, MySQL `:3316` | `scripts/qa-env-override.py` |
+
+**This site is client-rendered** (`index.html` ships a bare `#app`; `main.js` fetches in the browser), so — unlike T-406 — a `curl` of `/` returns the same static shell whether or not the fix landed. AC5 needs a real JS runtime: headless Chromium. **The frontend must be served from origin `http://localhost:4173`** or CORS fails for reasons unrelated to this fix. `:4173` is also the human's own public-site dev port — confirm it is free (`ss -ltn | grep ':4173 '`), keep the window short, and if it is occupied, **stop and report** rather than move ports.
+
+### 1. Unit level — `src/main.test.js`, `fetch` stubbed
+
+- **Exact URL:** `fetch` called with `http://localhost:3000/bff/api/v1/people/1` (or the test-env `VITE_*` values). This is the assertion falsification must hit.
+- **Happy path:** `{ok:true, json}` → `#app` contains the name; no `role="alert"`.
+- **Non-2xx:** `{ok:false, status:404}` → `role="alert"` with `Could not load résumé: BFF responded with 404`.
+- **Network throw:** `fetch` rejects → `role="alert"` still renders.
+- **Falsification (AC2):** per amendment 2. **PASS only if it fails on the URL assertion** — a red from a missing `#app` or an import error does not count.
+
+### 2. Live stack (slot 0) — AC5
+
+```bash
+cd /home/erfeamor/work/curriculum
+python3 scripts/qa-env-override.py --task t-408 --slot 0 --smoke bff:/bff/api/v1/people/1   # then its printed `up`
+curl -i http://localhost:3010/bff/api/v1/people/1        # expect 200, "name":"Jane Doe"
+```
+In the disposable clone (amendment 1): `VITE_BFF_URL=http://localhost:3010` in `.env`, `npm ci && npm run build`, then `grep -o 'localhost:3010[^"'"'"']*' dist/assets/*.js` to prove the bake (Vite inlines `VITE_*` at build time). `npm run preview -- --port 4173 --strictPort &`, then a throwaway Playwright script (in the scratchpad) that loads `http://localhost:4173/`, waits for the fetch to settle, and prints the `[role="alert"]` count and `#app` HTML.
+
+**PASS:** alert count `0`, and `#app` contains `Jane Doe`, `Full-Stack Engineer`, `Remote`. **FAIL:** an alert, or an empty `#app` — the current-`master` behaviour.
+
+### 3. Negative probes — AC3
+
+- **Unknown id:** `curl -i :3010/bff/api/v1/people/999999` → `404`; rebuild the disposable clone with `VITE_PERSON_ID=999999`, reload → alert count `1`, no card. Rules out "renders *something* regardless".
+- **No dual mount:** `curl -i :3010/api/v1/people/1` → `404`.
+- Bonus: `curl -i :3010/bff/api/v1/people/not-a-number` → `400`.
+
+### 4. Consistency sweep — AC4
+
+`git ls-files | xargs grep -n "api/v1"` in the worktree → PASS when the only hit is `src/main.js` reading `/bff/api/v1/…`. Expected to need **no doc edit** (`.env.example` already a bare origin) — record the zero-diff outcome explicitly so it does not read as unchecked. Anything new beyond `main.js` is drift to flag, not silent scope.
+
+### 5. Gates — AC6
+
+In the worktree: `npm run lint && npm test && npm run build`. GitHub Actions green — statuses API, not `gh pr checks`.
+
+Teardown: stop the preview, the printed `down -v`, delete the scratch clones. Slot 1 (T-208) untouched.
+
+## QA record — stage 4, 2026-09-24 (PASS)
+
+Executed by the `quality-assurance` instance that authored the plan, with the driver amendments (two `--local` disposable clones, no `git stash`), against `cvdl_t-408` (slot 0, BFF `:3010`; BFF and domain built from `master` — correct, this task touches no BFF code). Driver spot-checked teardown, `:4173` release and PR head afterwards.
+
+| AC | Result | Evidence |
+|---|---|---|
+| 1 path | PASS | `main.js:10` → `/bff/api/v1/people/:id`; live `GET :3010/bff/api/v1/people/1` → 200 Jane Doe |
+| 2 falsification | PASS | origin/master clone + the branch's `main.test.js`: **exactly 1 of 4 fails, at `main.test.js:36`** (`…/api/v1/people/1` vs `…/bff/api/v1/people/1`); the 3 rendering tests pass on both, as expected |
+| 3 error branch | PASS | live id `999999` → BFF 404 → alert count 1, `#app` = the alert text only, no card |
+| 4 consistency | PASS | `git ls-files \| xargs grep -n "api/v1"` → 3 hits, all `/bff/api/v1` (`main.js:10`, `main.test.js:30`, `:36`); docs/`.env.example`/CI zero-diff, as predicted |
+| 5 live render | PASS | bake confirmed in `dist/`; `vite preview --port 4173 --strictPort`; headless Chromium: **id 1 → alert count 0, full card (Jane Doe / Full-Stack Engineer / Remote)**, no page errors; CORS origin matched |
+| negative probes | PASS | old `/api/v1/people/1` → 404 (no dual mount); `/bff/api/v1/people/not-a-number` → 400 |
+| 6 gates | PASS | lint, 7/7, build; GitHub Actions `test` success on `6621ded` |
+| teardown | PASS | no `cvdl_t-408` containers, override removed, scratch clones deleted, `:4173` released |
+
+No defect bounced. `qa_bounces: 0`.
+
+**Carried forward from review (non-blocking, not this task's scope):** a trailing slash in `VITE_BFF_URL` would produce `//bff/…` — T-403 sets that value at deploy time and should carry the same AC T-404 carries for the React site. Both reviewers also noted `main.js:17` interpolates `err.message` into `innerHTML` unescaped — pre-existing, not user-controlled today.
 
 ## Watch-outs
 
