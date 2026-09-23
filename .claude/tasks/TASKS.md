@@ -4,20 +4,18 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-24
+## Now / Next / Later — refreshed 2026-09-24 (after the T-023/T-408/T-208 wave)
 
 The order to claim in. It is **advice, refreshed at every board-sync** — `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
-**Now — decisions and cheap fixes to things broken today**
+**Now — decisions**
 - **[T-012](T-012-aws-endgame-decision.md) — human decision A / B / C, due 2026-11-01.** Decides whether the ⚖-marked infra hardening is worth doing at all, and B requires T-008 first.
 - **[T-155](T-155-flyway-version-supports-mysql-84.md) — H1: bump Flyway or stay on 10.** Decide before T-014 so a production pin can ride its apply (T-155 § *If bumping*).
-- **[T-023](T-023-meta-docs-stale-bff-smoke-path.md)** — `trivial`; the smoke command in the CLAUDE.md every agent loads 404s.
-- **[T-408](T-408-public-vanilla-bff-path-missing-prefix.md)** — the public landing page renders its error state today; unblocks T-401 and T-403.
-- **[T-208](T-208-error-handler-status-and-metrics-cardinality.md)** — before T-014: its defects go internet-reachable the moment the BFF deploys.
+- *Done 2026-09-24 in one wave:* T-023 (smoke path + architecture Free Tier line), T-408 (the landing page works on `master` again), T-208 (BFF 4xx + metric label, ahead of T-014 making it public).
 
 **Next — the critical path to [T-501](T-501-e2e-cv-milestone.md)**
 - **[T-014](T-014-deploy-bff-to-aws.md)** — head of the chain; budget the full ceiling (adapter §7). Decide [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at its H2; carry T-155's production pin if bumping.
-- **In parallel, no AWS:** [T-409](T-409-public-react-adapter-validates-required-and-enum.md) → [T-402](T-402-public-react-cv-sections.md); [T-401](T-401-public-cv-sections.md) (after T-408); [T-301](T-301-admin-cv-sections-crud.md).
+- **In parallel, no AWS:** [T-409](T-409-public-react-adapter-validates-required-and-enum.md) → [T-402](T-402-public-react-cv-sections.md); [T-401](T-401-public-cv-sections.md) (claimable — T-408 merged); [T-301](T-301-admin-cv-sections-crud.md).
 - **After T-014:** [T-403](T-403-public-vanilla-deploy.md) and [T-404](T-404-public-react-point-at-deployed-bff.md) → [T-015](T-015-docs-reflect-deployed-bff.md) → **T-501**, well before the window closes (2027-01-12).
 - **One CI-host session** (~$1.23/day while up): [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) and [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) back to back — both hang the single shared executor on purpose — settling [T-019](T-019-ci-host-on-demand.md)'s untested criterion in the same run; then [T-112](T-112-domain-service-ci-ecr-deploy.md). Add T-007 if T-012 picks A.
 
@@ -36,12 +34,11 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 | [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |
 | [T-401](T-401-public-cv-sections.md) | Public site: render full CV | cv-public-vanilla | todo | | T-201 ✔, **T-408** | |
 | [T-402](T-402-public-react-cv-sections.md) | Public site (React): render full CV sections | cv-public-react | todo | | T-201 ✔, T-405 ✔, **T-409** | |
-| [T-408](T-408-public-vanilla-bff-path-missing-prefix.md) | **Public site (vanilla): calls the BFF at `/api/v1`** — the landing page renders its error state today, and `main.js` has no test | cv-public-vanilla | todo | | — | |
 | [T-409](T-409-public-react-adapter-validates-required-and-enum.md) | Public site (React): the adapter validates required fields, the `proficiency` enum, and absent-vs-null `endDate` | cv-public-react | todo | | T-407 | |
 | [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | todo | | T-101…T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-403, T-404 (T-408, T-409 via T-401, T-402) | |
 
 <details>
-<summary>M2 — 10 done</summary>
+<summary>M2 — 11 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -55,6 +52,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 | [T-209](T-209-contract-optional-field-null-semantics.md) | Contract: an optional field is a present key whose empty value is `null` (design rule 7) | cv-project (meta) | done | tech-product-owner | — | [#83](https://github.com/erfeamor/curriculum/pull/83) |
 | [T-405](T-405-public-react-null-optionals.md) | Public site (React): optionals typed `null`, not absent or required | cv-public-react | done | fullstack-developer | T-209 ✔ | [#4](https://github.com/erfeamor/cv-public-react/pull/4) |
 | [T-407](T-407-public-react-tocv-null-invariant.md) | Public site (React): `toCv` establishes the null-not-absent invariant its types assert | cv-public-react | done | fullstack-developer | T-405 ✔ | [#6](https://github.com/erfeamor/cv-public-react/pull/6) |
+| [T-408](T-408-public-vanilla-bff-path-missing-prefix.md) | **Public site (vanilla): calls the BFF at `/api/v1`** — the landing page renders its error state today, and `main.js` has no test | cv-public-vanilla | done | fullstack-developer | — | [#3](https://github.com/erfeamor/cv-public-vanilla/pull/3) |
 
 </details>
 
@@ -82,10 +80,9 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** (every ordered collection but experience) | cv-domain-service | todo | | T-105 | |
 | [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) | Jenkinsfile hygiene: no `timeout {}` on the single shared executor; dead `main` Deploy gate + stale placeholder (**absorbs T-110**) | cv-domain-service | todo | | — | |
 | [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today) | cv-domain-service | todo | | T-111 | |
-| [T-208](T-208-error-handler-status-and-metrics-cardinality.md) | Error handler flattens **every** non-auth error to 500; unmatched paths mint **attacker-driven** Prometheus labels | cv-bff-node | todo | | — | |
 
 <details>
-<summary>Defects, hygiene & hardening — 8 done</summary>
+<summary>Defects, hygiene & hardening — 9 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -95,6 +92,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-205](T-205-bff-allowlist-section-normalizers.md) | BFF: the aggregate's section normalizers were denylists — now allowlists | cv-bff-node | done | fullstack-developer | T-201 ✔ | [#6](https://github.com/erfeamor/cv-bff-node/pull/6) |
 | [T-206](T-206-person-id-guard-numeric-overflow.md) | The shared person-id guard accepted digit runs that overflow Java `Long` (502 where a 400 belongs) | cv-bff-node | done | fullstack-developer | T-201 ✔ | [#7](https://github.com/erfeamor/cv-bff-node/pull/7) |
 | [T-207](T-207-public-types-derived-from-domain-interfaces.md) | BFF: `Public*` types transcribed from the contract, not `Omit<Domain*, …>` | cv-bff-node | done | fullstack-developer | T-205 ✔ | [#9](https://github.com/erfeamor/cv-bff-node/pull/9) |
+| [T-208](T-208-error-handler-status-and-metrics-cardinality.md) | Error handler flattens **every** non-auth error to 500; unmatched paths mint **attacker-driven** Prometheus labels | cv-bff-node | done | fullstack-developer | — | [#11](https://github.com/erfeamor/cv-bff-node/pull/11) |
 | [T-210](T-210-bff-domain-types-null-not-absent.md) | BFF: `Domain*` interfaces say `null`, not absent | cv-bff-node | done | fullstack-developer | T-209 ✔ | [#10](https://github.com/erfeamor/cv-bff-node/pull/10) |
 | [T-406](T-406-public-react-bff-path-missing-prefix.md) | Public site (React): call the BFF at `/bff/api/v1`, not `/api/v1` | cv-public-react | done | fullstack-developer | — | [#5](https://github.com/erfeamor/cv-public-react/pull/5) |
 
@@ -112,7 +110,6 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-008](T-008-drone-host-backup-and-snapshot.md) | Retire the T-002 gate snapshot, give the CI host a real backup — ⚖ *required FIRST if T-012 picks B* | cv-infra | todo | | T-002 | |
 | [T-012](T-012-aws-endgame-decision.md) | **Decide Paid-vs-teardown before the Free-plan window closes — due 2026-11-01** | cv-project (meta) | todo | | — | |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
-| [T-023](T-023-meta-docs-stale-bff-smoke-path.md) | The documented E2E smoke command curls a path the BFF no longer serves; `architecture.md:39` legacy Free Tier (**absorbs T-003**) | cv-project (meta) | todo | | — | |
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution | cv-infra + cv-domain-service | todo | | T-022 | |
 | [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) | Contract: the ordering note prescribes SQL syntax for a JPQL context | cv-project (meta) | todo | | — | |
 | [T-029](T-029-code-review-cannot-see-worktrees.md) | `/code-review` **silently reviews the wrong thing** without an explicit target | cv-project (meta) | todo | | — | |
@@ -122,7 +119,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-155](T-155-flyway-version-supports-mysql-84.md) | Flyway 10 does not claim MySQL 8.4 support — yet it runs against 8.4 in production | cv-database + meta + cv-infra | todo | | — | |
 
 <details>
-<summary>Infra & ops — 20 done</summary>
+<summary>Infra & ops — 21 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -139,6 +136,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-019](T-019-ci-host-on-demand.md) | Stop paying for an idle CI host: start on demand, stop when quiet | cv-infra | done | infrastructure-engineer | — | [#17](https://github.com/erfeamor/cv-infra/pull/17) |
 | [T-020](T-020-cost-model-correction.md) | Correct the stale cost model; stop the budget alarm crying wolf | cv-project (meta) + cv-infra | done | tech-product-owner | — | [#36](https://github.com/erfeamor/curriculum/pull/36) + [cv-infra#19](https://github.com/erfeamor/cv-infra/pull/19) |
 | [T-022](T-022-domain-service-origin-bypasses-cloudfront.md) | Domain service reachable on :8080 bypassing CloudFront; leaks OpenAPI spec | cv-infra | done | infrastructure-engineer | — | [#20](https://github.com/erfeamor/cv-infra/pull/20) |
+| [T-023](T-023-meta-docs-stale-bff-smoke-path.md) | The documented E2E smoke command curls a path the BFF no longer serves; `architecture.md:39` legacy Free Tier (**absorbs T-003**) | cv-project (meta) | done | tech-product-owner | — | [#88](https://github.com/erfeamor/curriculum/pull/88) |
 | [T-024](T-024-contract-skill-assignment-put-shape.md) | Contract: split the skill-assignment PUT's request body from its response | cv-project (meta) | done | tech-product-owner | — | [#41](https://github.com/erfeamor/curriculum/pull/41) |
 | [T-026](T-026-first-build-after-cold-start-fails.md) | First build after a Jenkins restart fails — **FIXED** (JENKINS-23152 build-number collision), verified on the live host | cv-infra | done | infrastructure-engineer | T-019 | [#21](https://github.com/erfeamor/cv-infra/pull/21) |
 | [T-028](T-028-qa-env-generator-worktree-build-context.md) | QA stack builds `master`, not the worktree under test (**silent false pass**) | cv-project (meta) | done | infrastructure-engineer | — | [#49](https://github.com/erfeamor/curriculum/pull/49) |
