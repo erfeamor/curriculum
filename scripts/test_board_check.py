@@ -1428,8 +1428,24 @@ class ControlledVocabularies(TempDirCase):
         self.assertFalse(any(f.key in ("status", "risk", "security_review") for f in findings))
 
     def test_exemption_does_not_require_risk_or_security_review(self):
-        """The 2026-08-17 sweep ruling: five deliberately-unrefined tasks
-        carry neither key, on purpose."""
+        """The 2026-08-17 sweep ruling: the deliberately-unrefined tasks
+        (four since T-201 was refined) carry neither key, on purpose."""
+        b = make_board(self.root)
+        b.add_task("T-402", textwrap.dedent("""\
+            id: T-402
+            status: todo
+            owner:
+            depends_on: []
+            pr:
+            """), status="todo")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.key in ("risk", "security_review") for f in findings))
+
+    def test_refined_task_leaves_the_exemption(self):
+        """T-201 was refined at stage 0 on 2026-08-27 and carries both keys;
+        an exemption entry that outlives the reason for it would silently
+        hide a real omission if the keys were ever dropped again."""
         b = make_board(self.root)
         b.add_task("T-201", textwrap.dedent("""\
             id: T-201
@@ -1440,7 +1456,8 @@ class ControlledVocabularies(TempDirCase):
             """), status="todo")
         b.write_board()
         findings = b.check()
-        self.assertFalse(any(f.key in ("risk", "security_review") for f in findings))
+        self.assertTrue(any(f.key == "risk" for f in findings))
+        self.assertTrue(any(f.key == "security_review" for f in findings))
 
     def test_exemption_does_not_suppress_a_present_but_wrong_value(self):
         """The exemption is 'do not require', not 'never check' -- if an
