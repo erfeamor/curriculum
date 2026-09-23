@@ -81,6 +81,7 @@ None of them makes the page work on `master` in the near term. This one does, an
 - `VITE_`-prefixed env vars are inlined at **build** time by Vite — a runtime-only check will not catch a bad bake (that trap is T-403's, recorded there with the Drone empty-string precedent).
 
 ## dev-loop notes
+- **Blocks [T-401](T-401-public-cv-sections.md) and [T-403](T-403-public-vanilla-deploy.md)** (edges added 2026-09-23, board review): both edit `src/main.js`, and T-401 extends the test this task adds. Through T-401 it also gates [T-501](T-501-e2e-cv-milestone.md). Still do not widen into either.
 
 - **Developer:** `fullstack-developer`. **Reviewer:** `frontend-architect` (adapter §2 — `cv-public-vanilla` is its review surface). Authoritative CI: **GitHub Actions**.
 - `risk: normal`. Small diff, but stage-4 QA against a live stack is **required**, not optional — the runtime behaviour is the entire defect, exactly as in [T-406](T-406-public-react-bff-path-missing-prefix.md).

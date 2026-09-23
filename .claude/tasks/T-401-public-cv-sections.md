@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: feat/render-cv-sections
 pr:
-depends_on: [T-201]
+depends_on: [T-201, T-408]   # T-408 added 2026-09-23 — FILE-LEVEL, the T-153→T-152 kind: both edit `src/main.js:10`. T-408 also adds the first test of `main.js`, which this task then extends instead of writing blind. T-201 is satisfied.
 ---
 
 ## Goal
