@@ -2,14 +2,27 @@
 id: T-017
 title: "Docs drift: name MySQL 8.4 as the target engine in cv-database's docs (the meta repo's five RDS mentions are already permitted)"
 repo: cv-project (meta) + cv-database
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: docs/rds-to-selfhosted
-pr:
+pr: none   # closed 2026-09-23 as ABSORBED into T-153 (human's decision) — its meta-repo half was already satisfied, its cv-database half ships in T-153's PR. Same sentinel as T-010/T-030.
 depends_on: []
 risk: trivial
 security_review: false
 ---
+
+## ✅ CLOSED 2026-09-23 — absorbed into [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md)
+
+Re-verified the same day before closing, on the meta working tree and `cv-database` `origin/master` (`865784f`):
+
+| Criterion | State / went to |
+|---|---|
+| AC1, meta repo — no RDS describing current architecture | **Already true.** Four mentions remain (`README.md:192`, `:274` and their `README.es.md` twins) plus `docs/architecture.md:39`'s *"no RDS"*; all contrastive, which AC1 permits. `architecture.md:39` is being rewritten for other reasons by [T-023](T-023-meta-docs-stale-bff-smoke-path.md). |
+| AC1, cv-database | **T-153.** `Jenkinsfile:45` was already T-153's; `CLAUDE.md:70` is contrastive and stays. |
+| AC2 — diagram and prose agree | **Already true.** `diagrams/architecture.mmd` never mentions RDS. |
+| AC3 — MySQL 8.4 named in cv-database's docs | **T-153** Scope + AC — **three lines, not two**: re-grepping found `CLAUDE.md:8` (`# MySQL 8 on :3306`) as well. |
+
+Nothing below is live scope.
 
 > ## TITLE CORRECTED 2026-08-22 — this task is smaller than its old name claimed
 >
@@ -30,7 +43,7 @@ Split out of T-001 on 2026-08-13 (§3 of its original scope). MySQL moved off RD
 - `diagrams/architecture.mmd` — same, in the renderable diagram.
 - `cv-database` CLAUDE.md / README — state the target engine is MySQL 8.4.
   - **Sequence against [T-152](T-152-mysql-84-parity-cv-database.md), do not run concurrently** (added 2026-08-22). Both land in `cv-database`: T-152 changes the pins (`docker-compose.yml`, `Jenkinsfile`) and touches `CLAUDE.md:8` for the volume gotcha; this task changes the prose at `CLAUDE.md:3` and `README.md:9`. Adjacent lines in one file, two branches — cheap to avoid, annoying to merge.
-  - **This half can ride [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md)'s PR** (added 2026-08-24, on the human's instruction). T-153 + [T-154](T-154-jenkins-pipeline-timeout.md) are being proposed as one `cv-database` Jenkinsfile-hygiene PR; these two prose lines are the same repo, different files, no collision — and T-153 is *already* fixing an RDS reference in the pipeline's placeholder comment, so this is the same drift in the same PR rather than a second visit to the repo. **Because the meta-repo half of this task is already satisfied (see the re-scope check below), that would close T-017 entirely.** The T-152 sequencing note above is unaffected: T-153 already depends on T-152, so riding it inherits the correct order. Decided at whichever task's H1 comes first.
+  - **This half can ride [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md)'s PR** (added 2026-08-24, on the human's instruction). T-153 + [T-154](T-154-jenkins-pipeline-timeout.md) are being proposed as one `cv-database` Jenkinsfile-hygiene PR *(since done: T-154 was absorbed into T-153 on 2026-09-23)*; these two prose lines are the same repo, different files, no collision — and T-153 is *already* fixing an RDS reference in the pipeline's placeholder comment, so this is the same drift in the same PR rather than a second visit to the repo. **Because the meta-repo half of this task is already satisfied (see the re-scope check below), that would close T-017 entirely.** The T-152 sequencing note above is unaffected: T-153 already depends on T-152, so riding it inherits the correct order. Decided at whichever task's H1 comes first.
   - **Re-scope check before claiming** (added 2026-08-22): the rest of this task is largely already satisfied. All five surviving RDS mentions in the meta repo are contrastive or historical (*"instead of RDS"*, *"replacing RDS's automated backups"*, *"no RDS"*) — which AC1 below explicitly permits — and `diagrams/architecture.mmd:15` reads `MySQL`, never RDS. Verify before doing the work; what is genuinely left may be just the two `cv-database` prose lines.
 
 ## Acceptance criteria

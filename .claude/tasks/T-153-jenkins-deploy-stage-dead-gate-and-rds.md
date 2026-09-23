@@ -1,6 +1,6 @@
 ---
 id: T-153
-title: "cv-database Jenkinsfile hygiene: the Deploy stage is gated on a branch that does not exist and still targets RDS; the pipeline has no timeout and no MySQL health wait (absorbs T-154)"
+title: "cv-database Jenkinsfile hygiene: the Deploy stage is gated on a branch that does not exist and still targets RDS; the pipeline has no timeout and no MySQL health wait; the repo's docs never name MySQL 8.4 (absorbs T-154, T-017)"
 repo: cv-database
 status: todo
 owner:
@@ -54,6 +54,8 @@ stage('Deploy') {
 
 **Do not lose T-154's acceptance criteria in the merge.** Its *"demonstrate the guard actually fires"* is the sharpest check either task has — a timeout nobody has watched trigger is the unverified-claim class this board keeps cataloguing — and its *"check `cv-domain-service`'s pipeline for the same gap"* is a separate-repo finding that must still be filed, not fixed.
 
+> **DECIDED 2026-09-23 — absorbed, by the human.** [T-017](T-017-docs-drift-rds-to-selfhosted.md) is closed; its surviving work is in this task's Scope and Acceptance criteria, marked *(from T-017)*.
+
 **[T-017](T-017-docs-drift-rds-to-selfhosted.md)'s `cv-database` half can ride the same PR** (`CLAUDE.md:3`, `README.md:9` — naming MySQL 8.4 as the target engine). Different files, same repo, and its meta-repo half is already satisfied, so this would **close T-017 entirely**. It also sits naturally with this task's own RDS-comment fix: both are the same drift, one in a pipeline file and one in prose.
 
 ## The same dead gate exists in `cv-domain-service` — filed 2026-08-27 as [T-110](T-110-domain-service-jenkins-deploy-dead-gate.md)
@@ -70,6 +72,11 @@ It is not a pure duplicate: that repo's placeholder comment reads *"Placeholder 
 
 - **(from T-154)** Wrap the pipeline (or at minimum the `Validate migrations` stage) in `timeout(time: N, unit: 'MINUTES')`. Pick N from observed build times — successful builds run ~90–100s. **Justify the number rather than copying one.** The reaper is **not** a mitigation (T-154 § *cost premise CONFIRMED*): a hung low-CPU build passes its CPU veto and is then held up by `busyExecutors` indefinitely, so the timeout is the only bound.
 - **(from T-154)** **Wait for the MySQL container to report healthy before invoking Flyway**, so the retry backoff stops being the pipeline's synchronisation mechanism. T-154 § *The retry loop is NOT latent* has the console evidence: four `Connection refused … Retrying` rounds on a perfectly healthy build.
+- **(from T-017)** Name **MySQL 8.4** as the target engine in the repo's prose. Re-grepped on `origin/master` (`865784f`) 2026-09-23 — three lines, not the two T-017 named:
+  - `CLAUDE.md:3` — *"MySQL 8 schema managed exclusively through Flyway 10…"*
+  - `CLAUDE.md:8` — `docker compose up -d  # MySQL 8 on :3306` — **new 2026-09-23**: the compose file pins `mysql:8.4`, and line 15 of the same file already says so.
+  - `README.md:9` — *"- MySQL 8"*
+  - **Leave alone:** `CLAUDE.md:57`'s *"every MySQL 8 JDBC URL"* (a driver fact true across the 8.x family) and `CLAUDE.md:70`'s *"instead of RDS"* (contrastive — T-017's standard permits it).
 
 **Out of scope:** the `mysql:8.0` → `8.4` pin four lines above, which is **[T-152](T-152-mysql-84-parity-cv-database.md)'s** — this task depends on it so the two diffs do not collide in one file. **Also out of scope (carried from T-154):** the `post { always }` cleanup swallowing failures via `|| true`, and images pulled by mutable tag — both NOTEs from T-152's security review, pre-existing, unrelated to hanging. The bundle note above argues a whole-file reviewer will *see* them; seeing is not fixing — file them if review wants them fixed.
 
@@ -84,6 +91,8 @@ It is not a pure duplicate: that repo's placeholder comment reads *"Placeholder 
 - [ ] **(from T-154)** Flyway starts only after MySQL reports healthy: the console of a healthy build shows **no** `Connection refused … Retrying` rounds.
 - [ ] **(from T-154)** After the forced hang, the executor is released and the reaper subsequently stops the CI host — the argument is cost, so a guard that fires but leaves the host up has not delivered.
 - [x] **(from T-154)** `cv-domain-service`'s pipeline checked for the same gap — done 2026-08-27, filed as [T-111](T-111-domain-service-jenkins-pipeline-timeout.md). Do not re-run it and do not fix it here.
+- [ ] **(from T-017)** MySQL **8.4** is named as the target engine in `cv-database`'s docs (`CLAUDE.md:3`, `CLAUDE.md:8`, `README.md:9`).
+- [ ] **(from T-017)** `git grep -niw rds` across `cv-database` returns nothing that describes current architecture — after this PR only `CLAUDE.md:70`'s contrastive line should remain.
 - [ ] Jenkins goes green on the branch. **Note the stage will still not execute on a PR build** (PR builds are not `master`), so a green build does not prove the new condition works; state that limitation in the PR rather than implying it was verified.
 
 ## Watch-outs
