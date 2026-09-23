@@ -2,14 +2,31 @@
 id: T-154
 title: "cv-database's Jenkins pipeline can hang indefinitely and tie up the only CI host"
 repo: cv-database
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: fix/jenkins-pipeline-timeout
-pr:
+pr: none   # closed 2026-09-23 as ABSORBED into T-153 (option (a), human's decision) — no PR of its own; every criterion ships in T-153's PR. Same sentinel as T-010/T-030.
 depends_on: []
 risk: normal
 security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /security-review path
 ---
+
+## ✅ CLOSED 2026-09-23 — absorbed into [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md)
+
+The human took option (a) of T-153's bundle note; T-153 is the anchor (it was already sequenced behind T-152 for the same file). Where each item went — all four of this task's *"must survive the merge"* items are in T-153, marked *(from T-154)*:
+
+| This task's item | Went to |
+|---|---|
+| `timeout {}` with a justified bound | T-153 Scope + AC |
+| Normal build passes inside the bound, against real durations | T-153 AC |
+| **Demonstrate the guard actually fires** | T-153 AC and DoD |
+| MySQL healthcheck wait before Flyway | T-153 Scope + AC (no `Retrying` on a healthy build) |
+| Box released and reaped after the forced hang (was a watch-out here) | promoted to a T-153 AC, matching T-111's |
+| Hang on the shared single-executor host blocks the other repo | T-153 Watch-outs |
+| `cv-domain-service` checked for the same gap | done 2026-08-27 → [T-111](T-111-domain-service-jenkins-pipeline-timeout.md); recorded `[x]` in T-153 |
+| Out of scope: `post { always } … \|\| true`, mutable tags | T-153's out-of-scope line |
+
+The evidence sections below (*retry loop NOT latent*, *cost premise CONFIRMED*) are what T-153 now cites — they stay here as the record. Nothing below is live scope.
 
 ## Goal
 

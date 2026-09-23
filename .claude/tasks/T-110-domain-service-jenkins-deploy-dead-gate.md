@@ -2,14 +2,29 @@
 id: T-110
 title: "cv-domain-service's Deploy stage is gated on a branch that does not exist, and its placeholder describes a target that now exists"
 repo: cv-domain-service
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: fix/jenkins-deploy-stage-gate
-pr:
+pr: none   # closed 2026-09-23 as ABSORBED into T-111 (option (a), human's decision) — no PR of its own; every criterion ships in T-111's PR. Same sentinel as T-010/T-030.
 depends_on: []
 risk: low
 security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /security-review path, regardless of how small the diff is
 ---
+
+## ✅ CLOSED 2026-09-23 — absorbed into [T-111](T-111-domain-service-jenkins-pipeline-timeout.md)
+
+The human took option (a) of this task's bundle note, with T-111 as the anchor — the same resolution as T-154 → T-153 in `cv-database`. Re-verified on `cv-domain-service` `origin/master` (`1b9b398`) the same day: `branch 'main'` at `Jenkinsfile:45`, placeholder at `:48-49`, no `timeout`/`options`. Where each item went:
+
+| This task's item | Went to |
+|---|---|
+| `when { branch 'master' }` | T-111 Scope + AC |
+| Placeholder comment accurate or gone (decide at H1) | T-111 Scope + AC |
+| Stage still does nothing at runtime; do not implement the deploy | T-111 Scope + AC |
+| Green PR build does not prove the gate — say so in the PR | T-111 AC + Watch-outs |
+| Read the statuses API, not `gh pr checks` | already in T-111's Watch-outs |
+| The missing push/roll (*"recorded but NOT in scope"*) | [T-112](T-112-domain-service-ci-ecr-deploy.md), unchanged — its `depends_on` is repointed from T-110 to T-111 |
+
+Nothing below is live scope.
 
 ## Goal
 

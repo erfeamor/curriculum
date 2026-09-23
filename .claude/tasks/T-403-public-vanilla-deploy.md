@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: chore/deploy-and-bff-url
 pr:
-depends_on: [T-014]
+depends_on: [T-014, T-408]   # T-408 added 2026-09-23 — FILE-LEVEL: this task edits `src/main.js:3` (the localhost fallback) and T-408 fixes `main.js:10`; and a deploy of the pre-T-408 bundle would publish a page whose only request 404s.
 risk: normal
 security_review: true
 ---

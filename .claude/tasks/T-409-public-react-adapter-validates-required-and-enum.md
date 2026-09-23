@@ -89,6 +89,7 @@ Raised by the T-407 developer unprompted in its hand-back, and independently by 
 - Validating at the boundary is not the same as validating at build time — this site fetches under ISR background revalidation, so a producer regression arrives on a **live** site with no build to fail. Whatever "fail loudly" means here must be a thing the running page can do.
 
 ## dev-loop notes
+- **Blocks [T-402](T-402-public-react-cv-sections.md)** (edge added 2026-09-23, board review): T-402 renders `endDate: null` as "Present", so it should land on an adapter that already tells absent from null — otherwise the wrong-"Present" instance above ships the day sections render.
 
 - **Developer:** `fullstack-developer`. **Reviewer:** `frontend-architect` (adapter §2). Authoritative CI: **Vercel**.
 - `risk: normal`. A live stack cannot exercise this any more than it could T-407 — the real BFF is contract-compliant, so the malformed payloads only exist in fixtures. Expect a unit-level test plan plus, at most, a piggybacked happy-path smoke.

@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: feat/render-cv-sections
 pr:
-depends_on: [T-201, T-405]   # T-405 corrects the section types this task renders; building against the uncorrected ones means fixing these components too (T-405 provenance)
+depends_on: [T-201, T-405, T-409]   # T-409 added 2026-09-23, same reasoning as T-405: this task's AC renders `endDate: null` as "Present", and T-409 is what makes an ABSENT endDate distinguishable from that — rendering first would ship the wrong-"Present" defect T-409 describes. Original note on T-405: T-405 corrects the section types this task renders; building against the uncorrected ones means fixing these components too (T-405 provenance)
 ---
 
 ## Goal

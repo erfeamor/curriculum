@@ -2,14 +2,28 @@
 id: T-003
 title: Correct the CI documentation to match reality (Jenkins)
 repo: cv-project (meta)
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: docs/ci-reflect-jenkins
-pr:
+pr: none   # closed 2026-09-23 as ABSORBED into T-023 (option (a), human's decision) — no PR of its own; its one surviving criterion ships in T-023's PR. Same sentinel as T-010/T-030.
 depends_on: [T-002]
 risk: trivial
 security_review: false   # added 2026-08-20 (hygiene): the key was missing entirely while `risk` was set. Value per adapter §5 — the diff touches none of its security paths; A1 forces /security-review anyway if the real diff disagrees, so this is a stage-0 default, not a ruling.
 ---
+
+## ✅ CLOSED 2026-09-23 — absorbed into [T-023](T-023-meta-docs-stale-bff-smoke-path.md)
+
+The human took option (a) below. Where each criterion went:
+
+| Criterion | Went to |
+|---|---|
+| `docs/architecture.md:39` — legacy Free Tier rule and `micro` sizing | **T-023** Scope + AC (re-verified still present 2026-09-23) |
+| No change outside the meta repo | **T-023** AC |
+| No document asserts a Jenkins that does not exist | nowhere — already true (verified 2026-08-24) |
+| Free Tier exception written down | nowhere — superseded by T-020 |
+| Adapter § 3 CI table | **dropped** — `.claude/dev-loop-adapter.md` is gitignored, so no PR can deliver it; it is the human's to edit locally if it is wrong |
+
+Nothing below is live scope.
 
 ## ⚠️ RE-SCOPE THIS AT H1 — most of the task below has been overtaken by events (added 2026-08-24)
 

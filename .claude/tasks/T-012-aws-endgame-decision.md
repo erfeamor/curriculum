@@ -19,16 +19,16 @@ T-010 answered *when* the account dies and built the alarm that warns about it. 
 
 **On the Free plan, 2027-01-12 is a hard ceiling.** Not a soft one, and not one more credits can move. But it is no longer the thing that binds first.
 
-> ## MEASURED 2026-08-19 — everything below the next heading is history, and the conclusion flipped back
+> ## UPDATED 2026-09-23 — everything below the next heading is history, and the conclusion flipped back
 >
 > [T-020](T-020-cost-model-correction.md) read the account instead of deriving from it, and this task never absorbed the result. Written in 2026-08-20's sweep, because a decision document that argues from superseded arithmetic is worse than one that argues from none.
 >
 > | | Modelled here ($1.23/day) | **Measured** (`aws freetier`, Cost Explorer) |
 > |---|---|---|
 > | Run rate | $1.23/day ≈ $37.30/mo | **$0.6837/day ≈ $20.81/mo** |
-> | Credits left | $120.66 (2026-08-11, derived forward) | **$111.08** (read 2026-08-19) |
-> | Grant | $160 | **$160** — both $20 activities still `NOT_STARTED` |
-> | Credits exhaust | ~2026-11-17 | **~2027-01-28** |
+> | Credits left | $120.66 (2026-08-11, derived forward) | **$106.61** (read 2026-09-23) |
+> | Grant | $160 | **$180** — Lambda activity `COMPLETED`; only Bedrock still `NOT_STARTED` |
+> | Credits exhaust | ~2026-11-17 | **~2027-02-26** |
 > | **Binds first** | credits, by ~8 weeks | **THE WINDOW — 2027-01-12** |
 >
 > **Why the rate fell:** `cv-project-drone` has been `stopped` since 2026-08-14 08:12 GMT and was 46% of the bill. Confirmed still stopped on 2026-08-20 (`describe-instances`). Crossover is **$0.761/day** — below it the window binds, above it the credits do.
@@ -84,13 +84,13 @@ Same question applies to self-hosted MySQL, tracked as **T-001**.
 
 ## Do first, regardless of which option wins
 
-- [ ] ~~**Complete the two remaining $20 credit-earning activities** (Lambda; foundation-model experimentation). Free, ~1 hour, moves the cliff 20 Dec → 12 Jan. Ratified in T-010.~~ **Downgraded to optional 2026-08-20**, per [T-020 §2](T-020-cost-model-correction.md), which confirmed via `aws freetier list-account-activities` that both are still `NOT_STARTED` — ratified on 2026-08-11 and never done. The grant is therefore **$160**, not $200. They are optional now because **the window binds, not the credits**: $40 more credits buy no extra elapsed time while exhaustion (~2027-01-28) already falls after the window (2027-01-12). Worth doing only if the CI host returns to 24/7 — or for the Bedrock/Lambda experience itself, which is a demo argument rather than a runway one.
+- [ ] ~~**Complete the two remaining $20 credit-earning activities** (Lambda; foundation-model experimentation). Free, ~1 hour, moves the cliff 20 Dec → 12 Jan. Ratified in T-010.~~ **Downgraded to optional 2026-08-20**, per [T-020 §2](T-020-cost-model-correction.md), which confirmed via `aws freetier list-account-activities` that both are still `NOT_STARTED` — ratified on 2026-08-11 and never done. ~~The grant is therefore **$160**, not $200.~~ **Re-read 2026-09-23: the Lambda activity is now `COMPLETED`, so the grant is $180**; only the Bedrock one remains `NOT_STARTED`. They are optional now because **the window binds, not the credits**: $40 more credits buy no extra elapsed time while exhaustion (~2027-01-28) already falls after the window (2027-01-12). Worth doing only if the CI host returns to 24/7 — or for the Bedrock/Lambda experience itself, which is a demo argument rather than a runway one.
 - [x] **Allowlist `no-reply@sns.amazonaws.com`** — **done 2026-08-11.** T-010 found the previous budget had been firing for months into a spam folder: the alerting worked, the delivery did not. The December warning inherited that dependency and has exactly one job. With the subscription confirmed *and* the sender allowlisted, the delivery path is now clear end to end. Note this is an inbox-side setting, invisible to Terraform and to `describe-budgets` — if the mailbox or its rules ever change, this silently reverts and nothing in AWS will say so.
 - [ ] **Do not raise `budget_credit_grant_amount` to $200** when the grant increases. Corrected in cv-infra PR #14, restated here because it is counter-intuitive: at $200 the 100% alert fires ~20 days *after* the account is paused. ~~Held at $160 it fires 24 Sep / 15 Nov / 20 Dec.~~ **Those three dates are stale (struck 2026-08-17): they were derived at $0.92/day, in the same file that re-derives everything else at $1.23/day.** At the real rate the thresholds arrive earlier — the 100% one lands on credit exhaustion (~2026-11-17), not 20 December. **Re-corrected 2026-08-20:** at the *measured* $0.6837/day the thresholds arrive **later**, not earlier — 100% of a $160 grant is not reached before the window closes at all, so the alarm's practical job is now to fire when the CI host is left running. [T-020 §4](T-020-cost-model-correction.md) ruled **change nothing** on that basis: a $30 monthly limit against a $20.81 rate fires precisely on the one behaviour worth an alert. The *decision* (hold at $160) is unaffected and still correct; only the predicted dates were wrong. Re-deriving them against the real console balance is **[T-020](T-020-cost-model-correction.md) §4**, which owns the alarm question.
 
 ## Acceptance criteria
 
-- [ ] The two activities completed **if they are still wanted**, and the grant total recorded here — **no longer a precondition for the decision** (see the "Do first" note: they buy no elapsed time while the window binds). The live grant is **$160**.
+- [ ] The two activities completed **if they are still wanted**, and the grant total recorded here — **no longer a precondition for the decision** (see the "Do first" note: they buy no elapsed time while the window binds). ~~The live grant is **$160**.~~ **The live grant is $180** (Lambda `COMPLETED`, read 2026-09-23 via `aws freetier list-account-activities`); Bedrock is the one left. Note cv-infra's `budget_credit_grant_amount` is still $160, so its percentage alerts now fire ~$20 early — the safe direction, and the item above already rules against raising it past the real grant.
 - [ ] A written decision — A, B, or C — with its cost and its consequences, made on or before **2026-11-01**.
 - [ ] If **A**: the plan upgraded, and a follow-up task filed for the trims that are now worth doing.
 - [ ] If **B**: T-008 landed first, a teardown runbook written, and the rebuild verified at least once against a throwaway apply rather than assumed.
