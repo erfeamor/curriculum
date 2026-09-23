@@ -1,10 +1,10 @@
 ---
 id: T-111
-title: "cv-domain-service's Jenkins pipeline has no timeout, and it shares the CI host's ONLY executor with cv-database"
+title: "cv-domain-service Jenkinsfile hygiene: no pipeline timeout on the CI host's ONLY executor (shared with cv-database), and a Deploy stage gated on a branch that does not exist (absorbs T-110)"
 repo: cv-domain-service
 status: todo
 owner:
-branch: fix/jenkins-pipeline-timeout
+branch: fix/jenkins-pipeline-hygiene   # renamed 2026-09-23 from fix/jenkins-pipeline-timeout when T-110 was absorbed; matches T-153's name for the same bundle in cv-database. Never pushed under the old name.
 pr:
 depends_on: []
 risk: normal
@@ -54,18 +54,26 @@ T-154 records the reaper's source being read on 2026-08-26: `lambda/ci_reaper/in
 
 - Wrap the pipeline (or at minimum the Maven stages and `Docker image`) in `timeout(time: N, unit: 'MINUTES')`. **Justify N from observed build times rather than copying a number.** A useful datum: a clean, fully green run of this pipeline completed all five stages with 141 tests in roughly two minutes on a warm box (2026-08-26) — so a generous bound is still an order of magnitude tighter than "forever". A cold box with an empty `~/.m2` is materially slower and the bound must survive it.
 - Consider whether the Maven steps deserve their own tighter bound than `docker build`.
+- **(from T-110)** Correct the `Deploy` stage's branch condition to `master` (`Jenkinsfile:45` on `origin/master` `1b9b398`, re-verified 2026-09-23; T-110 cited `:43-52`).
+- **(from T-110)** Resolve the placeholder comment at `Jenkinsfile:48-49` (*"Placeholder until cv-infra exposes a deploy target"*) — the ECR repo it waits for exists (`cv-infra/registry.tf:5`). Either describe the **actual** state (target exists; what is missing is the push and the roll, owned by [T-112](T-112-domain-service-ci-ecr-deploy.md)) or delete it. **Decide at H1** — T-153's ruling applies: *a comment that is merely less wrong is not obviously better than none.*
+- **(from T-110)** The `Deploy` stage must still do nothing at runtime. **Do not implement the deploy** — that is T-112.
 
-**Out of scope:** the dead `branch 'main'` Deploy gate and its stale placeholder comment — that is **[T-110](T-110-domain-service-jenkins-deploy-dead-gate.md)**. See the bundling note. Also out of scope: making the `Docker image` stage actually push, which no board task owns (recorded in T-110).
+**Out of scope:** ~~the dead `branch 'main'` Deploy gate and its stale placeholder comment — that is **[T-110](T-110-domain-service-jenkins-deploy-dead-gate.md)**.~~ *(in scope since 2026-09-23 — T-110 absorbed, see above.)* Also out of scope: making the `Docker image` stage actually push ~~, which no board task owns (recorded in T-110)~~ — owned by **[T-112](T-112-domain-service-ci-ecr-deploy.md)** since 2026-08-27, which now depends on this task.
 
 ## Acceptance criteria
 
 - [ ] The pipeline fails on timeout rather than hanging, with the bound and its justification recorded in the PR.
 - [ ] A normal build still passes comfortably inside the bound — verified against **real build durations on this host**, cold `~/.m2` included, not an estimate.
 - [ ] **Demonstrate the guard actually fires.** T-154's sharpest criterion and it applies here unchanged: a timeout nobody has watched trigger is the unverified-claim class this board keeps cataloguing. Force a hang on a scratch branch and show the build failing at the bound.
+- [ ] **(from T-110)** `when { branch 'master' }`, matching the actual protected mainline.
+- [ ] **(from T-110)** The placeholder comment either describes the current state accurately or is gone — no surviving claim that cv-infra has yet to expose a deploy target.
+- [ ] **(from T-110)** The `Deploy` stage still does nothing at runtime — this task must not turn a placeholder into a deploy.
+- [ ] **(from T-110)** The PR states plainly that a green PR build **does not** exercise the `branch 'master'` condition (PR builds are not `master`); the evidence for the gate is the diff plus the workspace-wide fact that `master` is the mainline.
 - [ ] Confirm the executor is released afterwards and the reaper subsequently stops the box — the entire argument is cost, so a guard that fires but leaves the host up has not delivered.
 
 ## Watch-outs
 
+- **(from T-110)** **Verification of the gate is genuinely weak and should be stated, not dressed up.** Nothing available on a PR build exercises a `branch 'master'` condition. Do not claim a green PR build verified it — this board has a standing problem with green signals that measured the wrong thing ([T-107](T-107-post-id-cross-person-write.md)'s mock-measuring test, [T-028](T-028-qa-env-generator-worktree-build-context.md)'s master-building QA stack).
 - **Verifying this means deliberately hanging a build on the shared host, which blocks the other repo too** (`numExecutors: 1`). Do it on a scratch branch, keep the test bound short, and confirm the box is released afterwards.
 - **This interacts with [T-019](T-019-ci-host-on-demand.md)'s one untested acceptance criterion** — *"a build in progress is never killed"*, whose second half has never been exercised (reconciled 2026-08-27). Whoever runs this task is already starting builds and watching the reaper, so it is the cheapest opportunity on the board to settle T-019's criterion too. **Not a dependency in either direction** — recorded so the chance is not missed, the way [T-002](T-002-jenkins-on-drone-host.md)→[T-005](T-005-ci-secret-blast-radius.md)'s hand-off sat unowned for eleven days.
 - ~~**[T-026](T-026-first-build-after-cold-start-fails.md) applies** — the first build after idle may fail spuriously.~~ **Fixed 2026-08-26** (cv-infra `1deebb4`, [#21](https://github.com/erfeamor/cv-infra/pull/21)). The first build after idle is now trustworthy. Struck rather than deleted because sibling tasks still carry the live version of this warning.
@@ -73,11 +81,12 @@ T-154 records the reaper's source being read on 2026-08-26: `lambda/ci_reaper/in
 
 ## Definition of done
 
-PR open against `master` from `fix/jenkins-pipeline-timeout`, the guard demonstrated firing, task updated.
+PR open against `master` from `fix/jenkins-pipeline-hygiene`, the guard demonstrated firing, task updated.
 
 ## dev-loop notes
 
 - **Developer:** `backend-developer` (adapter §2 — `cv-domain-service` is its layer). **Reviewers:** `/code-review` + `infrastructure-engineer` (owns all CI config) + `/security-review` (forced by the `Jenkinsfile` path).
+- **DECIDED 2026-09-23 — option (a), by the human; this task is the anchor.** [T-110](T-110-domain-service-jenkins-deploy-dead-gate.md) is closed as absorbed; its items are in Scope, Acceptance criteria and Watch-outs above, marked *(from T-110)*. This task's *"demonstrate the guard actually fires"* is kept intact, as the note below required. The note is kept as the reasoning.
 - **Bundle with [T-110](T-110-domain-service-jenkins-deploy-dead-gate.md)** — same file, same repo, same forced reviewer set, exactly the T-153/T-154 situation. **H1 decides**; T-153's recommended option (a) — one task absorbs the other and the absorbed one closes recording where its criteria went — applies here unchanged. If bundled, **this task's "demonstrate the guard actually fires" must survive the merge**; it is the sharper of the two tasks' criteria.
 
 ## Provenance
