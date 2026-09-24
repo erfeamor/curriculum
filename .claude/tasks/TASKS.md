@@ -4,13 +4,12 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-24 (T-012 decided: go Paid, trimmed; T-155 decided: bump Flyway)
+## Now / Next / Later — refreshed 2026-09-24 (T-012 decided: go Paid, trimmed; T-155 merged: dev stack on Flyway 13.7.0)
 
 The order to claim in. It is **advice, refreshed at every board-sync** — `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Now**
 - **Human, ~1 hour:** the last $20 credit activity (Bedrock playground) — under A its credit carries over. Tracked in [T-012](T-012-aws-endgame-decision.md).
-- **[T-155](T-155-flyway-version-supports-mysql-84.md)** — Flyway 13.7.0 on the dev stack. No infra, no CI host; runs alongside anything.
 - In parallel, no AWS: [T-409](T-409-public-react-adapter-validates-required-and-enum.md) → [T-402](T-402-public-react-cv-sections.md); [T-401](T-401-public-cv-sections.md); [T-301](T-301-admin-cv-sections-crud.md).
 
 **Next — one CI-host session** (~$1.23/day while up; keep it to one window)
@@ -121,11 +120,10 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3) | cv-infra | todo | | T-007 | |
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
 | [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) | cv-database Jenkinsfile hygiene: dead `main` Deploy gate + RDS comment, no timeout, no MySQL health wait, docs never name 8.4 (**absorbs T-154, T-017**) | cv-database | todo | | T-152 ✔ | |
-| [T-155](T-155-flyway-version-supports-mysql-84.md) | Flyway 10 → 13.7.0 — **decided**; this row is the dev-stack pin (`docker-compose.dev.yml`) | cv-project (meta) | todo | | — | |
-| [T-156](T-156-flyway-13-cv-database-pins.md) | Flyway 10 → 13.7.0 in cv-database: the Jenkins gate and `migrate.sh` (split from T-155) | cv-database | todo | | T-155, T-153 | |
+| [T-156](T-156-flyway-13-cv-database-pins.md) | Flyway 10 → 13.7.0 in cv-database: the Jenkins gate and `migrate.sh` (split from T-155) | cv-database | todo | | T-155 ✔, T-153 | |
 
 <details>
-<summary>Infra & ops — 21 done</summary>
+<summary>Infra & ops — 22 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -150,6 +148,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-031](T-031-board-frontmatter-validator.md) | **A validator for the task board** (`scripts/board-check.py`) | cv-project (meta) | done | infrastructure-engineer | — | [#59](https://github.com/erfeamor/curriculum/pull/59) |
 | [T-152](T-152-mysql-84-parity-cv-database.md) | Dev/CI parity: bump cv-database's stack **and its migration gate** to MySQL 8.4 | cv-database | done | backend-developer | — | [#3](https://github.com/erfeamor/cv-database/pull/3) |
 | [T-154](T-154-jenkins-pipeline-timeout.md) | No `timeout {}` on cv-database's pipeline — **absorbed into T-153** | cv-database | done | tech-product-owner | — | none |
+| [T-155](T-155-flyway-version-supports-mysql-84.md) | Flyway 10 → 13.7.0 — **decided**; the dev-stack pin (`docker-compose.dev.yml`) moved, and QA covered a Flyway-10 volume and a fresh one | cv-project (meta) | done | tech-product-owner | — | [#91](https://github.com/erfeamor/curriculum/pull/91) |
 
 </details>
 
