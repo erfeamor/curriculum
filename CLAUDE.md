@@ -72,7 +72,7 @@ docker volume rm curriculum_cv-dev-mysql-data   # real name carries the
 ## Environment gotchas (this machine)
 
 - Toolchains are user-space in `~/.local`: `mvn` is a wrapper pinning Temurin JDK 17 (system `java` is a bare JRE 25 — don't use it directly), Node 20 via nvm symlinks, Terraform 1.9.8.
-- Flyway 10 bundles the MariaDB driver: MySQL 8 JDBC URLs **must** carry `?allowPublicKeyRetrieval=true` or migrate hangs retrying silently.
+- Flyway bundles the MariaDB driver (both 10.22.0 and 13.7.0 ship only `mariadb-java-client-2.7.14`, verified 2026-09-23 in T-155): MySQL 8 JDBC URLs **must** carry `?allowPublicKeyRetrieval=true` or migrate hangs retrying silently.
 - Prometheus/anything in Docker reaching the host needs `extra_hosts: ["host.docker.internal:host-gateway"]` (Linux).
 
 ## Conventions across repos
