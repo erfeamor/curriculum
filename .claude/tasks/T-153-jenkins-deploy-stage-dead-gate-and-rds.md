@@ -89,6 +89,8 @@ One wake of the CI host: the push at 11:32:47Z started it at 11:32:50Z. Jenkins 
 
 **T-019's open AC ("a build in progress is never killed"): observed, but not settled.** The reaper checks that landed during the hang declined to stop the host at 11:34 (`busy: 2 item(s) queued`), 11:39 and 11:44 (`busy: CPU peaked at 36.6% over 20 min`). So the build survived, but the **CPU veto** decided it, not the `busyExecutors` read that the criterion is about. A clean test needs a hang long enough to outlast the 20-minute CPU window. Recorded for T-019; not claimed here.
 
+**Post-merge master build (#5, `80b6665`, 34 s, SUCCESS): the Deploy stage ran for the first time.** The console shows `[Pipeline] { (Deploy)` then `Deploy stage not yet implemented`, so the `master` gate is now proven by a real run, not only by the diff. That settles the PR-build limitation of AC11 after the fact.
+
 The PR-5 flow also still prints Flyway 10's *"upgrade recommended"* warning, as expected; T-156 removes it.
 
 ## Goal

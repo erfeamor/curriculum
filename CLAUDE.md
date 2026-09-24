@@ -8,7 +8,7 @@ This file guides Claude Code when working in the **cv-project meta repo**. Each 
 
 | Repo | Layer | Stack | CI |
 |---|---|---|---|
-| `cv-database` | Data | MySQL 8 + Flyway 10 | Jenkins |
+| `cv-database` | Data | MySQL 8.4 + Flyway 13.7.0 (production still on 10 until T-014) | Jenkins |
 | `cv-domain-service` | Domain API (source of truth) | Java 17, Spring Boot 3 | Jenkins |
 | `cv-bff-node` | BFF for the public site | Node 20 + Express + TypeScript | GitHub Actions |
 | `cv-admin-react` | Admin CRUD UI | React 18 + Vite | DroneCI |

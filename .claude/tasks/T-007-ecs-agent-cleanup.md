@@ -11,6 +11,11 @@ risk: normal   # raised 2026-09-24 from low: the widened scope replaces the CI h
 security_review: false   # added 2026-08-20 (hygiene): the key was missing entirely while `risk` was set. Value per adapter §5 — the diff touches none of its security paths; A1 forces /security-review anyway if the real diff disagrees, so this is a stage-0 default, not a ruling.
 ---
 
+
+## Disk measured 2026-09-24 (from T-156's review) — read before sizing the new root
+
+The CI host's root is **30 GiB gp3 with 12.8 GiB free**, from Jenkins' disk monitor during cv-database PR-6. About **17 GiB is in use**, so a ~10 GB root **would not fit today's contents**. Nothing on the host prunes images (`templates/jenkins-provision.sh` has no `docker image prune`/`rmi`), and every image bump adds a layer set: Flyway 13.7.0 is 428 MB and now sits beside `:10`'s 283 MB. Either measure what a fresh AL2023 host actually needs after a full build of every Jenkins/Drone repo, or add a scheduled prune in the same change. Do not size from the AMI's default.
+
 ## ⤴ WIDENED 2026-09-24 — the AMI swap is now in scope ([T-012](T-012-aws-endgame-decision.md) chose A)
 
 The *Watch out for* note below calls a plain Amazon Linux 2023 AMI *"the right long-term answer … out of scope here"* because it forces a replacement. Under decision A it pays for itself: the ECS-optimized AMI **requires a 30 GB root**, and that root costs **$2.82/month while the host sits stopped**. On a plain AL2023 AMI a ~10 GB root is enough → **≈ −$1.90/month**, and the ecs-agent problem this task was filed for disappears with the AMI instead of being masked.
