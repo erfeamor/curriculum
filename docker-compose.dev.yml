@@ -30,7 +30,7 @@ services:
       retries: 10
 
   flyway:
-    image: flyway/flyway:10
+    image: flyway/flyway:13.7.0
     command: migrate
     depends_on:
       mysql:
