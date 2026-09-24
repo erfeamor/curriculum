@@ -4,26 +4,29 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-24 (after the T-023/T-408/T-208 wave)
+## Now / Next / Later — refreshed 2026-09-24 (T-012 decided: go Paid, trimmed; T-155 decided: bump Flyway)
 
 The order to claim in. It is **advice, refreshed at every board-sync** — `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
-**Now — decisions**
-- **[T-012](T-012-aws-endgame-decision.md) — human decision A / B / C, due 2026-11-01.** Decides whether the ⚖-marked infra hardening is worth doing at all, and B requires T-008 first.
-- **[T-155](T-155-flyway-version-supports-mysql-84.md) — H1: bump Flyway or stay on 10.** Decide before T-014 so a production pin can ride its apply (T-155 § *If bumping*).
-- *Done 2026-09-24 in one wave:* T-023 (smoke path + architecture Free Tier line), T-408 (the landing page works on `master` again), T-208 (BFF 4xx + metric label, ahead of T-014 making it public).
+**Now**
+- **Human, ~1 hour:** the last $20 credit activity (Bedrock playground) — under A its credit carries over. Tracked in [T-012](T-012-aws-endgame-decision.md).
+- **[T-155](T-155-flyway-version-supports-mysql-84.md)** — Flyway 13.7.0 on the dev stack. No infra, no CI host; runs alongside anything.
+- In parallel, no AWS: [T-409](T-409-public-react-adapter-validates-required-and-enum.md) → [T-402](T-402-public-react-cv-sections.md); [T-401](T-401-public-cv-sections.md); [T-301](T-301-admin-cv-sections-crud.md).
 
-**Next — the critical path to [T-501](T-501-e2e-cv-milestone.md)**
-- **[T-014](T-014-deploy-bff-to-aws.md)** — head of the chain; budget the full ceiling (adapter §7). Decide [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at its H2; carry T-155's production pin if bumping.
-- **In parallel, no AWS:** [T-409](T-409-public-react-adapter-validates-required-and-enum.md) → [T-402](T-402-public-react-cv-sections.md); [T-401](T-401-public-cv-sections.md) (claimable — T-408 merged); [T-301](T-301-admin-cv-sections-crud.md).
-- **After T-014:** [T-403](T-403-public-vanilla-deploy.md) and [T-404](T-404-public-react-point-at-deployed-bff.md) → [T-015](T-015-docs-reflect-deployed-bff.md) → **T-501**, well before the window closes (2027-01-12).
-- **One CI-host session** (~$1.23/day while up): [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) and [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) back to back — both hang the single shared executor on purpose — settling [T-019](T-019-ci-host-on-demand.md)'s untested criterion in the same run; then [T-112](T-112-domain-service-ci-ecr-deploy.md). Add T-007 if T-012 picks A.
+**Next — one CI-host session** (~$1.23/day while up; keep it to one window)
+- [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) → [T-156](T-156-flyway-13-cv-database-pins.md) (same `Jenkinsfile`, or one PR), then [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) — both hang tests share the single executor; settle [T-019](T-019-ci-host-on-demand.md)'s untested criterion in the same run. Then [T-112](T-112-domain-service-ci-ecr-deploy.md).
 
-**Later — or contingent on T-012**
-- ⚖ T-004 part 2, T-005, T-007, T-033 — only if T-012 keeps the stack (A). T-008 — first, if B.
-- T-021 (before anyone rotates `db_password`), T-203, T-108, T-109, T-027, T-029, T-032.
+**Then — cv-infra, strictly one apply at a time**
+1. [T-008](T-008-drone-host-backup-and-snapshot.md) — Drone state to SSM, a proven restore, then the old snapshot goes.
+2. [T-007](T-007-ecs-agent-cleanup.md) — CI host to plain AL2023 with a ~10 GB root (replaces the CI host).
+3. [T-034](T-034-release-ci-host-idle-eip.md) — release the CI host's idle EIP (a DNS name that [T-033](T-033-ci-host-tls.md)'s TLS can reuse).
+4. **[T-014](T-014-deploy-bff-to-aws.md)** — its own session; carries the production Flyway pin; decide [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at its H2.
+5. [T-035](T-035-app-host-to-graviton.md) — the app host to `t4g.micro`, as its own apply right after T-014.
+- After T-014: [T-403](T-403-public-vanilla-deploy.md) and [T-404](T-404-public-react-point-at-deployed-bff.md) → [T-015](T-015-docs-reflect-deployed-bff.md) → **[T-501](T-501-e2e-cv-milestone.md)**.
+- **By 2026-12-15 (human):** upgrade the standalone account to the Paid plan — never via an Organization or Control Tower (forfeits the credits). Then the docs state it (T-012's last AC).
 
-⚖ = the task's value depends on T-012's outcome.
+**Later**
+- T-004 part 2, T-005, T-033, T-021 (before anyone rotates `db_password`), T-203, T-108, T-109, T-027, T-029, T-032.
 
 ## M2 — Complete the domain model end-to-end
 
@@ -100,23 +103,26 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 
 ## Infra & ops (outside M2)
 
-⚖ marks a task whose value depends on [T-012](T-012-aws-endgame-decision.md)'s outcome.
+[T-012](T-012-aws-endgame-decision.md) decided **A (go Paid, trimmed)** on 2026-09-24, so the hardening and cost trims below are all worth doing. **cv-infra applies are strictly serial** — one root module, local state.
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state — **part 1 (0600) done; start at part 2**, the remote backend — ⚖ *value depends on T-012* | cv-infra | todo | | — | |
-| [T-005](T-005-ci-secret-blast-radius.md) | Limit CI secret blast radius: block IMDS from containers — ⚖ *value depends on T-012* | cv-infra | todo | | T-002 | |
-| [T-007](T-007-ecs-agent-cleanup.md) | Remove the crash-looping ecs-agent from the CI host — ⚖ *value depends on T-012* | cv-infra | todo | | T-002 | |
-| [T-008](T-008-drone-host-backup-and-snapshot.md) | Retire the T-002 gate snapshot, give the CI host a real backup — ⚖ *required FIRST if T-012 picks B* | cv-infra | todo | | T-002 | |
-| [T-012](T-012-aws-endgame-decision.md) | **Decide Paid-vs-teardown before the Free-plan window closes — due 2026-11-01** | cv-project (meta) | todo | | — | |
+| [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state — **part 1 (0600) done; start at part 2**, the remote backend | cv-infra | todo | | — | |
+| [T-005](T-005-ci-secret-blast-radius.md) | Limit CI secret blast radius: block IMDS from containers | cv-infra | todo | | T-002 | |
+| [T-007](T-007-ecs-agent-cleanup.md) | CI host: plain AL2023 AMI, ~10 GB root — drops the ecs-agent and −$1.90/mo (**widened 2026-09-24**) | cv-infra | todo | | T-002, **T-008** | |
+| [T-008](T-008-drone-host-backup-and-snapshot.md) | Drone state to SSM + a real CI-host backup, then retire the T-002 snapshot — **trim step 1** (−$0.69/mo) | cv-infra | todo | | T-002 | |
+| [T-012](T-012-aws-endgame-decision.md) | **Paid-vs-teardown — DECIDED 2026-09-24: A, go Paid with the stack trimmed**; upgrade by 2026-12-15 | cv-project (meta) | in_progress | tech-product-owner | — | |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution | cv-infra + cv-domain-service | todo | | T-022 | |
 | [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) | Contract: the ordering note prescribes SQL syntax for a JPQL context | cv-project (meta) | todo | | — | |
 | [T-029](T-029-code-review-cannot-see-worktrees.md) | `/code-review` **silently reviews the wrong thing** without an explicit target | cv-project (meta) | todo | | — | |
 | [T-032](T-032-board-check-re-review-after-live-use.md) | Re-review `board-check.py` after live use, plus two blind spots: **link integrity** and **status-gated `pr:`** | cv-project (meta) | todo | | T-031 ✔ | |
-| [T-033](T-033-ci-host-tls.md) | CI host serves Jenkins login and Drone OAuth over plain HTTP on a scanned public IP — decide TLS or record the accepted risk — ⚖ *value depends on T-012* | cv-infra | todo | | — | |
+| [T-033](T-033-ci-host-tls.md) | CI host serves Jenkins login and Drone OAuth over plain HTTP on a scanned public IP — decide TLS or record the accepted risk | cv-infra | todo | | — | |
+| [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3) | cv-infra | todo | | T-007 | |
+| [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
 | [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) | cv-database Jenkinsfile hygiene: dead `main` Deploy gate + RDS comment, no timeout, no MySQL health wait, docs never name 8.4 (**absorbs T-154, T-017**) | cv-database | todo | | T-152 ✔ | |
-| [T-155](T-155-flyway-version-supports-mysql-84.md) | Flyway 10 does not claim MySQL 8.4 support — yet it runs against 8.4 in production | cv-database + meta + cv-infra | todo | | — | |
+| [T-155](T-155-flyway-version-supports-mysql-84.md) | Flyway 10 → 13.7.0 — **decided**; this row is the dev-stack pin (`docker-compose.dev.yml`) | cv-project (meta) | todo | | — | |
+| [T-156](T-156-flyway-13-cv-database-pins.md) | Flyway 10 → 13.7.0 in cv-database: the Jenkins gate and `migrate.sh` (split from T-155) | cv-database | todo | | T-155, T-153 | |
 
 <details>
 <summary>Infra & ops — 21 done</summary>
@@ -177,7 +183,7 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 |---|----|-------|------|--------|-------|------------|----|
 | 1 | [T-013](T-013-contract-bff-public-routing.md) | Contract: BFF public edge path + anonymous reads | cv-project (meta) | done | tech-product-owner | — | [#22](https://github.com/erfeamor/curriculum/pull/22) |
 | 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | done | fullstack-developer | T-013 | [#4](https://github.com/erfeamor/cv-bff-node/pull/4) |
-| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** (H1 done — start at implementation) | cv-infra | todo | | T-013, T-202, **T-201** | |
+| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** (H1 done — start at implementation) | cv-infra | todo | | T-013, T-202, **T-201**, **T-156** | |
 | 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014, **T-408** | |
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed | cv-project (meta) | todo | | T-014, T-403 | |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
