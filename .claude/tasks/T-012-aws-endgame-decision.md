@@ -2,16 +2,43 @@
 id: T-012
 title: Decide Paid-vs-teardown before the Free-plan window closes (~2027-01-12)
 repo: cv-project (meta)
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: chore/aws-endgame-decision
 pr:
 depends_on: []
 risk: high
 security_review: false   # added 2026-08-20 (hygiene): the key was absent entirely, here and in the checkpoint. This task decides a billing posture and ships a written decision, not a diff — no adapter §5 security path. A/B/C's follow-up work gets its own tasks and its own flags.
-due: 2026-11-01          # re-dated 2026-08-14 — was 2026-12-20, which is AFTER the credits run out at the real burn rate
+due: 2026-11-01          # DECISION met 2026-09-24 (A). Execution: upgrade the plan by 2026-12-15 — see the decision block
 deadline: 2027-01-12     # the Free-plan window; no longer the binding constraint, see below
 ---
+
+## ✅ DECIDED 2026-09-24 — **A · go Paid, with the stack trimmed first** (the human's decision)
+
+**Why A, on measured numbers** (Cost Explorer 2026-08-24 → 09-23: **$20.70 / 30 days ≈ $21/month**):
+- **Credits survive the upgrade.** AWS: on upgrading to the Paid plan, remaining Free Tier credits keep applying to bills until they expire **12 months after account creation — 2027-07-12** ([Choosing a plan](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-plans.html), [Free Tier FAQs](https://aws.amazon.com/free/free-tier-faqs/)). So every dollar saved before the window closes pays for a month after it.
+- **About a third of the bill is a stopped box:** the CI host's idle EIP ($3.64), its 30 GB root ($2.82) and the T-002 snapshot ($0.69) — **$7.15/month** for 2.3 build-hours.
+- **Trimmed, the stack runs ≈ $13/month (−38%)**: roughly $30 of credit left at 2027-01-12 becomes ~$53 (or ~$73 with the last $20 activity), carrying the account to ~May–July 2027 before any out-of-pocket spend, then ~$13/month instead of ~$21.
+
+**The trims — each owned by a task, run in this order** (cv-infra is one root module with local state, so its applies are strictly serial):
+
+| # | Trim | $/month | Task |
+|---|---|---|---|
+| 1 | Drone state to SSM + a real backup; then delete `snap-0d7f5ae272ce0cef5` | −0.69 | [T-008](T-008-drone-host-backup-and-snapshot.md) |
+| 2 | CI host to a plain AL2023 AMI, root 30 → ~10 GB (drops the stray ecs-agent too) | −1.90 | [T-007](T-007-ecs-agent-cleanup.md) (widened) |
+| 3 | Release the CI host's idle EIP | −3.64 | [T-034](T-034-release-ci-host-idle-eip.md) (new) |
+| 4 | App host `t3.micro` → `t4g.micro`, **after** T-014 (not bundled into it) | −1.75 | [T-035](T-035-app-host-to-graviton.md) (new) |
+
+**Ruled out, with reasons:** dropping the app host's public IP (any public IPv4 bills the same, and removing it needs NAT or VPC endpoints that cost more); `t4g.nano` (0.5 GB cannot hold JVM + MySQL + BFF); a 1-year Savings Plan or RI (a year's commitment the demo does not need yet — revisit once the trims land).
+
+**Execution — what is still open on this task:**
+- [ ] **Do the last $20 activity** (Bedrock playground) before 2027-01-12 — no longer "optional": under A its credit carries over and buys a month.
+- [ ] **Upgrade to the Paid plan by 2026-12-15** — *late on purpose*: upgrading ends the Free plan's protection against charges beyond the credits, so there is no reason to give that up early. **Upgrade the standalone account; never by joining an AWS Organization or a Control Tower landing zone — that forfeits the remaining credits immediately.**
+- [ ] Before upgrading: confirm the budget alarm ([T-011](T-011-budget-credit-alarm.md)) still fires on credit burn — under Paid it becomes the only guard against a runaway bill.
+- [ ] After upgrading: `docs/architecture.md` and both `CLAUDE.md` files state the Paid plan (this task's last AC).
+
+Everything below this block is the reasoning that led here, kept as the record.
+
 
 ## Why this exists
 
@@ -91,8 +118,8 @@ Same question applies to self-hosted MySQL, tracked as **T-001**.
 ## Acceptance criteria
 
 - [ ] The two activities completed **if they are still wanted**, and the grant total recorded here — **no longer a precondition for the decision** (see the "Do first" note: they buy no elapsed time while the window binds). ~~The live grant is **$160**.~~ **The live grant is $180** (Lambda `COMPLETED`, read 2026-09-23 via `aws freetier list-account-activities`); Bedrock is the one left. Note cv-infra's `budget_credit_grant_amount` is still $160, so its percentage alerts now fire ~$20 early — the safe direction, and the item above already rules against raising it past the real grant.
-- [ ] A written decision — A, B, or C — with its cost and its consequences, made on or before **2026-11-01**.
-- [ ] If **A**: the plan upgraded, and a follow-up task filed for the trims that are now worth doing.
+- [x] A written decision — A, B, or C — with its cost and its consequences, made on or before **2026-11-01**. — **A, 2026-09-24**, see the decision block at the top.
+- [ ] If **A**: the plan upgraded, and a follow-up task filed for the trims that are now worth doing. — *trims filed/widened 2026-09-24 (T-008, T-007, T-034, T-035); the upgrade itself is due 2026-12-15.*
 - [ ] If **B**: T-008 landed first, a teardown runbook written, and the rebuild verified at least once against a throwaway apply rather than assumed.
 - [ ] If **C**: the migration scoped as its own dependency-ordered tasks.
 - [ ] Whichever is chosen, `docs/architecture.md` and both `CLAUDE.md` files reflect it.

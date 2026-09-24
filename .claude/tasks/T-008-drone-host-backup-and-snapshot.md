@@ -11,6 +11,11 @@ risk: normal
 security_review: true
 ---
 
+## ▶ First in the cost-trim sequence (added 2026-09-24 — [T-012](T-012-aws-endgame-decision.md) chose A)
+
+Under A this task stops being a precondition for teardown and becomes **step 1 of the trims**: [T-007](T-007-ecs-agent-cleanup.md) now **replaces the CI host** (AMI swap, smaller root) and depends on this task, because Drone's credentials live only on that root disk and in `snap-0d7f5ae272ce0cef5` until they are in SSM and a restore has been proven. Deleting the snapshot afterwards saves **$0.69/month** (Cost Explorer, `EBS:SnapshotUsage`, 2026-08-24 → 09-23).
+
+
 ## Why this exists
 
 Two things, one small and one not.

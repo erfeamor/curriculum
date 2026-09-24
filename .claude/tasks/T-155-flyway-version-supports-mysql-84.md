@@ -1,15 +1,30 @@
 ---
 id: T-155
-title: "Flyway 10 does not claim MySQL 8.4 support — and it runs against 8.4 in production"
-repo: cv-database + cv-project (meta) + cv-infra
+title: "Flyway 10 → 13.7.0: the dev stack's pin (docker-compose.dev.yml) — DECIDED to bump 2026-09-24; cv-database in T-156, production in T-014"
+repo: cv-project (meta)   # narrowed 2026-09-24 at the stage-0 split: cv-database's pins → T-156; production's pin rides T-014
 status: todo
 owner:
 branch: chore/flyway-supports-mysql-84
 pr:
 depends_on: []
 risk: normal
-security_review: true   # touches `Jenkinsfile` (adapter §5, unconditional) and Terraform user_data; A1 re-checks against the real diff
+security_review: false   # narrowed to one image tag in the dev compose file — no Jenkinsfile, no Terraform any more (those moved to T-156 and T-014, which carry their own flags)
 ---
+
+## ✅ H1 DECIDED 2026-09-24 — **bump to `flyway/flyway:13.7.0`** (the human's decision), split per repo
+
+On the evidence in § *Empirical answers* below. Split at stage 0 so every task touches one repo, and ordered so **production moves last**:
+
+| Order | Pin | Task |
+|---|---|---|
+| 1 | meta `docker-compose.dev.yml:33` | **this task** |
+| 2 | `cv-database` `Jenkinsfile:27`, `scripts/migrate.sh:9` | [T-156](T-156-flyway-13-cv-database-pins.md) (after T-153 — same Jenkinsfile) |
+| 3 | `cv-infra` `templates/domain-service-user-data.sh:181` | inside [T-014](T-014-deploy-bff-to-aws.md)'s apply — never merged to cv-infra ahead of it |
+
+**Invariant until step 3 lands: no new migration in `cv-database/sql/migrations/`** — Flyway 10 reading a history 13 has written to is the one untested direction.
+
+**Scope of this task now:** `docker-compose.dev.yml:33` `flyway/flyway:10` → `flyway/flyway:13.7.0` (exact tag); bring the dev stack up from an **existing** Flyway-10 volume and from a fresh one, and read the version and the absence of the 8.4 warning from the `flyway` container's log. The *Recommended outcome: STAY ON FLYWAY 10* section below is **superseded** by this decision and kept only as the record.
+
 
 ## Goal
 
@@ -99,7 +114,7 @@ The production pin (`cv-infra/templates/domain-service-user-data.sh:181`) is in 
 
 ## Acceptance criteria
 
-- [ ] A decision recorded either way, with reasoning — "leave Flyway at 10 and document why" is a legitimate outcome and must be written down if chosen, not left implicit.
+- [x] A decision recorded either way, with reasoning — **bump to 13.7.0, 2026-09-24** (block at the top) — "leave Flyway at 10 and document why" is a legitimate outcome and must be written down if chosen, not left implicit.
 - [ ] If bumping: no pin left at the old version anywhere (`grep -rn "flyway/flyway"` across all three repos), and the `allowPublicKeyRetrieval` question in §2 answered empirically, not from release notes. *(Question answered 2026-09-23 for 13.7.0 — see Empirical answers; the box stays unticked because it is conditional on bumping and the grep half is not done.)*
 - [ ] If bumping: migrations verified applying on the new version against **real MySQL 8.4**, with the version read from the running container. *(Done **locally** for 13.7.0 on 2026-09-23 — fresh schema, legacy conf + seeds, and takeover of a 10-written history. Still owed if bumping: the same in Jenkins CI and on the production apply.)*
 - [ ] Production and CI end on the **same** Flyway version, or the divergence is deliberate and recorded.

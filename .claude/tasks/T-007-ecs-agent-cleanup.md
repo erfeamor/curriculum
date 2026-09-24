@@ -1,15 +1,28 @@
 ---
 id: T-007
-title: Remove the crash-looping ecs-agent container from the CI host
+title: "CI host: move to a plain AL2023 AMI with a ~10 GB root — drops the crash-looping ecs-agent for good and −$1.90/month of disk (widened 2026-09-24)"
 repo: cv-infra
 status: todo
 owner:
 branch: chore/remove-ecs-agent
 pr:
-depends_on: [T-002]
-risk: low
+depends_on: [T-002, T-008]   # T-008 added 2026-09-24: the AMI swap REPLACES the CI host, and Drone's credentials live only on its root disk until T-008 moves them to SSM and proves a restore
+risk: normal   # raised 2026-09-24 from low: the widened scope replaces the CI host
 security_review: false   # added 2026-08-20 (hygiene): the key was missing entirely while `risk` was set. Value per adapter §5 — the diff touches none of its security paths; A1 forces /security-review anyway if the real diff disagrees, so this is a stage-0 default, not a ruling.
 ---
+
+## ⤴ WIDENED 2026-09-24 — the AMI swap is now in scope ([T-012](T-012-aws-endgame-decision.md) chose A)
+
+The *Watch out for* note below calls a plain Amazon Linux 2023 AMI *"the right long-term answer … out of scope here"* because it forces a replacement. Under decision A it pays for itself: the ECS-optimized AMI **requires a 30 GB root**, and that root costs **$2.82/month while the host sits stopped**. On a plain AL2023 AMI a ~10 GB root is enough → **≈ −$1.90/month**, and the ecs-agent problem this task was filed for disappears with the AMI instead of being masked.
+
+**Added scope:** swap `aws_instance.drone` to the latest AL2023 AMI (the AL2023 AMI-filter gotcha is in the memory notes — filter `al2023-ami-2023.*-x86_64`, not a wildcard that matches the ECS image); size the root to what Drone + Jenkins + Docker images actually use, measured on the live host (`df`, `docker system df`) plus headroom, not guessed.
+
+**Added acceptance criteria:**
+- [ ] The CI host runs a plain AL2023 AMI; `docker ps -a` shows no `ecs-agent` because nothing installs it (the original ACs below then hold trivially — record that rather than re-implementing the mask).
+- [ ] Root volume sized from measured usage, with the measurement in the PR.
+- [ ] After replacement, restored from [T-008](T-008-drone-host-backup-and-snapshot.md)'s backup: Drone logs in, `cv-admin-react` still active with its secrets, Jenkins jobs present — and a push to each goes green.
+- [ ] `user_data` size re-measured (the 16 KB wall, T-009).
+
 
 ## Why this exists
 
