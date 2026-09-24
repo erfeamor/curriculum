@@ -2,14 +2,94 @@
 id: T-153
 title: "cv-database Jenkinsfile hygiene: the Deploy stage is gated on a branch that does not exist and still targets RDS; the pipeline has no timeout and no MySQL health wait; the repo's docs never name MySQL 8.4 (absorbs T-154, T-017)"
 repo: cv-database
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: fix/jenkins-pipeline-hygiene   # renamed 2026-09-23 from fix/jenkins-deploy-stage-gate when T-154 was absorbed — the branch now carries all four items; never pushed under the old name
-pr:
+pr: https://github.com/erfeamor/cv-database/pull/5
 depends_on: [T-152]   # FILE-LEVEL, not scheduling: both tasks edit cv-database/Jenkinsfile. T-152 changes the image pin at line 18, this task changes the Deploy stage below it. Sequenced to keep the diffs reviewable and conflict-free, not because this task needs 8.4.
 risk: normal   # raised 2026-09-23 from low: absorbing T-154 brings its `normal` and its deliberate hang on the shared single-executor CI host
 security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /security-review path, regardless of how small the diff is
+checkpoint:
+  stage: done   # merged 80b6665 (squash of cv-database#5), 2026-09-24 — H2 accepted by the human
+  repo: cv-database
+  branch: fix/jenkins-pipeline-hygiene
+  worktree: none   # removed after merge
+  pr: https://github.com/erfeamor/cv-database/pull/5
+  commit: 80b6665   # squash merge on master (branch head was 2b725f4)
+  developer: backend-developer
+  reviewers: [code-review, infrastructure-engineer, security-review]
+  risk: normal
+  security_review: true   # adapter §5: Jenkinsfile
+  review_round: 1
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: none   # verification is Jenkins on the CI host, not a compose stack
+  updated: 2026-09-24T14:43:29+02:00   # earlier checkpoint times in this block were estimates ahead of the clock; this one is real
+  budget:
+    turns: 95   # --since 2026-09-24T10:59:18.694Z
+    total_tokens: 7900000
+    subagent_tokens: 121512
+    spawns: 3   # QA plan, backend-developer, infrastructure-engineer (cap reached — developer resumed via SendMessage)
+    status: ok
+    checked: 2026-09-24T13:46:07+02:00
 ---
+
+## ✅ H1 — 2026-09-24, approved by the human
+
+| Decision | Choice |
+|---|---|
+| Deploy-stage comment | **Neutral placeholder** that names no architecture, so it cannot go stale: not implemented; credentials and blast radius are open (T-005); read the board before implementing |
+| Timeout | **`options { timeout(time: 10, unit: 'MINUTES') }` on the whole pipeline**, about 6× a normal 90–100 s build, leaving room for cold image pulls (Flyway 13's included, once T-156 lands). The MySQL health wait has its **own 120 s bound** inside it, so "never healthy" fails fast and distinctly |
+| T-156 | **Separate PR right after**, in the same CI-host session: one task per branch, and this task's evidence is not mixed with a first pull of the new image |
+| Plan | Developer `backend-developer`; reviewers `/code-review` + `infrastructure-engineer` + `/security-review`; the forced 10-min hang on a scratch branch and the reaper stop are both included |
+
+### Stage-0 QA plan (quality-assurance, run at stage 4)
+
+**Reach.**
+- Jenkins sits behind the CI host's EIP.
+- Admin password: SSM `/<project>/<env>/ci/jenkins-admin-password`, user `erfeamor`.
+- Console: `$JENKINS/job/cv-database/job/<branch>/<n>/consoleText`.
+- Status: `gh api repos/erfeamor/cv-database/commits/<sha>/statuses`, never `gh pr checks`.
+- Reaper logs: `/aws/lambda/<project>-ci-reaper`.
+
+**Order: one wake.** Push the PR branch, then immediately push the scratch branch `chore/t153-hang-verify`, so both builds queue on the single executor.
+
+1. `branch 'master'` in the diff; `main` is gone.
+2. `git grep -niw rds` leaves only `CLAUDE.md:70` (contrastive).
+3. The Deploy stage is still `echo` only.
+4. + 6. On the scratch branch, `FLYWAY_URL` points at an unreachable host (`10.255.255.1`). The console shows the build aborted **by the timeout at the bound**: diff the timestamps, and read the timeout line itself. Keep the full console as evidence.
+5. The PR build's duration, recorded against the bound. FAIL if it comes within 20% of the bound.
+7. The PR build console has **no** `Connection refused` / `Retrying` lines.
+8. After the hang, `busyExecutors` drops to 0, the reaper logs the idle quorum and `StopInstances`, and the instance reads `stopped`. *Optional:* reaper checks that land during the hang log a busy executor and decline to stop, which is evidence for T-019's open AC.
+10. The docs name MySQL 8.4 at `CLAUDE.md:3`, `CLAUDE.md:8` and `README.md:9`.
+11. PR build green, and its console shows `Stage "Deploy" skipped due to when conditional`. The PR states that a PR build cannot prove the `master` gate.
+
+**Never-healthy path.** It gets no scratch run. It is covered by review: the wait loop must have its own bound and a distinct failure message.
+
+**Cleanup.** Delete the scratch branch (local and remote), confirm the host `stopped`, and record how long the host was up.
+
+## Stage-4 QA record — 2026-09-24 (PR [#5](https://github.com/erfeamor/cv-database/pull/5) @ `2b725f4`)
+
+One wake of the CI host: the push at 11:32:47Z started it at 11:32:50Z. Jenkins indexed both branches and ran the scratch branch first, so PR-5 queued behind the hang on the single executor. That turned out to be a useful test in its own right, below.
+
+| # | Check | Evidence | Result |
+|---|---|---|---|
+| 1 | `branch 'master'` | diff | ✅ |
+| 2 | No current-architecture RDS | `git grep -niw rds` → only `CLAUDE.md:70` (contrastive) | ✅ |
+| 3 | Deploy still a no-op | the stage body is the comment plus `echo` | ✅ |
+| 4, 6 | **Timeout fires** | Scratch `chore/t153-hang-verify` build 1 (`a510339`: unreachable `10.255.255.1`, retries 60). The console shows `Timeout set to expire in 10 min`, Flyway retrying 1…120 s, then `Cancelling nested steps due to timeout`, `After 20s process did not stop`, `Timeout has been exceeded`, `Finished: ABORTED`. Duration 632 s | ✅ |
+| — | **Review finding 1 confirmed real** | In the same console, the post cleanup's `docker rm -f cv-flyway-ci-1` printed the name, so **the Flyway container outlived the abort**, and `docker network rm cv-db-ci-1` then succeeded. Without `2b725f4` both would have leaked | ✅ fixed |
+| 5 | Normal build well inside the bound | PR-5 build 1 ran for **~24 s**: status `being built` 11:44:51Z → `success` 11:45:15Z. Jenkins' 652 s `duration` includes 10 min queued behind the hang | ✅ (~4% of the bound) |
+| — | Queue time doesn't count against the bound | `Timeout set to expire` appears after `Running on`, so the timeout wraps the pipeline inside `node`. PR-5 waited 10 min and was **not** aborted | ✅ |
+| 7 | Flyway only after healthy | PR-5 console: 8 health polls, `MySQL healthy; running Flyway`, **0** `Retrying` / `Connection refused` lines (T-154's evidence had 4 rounds) | ✅ |
+| 11 | Jenkins green, limitation stated | statuses API `success` on `2b725f4`. Console: `Stage "Deploy" skipped due to when conditional`. The PR says a PR build cannot prove the `master` gate | ✅ |
+| 8 | Executor released → reaper stops the host | `busyExecutors: 0`, queue empty right after. Reaper at 12:09:15Z: `cpu quiet: peak 5.8% over 20 min across 4 datapoints`, then `stopped i-073e5284ca2a1ceed after 20 idle minutes`; instance `stopped` 12:09:17Z. **Host up 36.5 min** (11:32:50 → 12:09:17), ≈ $0.03 | ✅ |
+| 10 | MySQL 8.4 in the docs | `CLAUDE.md:3`, `:8`, `:42`; `README.md:9` | ✅ |
+
+**T-019's open AC ("a build in progress is never killed"): observed, but not settled.** The reaper checks that landed during the hang declined to stop the host at 11:34 (`busy: 2 item(s) queued`), 11:39 and 11:44 (`busy: CPU peaked at 36.6% over 20 min`). So the build survived, but the **CPU veto** decided it, not the `busyExecutors` read that the criterion is about. A clean test needs a hang long enough to outlast the 20-minute CPU window. Recorded for T-019; not claimed here.
+
+The PR-5 flow also still prints Flyway 10's *"upgrade recommended"* warning, as expected; T-156 removes it.
 
 ## Goal
 
@@ -82,18 +162,18 @@ It is not a pure duplicate: that repo's placeholder comment reads *"Placeholder 
 
 ## Acceptance criteria
 
-- [ ] `when { branch 'master' }`, matching the actual protected mainline.
-- [ ] No reference to RDS remains in the file, other than deliberately historical wording if any is kept ([T-017](T-017-docs-drift-rds-to-selfhosted.md)'s standard: prose explaining *why* RDS was dropped may keep the word; prose describing current architecture may not).
-- [ ] The stage still does nothing at runtime — this task must not turn a placeholder into a deploy.
-- [ ] **(from T-154)** The pipeline fails on timeout rather than hanging, with the bound and its justification recorded in the PR.
-- [ ] **(from T-154)** A normal build still passes comfortably inside the bound — verified against real build durations, not an estimate.
-- [ ] **(from T-154)** **Demonstrate the guard actually fires.** Force a hang on a scratch branch (e.g. point `FLYWAY_URL` at an unreachable host) and show the build failing at the bound. A timeout nobody has watched trigger is the unverified-claim class this board keeps cataloguing — **the sharpest check in either task; do not let it thin out in the merge.**
-- [ ] **(from T-154)** Flyway starts only after MySQL reports healthy: the console of a healthy build shows **no** `Connection refused … Retrying` rounds.
-- [ ] **(from T-154)** After the forced hang, the executor is released and the reaper subsequently stops the CI host — the argument is cost, so a guard that fires but leaves the host up has not delivered.
+- [x] `when { branch 'master' }`, matching the actual protected mainline.
+- [x] No reference to RDS remains in the file, other than deliberately historical wording if any is kept ([T-017](T-017-docs-drift-rds-to-selfhosted.md)'s standard: prose explaining *why* RDS was dropped may keep the word; prose describing current architecture may not).
+- [x] The stage still does nothing at runtime — this task must not turn a placeholder into a deploy.
+- [x] **(from T-154)** The pipeline fails on timeout rather than hanging, with the bound and its justification recorded in the PR.
+- [x] **(from T-154)** A normal build still passes comfortably inside the bound — verified against real build durations, not an estimate.
+- [x] **(from T-154)** **Demonstrate the guard actually fires.** Force a hang on a scratch branch (e.g. point `FLYWAY_URL` at an unreachable host) and show the build failing at the bound. A timeout nobody has watched trigger is the unverified-claim class this board keeps cataloguing — **the sharpest check in either task; do not let it thin out in the merge.**
+- [x] **(from T-154)** Flyway starts only after MySQL reports healthy: the console of a healthy build shows **no** `Connection refused … Retrying` rounds.
+- [x] **(from T-154)** After the forced hang, the executor is released and the reaper subsequently stops the CI host — the argument is cost, so a guard that fires but leaves the host up has not delivered.
 - [x] **(from T-154)** `cv-domain-service`'s pipeline checked for the same gap — done 2026-08-27, filed as [T-111](T-111-domain-service-jenkins-pipeline-timeout.md). Do not re-run it and do not fix it here.
-- [ ] **(from T-017)** MySQL **8.4** is named as the target engine in `cv-database`'s docs (`CLAUDE.md:3`, `CLAUDE.md:8`, `README.md:9`).
-- [ ] **(from T-017)** `git grep -niw rds` across `cv-database` returns nothing that describes current architecture — after this PR only `CLAUDE.md:70`'s contrastive line should remain.
-- [ ] Jenkins goes green on the branch. **Note the stage will still not execute on a PR build** (PR builds are not `master`), so a green build does not prove the new condition works; state that limitation in the PR rather than implying it was verified.
+- [x] **(from T-017)** MySQL **8.4** is named as the target engine in `cv-database`'s docs (`CLAUDE.md:3`, `CLAUDE.md:8`, `README.md:9`).
+- [x] **(from T-017)** `git grep -niw rds` across `cv-database` returns nothing that describes current architecture — after this PR only `CLAUDE.md:70`'s contrastive line should remain.
+- [x] Jenkins goes green on the branch. **Note the stage will still not execute on a PR build** (PR builds are not `master`), so a green build does not prove the new condition works; state that limitation in the PR rather than implying it was verified.
 
 ## Watch-outs
 
