@@ -4,28 +4,32 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-24 (T-012 decided: go Paid, trimmed; T-155 merged: dev stack on Flyway 13.7.0)
+## Now / Next / Later — refreshed 2026-09-25 (full board review; the CI-host session is complete)
 
 The order to claim in. It is **advice, refreshed at every board-sync** — `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
-**Now**
-- **Human, ~1 hour:** the last $20 credit activity (Bedrock playground) — under A its credit carries over. Tracked in [T-012](T-012-aws-endgame-decision.md).
-- In parallel, no AWS: [T-409](T-409-public-react-adapter-validates-required-and-enum.md) → [T-402](T-402-public-react-cv-sections.md); [T-401](T-401-public-cv-sections.md); [T-301](T-301-admin-cv-sections-crud.md).
+**Now — no AWS, parallel-safe (different repos)**
+- [T-409](T-409-public-react-adapter-validates-required-and-enum.md) → [T-402](T-402-public-react-cv-sections.md) (cv-public-react).
+- [T-401](T-401-public-cv-sections.md) (cv-public-vanilla).
+- [T-108](T-108-untransacted-update-read-modify-write.md) → [T-301](T-301-admin-cv-sections-crud.md). T-108 first: the admin UI is what makes concurrent edits realistic. T-301's Drone CI is broken until T-034 (see its note).
+- Cheap meta work: [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) (trivial contract prose), [T-029](T-029-code-review-cannot-see-worktrees.md) (a local adapter note), [T-032](T-032-board-check-re-review-after-live-use.md) (its link check would have caught the 4 dead links fixed 2026-09-25).
+- **Human, ~1 hour:** the last $20 credit activity (Bedrock playground). Under A its credit carries over. Tracked in [T-012](T-012-aws-endgame-decision.md).
 
-**Next — one CI-host session** (~$1.23/day while up; keep it to one window)
-- ~~T-153~~ ✔ → ~~T-156~~ ✔ merged 2026-09-24 (CI and dev on Flyway 13.7.0; production stays on 10 until T-014, so **no new migration until then**), then ~~T-111~~ ✔ merged 2026-09-24. Both pipelines have a timeout, and both were shown firing. [T-019](T-019-ci-host-on-demand.md)'s last criterion was settled on the way. **Next: [T-112](T-112-domain-service-ci-ecr-deploy.md)** (unblocked).
-
-**Then — cv-infra, strictly one apply at a time**
+**Then — cv-infra, strictly one apply at a time** (one root module, local state; a merged-but-unapplied change rides the next apply)
 1. [T-008](T-008-drone-host-backup-and-snapshot.md) — Drone state to SSM, a proven restore, then the old snapshot goes.
-2. [T-007](T-007-ecs-agent-cleanup.md) — CI host to plain AL2023 with a ~10 GB root (replaces the CI host).
-3. [T-034](T-034-release-ci-host-idle-eip.md) — release the CI host's idle EIP (a DNS name that [T-033](T-033-ci-host-tls.md)'s TLS can reuse).
-4. **[T-014](T-014-deploy-bff-to-aws.md)** — its own session; carries the production Flyway pin; decide [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at its H2.
+2. [T-007](T-007-ecs-agent-cleanup.md) — CI host to plain AL2023. **Read its 2026-09-25 correction:** it needs `-replace` (because of `ignore_changes = [ami]`) and an explicit `root_block_device`. The plain AMI defaults to 8 GB against ~17 GiB in use.
+3. [T-034](T-034-release-ci-host-idle-eip.md) — release the idle EIP, **plus the Drone doorbell wiring** (owned here since 2026-09-25). Settle [T-033](T-033-ci-host-tls.md)'s TLS decision at its H1: they share a DNS name and a hosted zone.
+4. **[T-014](T-014-deploy-bff-to-aws.md)** — its own session. It carries the production Flyway pin, decides [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at its H2, and **measures memory**: any resize is a cost decision under A.
 5. [T-035](T-035-app-host-to-graviton.md) — the app host to `t4g.micro`, as its own apply right after T-014.
+6. [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) — CI deploy stages. **One shared credential-model decision**, with [T-005](T-005-ci-secret-blast-radius.md) as input. Both need a cv-infra IAM apply, which is why they sit in this chain.
 - After T-014: [T-403](T-403-public-vanilla-deploy.md) and [T-404](T-404-public-react-point-at-deployed-bff.md) → [T-015](T-015-docs-reflect-deployed-bff.md) → **[T-501](T-501-e2e-cv-milestone.md)**.
 - **By 2026-12-15 (human):** upgrade the standalone account to the Paid plan — never via an Organization or Control Tower (forfeits the credits). Then the docs state it (T-012's last AC).
+- **Standing invariant:** no new migration in cv-database until T-014 moves production to Flyway 13.7.0.
 
 **Later**
-- T-004 part 2, T-005, T-033, T-021 (before anyone rotates `db_password`), T-203, T-108, T-109, T-027, T-029, T-032.
+- T-004 part 2, T-005, T-021 (before anyone rotates `db_password`), T-109.
+
+**Done in the CI-host session (2026-09-24/25):** T-155, T-153, T-156, T-111. Both Jenkins pipelines are bounded and proven, and T-019's last AC is settled.
 
 ## M2 — Complete the domain model end-to-end
 
@@ -80,7 +84,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 |----|-------|------|--------|-------|------------|----|
 | [T-108](T-108-untransacted-update-read-modify-write.md) | **PUT is an untransacted read-modify-write** — a concurrent DELETE re-INSERTs the row under a new id | cv-domain-service | todo | | — | |
 | [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** (every ordered collection but experience) | cv-domain-service | todo | | T-105 | |
-| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today) | cv-domain-service | todo | | T-111 ✔ | |
+| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔ | |
 
 <details>
 <summary>Defects, hygiene & hardening — 10 done</summary>
@@ -108,16 +112,16 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 |----|-------|------|--------|-------|------------|----|
 | [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state — **part 1 (0600) done; start at part 2**, the remote backend | cv-infra | todo | | — | |
 | [T-005](T-005-ci-secret-blast-radius.md) | Limit CI secret blast radius: block IMDS from containers | cv-infra | todo | | T-002 | |
-| [T-007](T-007-ecs-agent-cleanup.md) | CI host: plain AL2023 AMI, ~10 GB root — drops the ecs-agent and −$1.90/mo (**widened 2026-09-24**) | cv-infra | todo | | T-002, **T-008** | |
+| [T-007](T-007-ecs-agent-cleanup.md) | CI host: plain AL2023 AMI, **measured** root — drops the ecs-agent (**widened 2026-09-24; premise corrected 2026-09-25**: needs `-replace` and an explicit root size) | cv-infra | todo | | T-002, **T-008** | |
 | [T-008](T-008-drone-host-backup-and-snapshot.md) | Drone state to SSM + a real CI-host backup, then retire the T-002 snapshot — **trim step 1** (−$0.69/mo) | cv-infra | todo | | T-002 | |
 | [T-012](T-012-aws-endgame-decision.md) | **Paid-vs-teardown — DECIDED 2026-09-24: A, go Paid with the stack trimmed**; upgrade by 2026-12-15 | cv-project (meta) | in_progress | tech-product-owner | — | |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
-| [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution | cv-infra + cv-domain-service | todo | | T-022 | |
+| [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution (cross-repo: split at stage 0 if implemented) | cv-infra + cv-domain-service | todo | | T-022 | |
 | [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) | Contract: the ordering note prescribes SQL syntax for a JPQL context | cv-project (meta) | todo | | — | |
 | [T-029](T-029-code-review-cannot-see-worktrees.md) | `/code-review` **silently reviews the wrong thing** without an explicit target | cv-project (meta) | todo | | — | |
 | [T-032](T-032-board-check-re-review-after-live-use.md) | Re-review `board-check.py` after live use, plus two blind spots: **link integrity** and **status-gated `pr:`** | cv-project (meta) | todo | | T-031 ✔ | |
 | [T-033](T-033-ci-host-tls.md) | CI host serves Jenkins login and Drone OAuth over plain HTTP on a scanned public IP — decide TLS or record the accepted risk | cv-infra | todo | | — | |
-| [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3) | cv-infra | todo | | T-007 | |
+| [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3); **also wires Drone to the doorbell** | cv-infra | todo | | T-007 | |
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
 
 <details>

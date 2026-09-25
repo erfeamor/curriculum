@@ -11,6 +11,12 @@ risk: normal
 security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /security-review path, and this diff introduces registry credentials into CI
 ---
 
+## Sequencing and a shared decision (added 2026-09-25, board review)
+
+- **This is not CI-host-only work.** Its IAM principal (ECR push plus `ssm:SendCommand` on one instance) lives in **cv-infra**, so it needs a cv-infra apply. That puts it in the **strictly serial cv-infra chain**, not in a CI-host session. Run it **after [T-014](T-014-deploy-bff-to-aws.md)**: T-014 replaces the app host this task rolls, and T-014 is already the head of that chain.
+- **Take one credential-model decision for this task and [T-203](T-203-bff-ci-deploy-stage.md) together**, with [T-005](T-005-ci-secret-blast-radius.md) as the input. The two CI systems differ (Jenkins on our host vs GitHub Actions with OIDC), but both grant CI the power to change production, and T-005 has to be able to live with both answers. Deciding them at separate H1 gates is how the board ends up with two incompatible models.
+- The Jenkinsfile snippet below is from **before [T-111](T-111-domain-service-jenkins-pipeline-timeout.md)** (merged 2026-09-24). The Deploy gate is now `branch 'master'`, proven by master build #9 on 2026-09-25, and the placeholder now points here. The `Docker image` stage is unchanged: it still builds and discards.
+
 ## Why this exists
 
 `cv-domain-service/Jenkinsfile:37-52` builds an image and throws it away:

@@ -50,6 +50,7 @@ And the environment it sits in, measured rather than assumed — from T-002's pr
 
 ## Coordination — not dependencies
 
+- **[T-034](T-034-release-ci-host-idle-eip.md) (added 2026-09-25): decide this task's option at T-034's H1.** T-034's design 1 (a DNS name the host rewrites on boot, in a hosted zone) is exactly the stable name option (b) needs, and it is the same ~$0.50/month hosted zone. Choosing them apart risks paying for the zone twice, or picking a T-034 design that leaves (b) impossible. The **T-012 due date quoted below is met** (A chosen 2026-09-24): price (b)/(c) against the Paid-plan bill in T-012's model, not against a credit cliff.
 - **[T-005](T-005-ci-secret-blast-radius.md)** touches the same instance's network surface (`metadata_options`, IAM). No shared acceptance criterion, but if both are in flight, sequence them so two applies do not race on one box. **This task does not gate T-005 and T-005 does not gate this.**
 - **[T-012](T-012-aws-endgame-decision.md)** — if option (b) or (c) is chosen, its recurring cost belongs in T-012's model rather than being absorbed silently.
 - **[T-019](T-019-ci-host-on-demand.md)** — the host is stopped most of the time, which reduces the exposure *window* but not the exposure: the credentials cross the wire precisely when someone is using it.

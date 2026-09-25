@@ -21,6 +21,8 @@ security_review: false   # tooling/process change in the meta repo; no adapter Â
 >
 > **So this is a usage defect, not a tool defect** â€” and the harm is unchanged: an empty result is **indistinguishable from a clean review**, and the driver reported it as "did not run" only because the 5-second duration was implausible. Anyone less suspicious records a clean review that never happened.
 
+> **Re-read 2026-09-25.** Two claims below are stale. *"Every dev-loop task runs on a worktree outside the meta repo"* is the premise the correction above already disproved. *"T-104 is next"*: T-104 merged long ago. **What survives is the deliverable:** document the working invocation in the adapter, and make "no findings" distinguishable from "reviewed nothing". Since 2026-09-24 the driver has run the general pass inline and recorded what it examined, which is a practice, not a fix. Note the adapter is **gitignored**, so the fix is a local edit plus a board record (see the watch-out).
+
 ## Goal
 
 `/code-review` was invoked **twice** against the [T-152](T-152-mysql-84-parity-cv-database.md) worktree on 2026-08-22 and both times returned an **empty result after ~5 seconds and a single tool call**. It does not review a target outside the session's own repository.

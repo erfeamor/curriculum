@@ -22,6 +22,8 @@ Editing UI for the four CV sections against the domain API, per [docs/api-contra
 1. **The Drone webhook still points at the raw EIP** (`http://13.39.59.12/hook`), and [T-019](T-019-ci-host-on-demand.md)'s ruling 5 records its last delivery as **unused**. 
 2. **Drone is not wired to the doorbell.** T-019's on-demand automation starts the CI host from a GitHub webhook that only `cv-domain-service` and `cv-database` were re-pointed at. A push to `cv-admin-react` therefore **neither builds nor wakes the box** — it is silent, not red.
 
+**Owner since 2026-09-25: [T-034](T-034-release-ci-host-idle-eip.md)**, which now carries the Drone doorbell wiring and a cold-start AC for `cv-admin-react`. If T-034 has not landed when this task opens its PR, the workaround below still applies. **Also land [T-108](T-108-untransacted-update-read-modify-write.md) first where possible:** this UI is what makes concurrent edits realistic.
+
 **Consequence for whoever claims this task:** budget for the CI host being *stopped* when you push, and do not read "no checks reported" as "CI passed". Start the box by hand (or push to one of the two wired repos first), or raise the webhook re-point at H1 as a prerequisite and let the driver decide whether it belongs here or in its own task.
 
 **Provenance:** T-019 ruling 5 recorded this and said it was "T-301's problem when it arrives". That note was written into the board's history file rather than into this file, so the task it warns has never carried the warning. Found 2026-08-24 in a board review; recorded here because this is the file the implementer actually reads.

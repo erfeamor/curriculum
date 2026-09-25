@@ -1,6 +1,6 @@
 ---
 id: T-007
-title: "CI host: move to a plain AL2023 AMI with a ~10 GB root — drops the crash-looping ecs-agent for good and −$1.90/month of disk (widened 2026-09-24)"
+title: "CI host: move to a plain AL2023 AMI with a MEASURED root — drops the crash-looping ecs-agent for good and trims the 30 GB disk (widened 2026-09-24, premise corrected 2026-09-25)"
 repo: cv-infra
 status: todo
 owner:
@@ -11,6 +11,13 @@ risk: normal   # raised 2026-09-24 from low: the widened scope replaces the CI h
 security_review: false   # added 2026-08-20 (hygiene): the key was missing entirely while `risk` was set. Value per adapter §5 — the diff touches none of its security paths; A1 forces /security-review anyway if the real diff disagrees, so this is a stage-0 default, not a ruling.
 ---
 
+
+## ⚠ PREMISE CORRECTED 2026-09-25 (board review) — read before planning; verified against Terraform state and EC2
+
+1. **The filter is not the problem, and editing it does nothing.** `ci.tf:81` already resolves `data.aws_ami.al2023`, a **plain** AL2023 filter (`al2023-ami-2023.*-x86_64`). The live host runs `ami-07b263f0fe8404e30` = `al2023-ami-ecs-hvm-2023.0.20260714` only because `ci.tf:150` carries `lifecycle { ignore_changes = [ami, …] }`. **The swap therefore needs an explicit `terraform apply -replace=aws_instance.drone`.** A plan will never propose it by itself. Keep the `ignore_changes`: it is what stops every unrelated apply from replacing the host.
+2. **A replacement with no `root_block_device` gets the plain AMI's default: 8 GB.** `aws_instance.drone` sets no root size. Its 30 GB comes from the ECS AMI's default (`terraform state show`: `volume_size = 30`), and the current plain AL2023 image defaults to **8 GB**. With ~17 GiB in use (next section), a bare `-replace` builds a host that cannot hold its own images. **Add an explicit `root_block_device { volume_size = … }`** sized from the measurement.
+3. **The "~10 GB" and "−$1.90/month" figures are unproven** until that measurement exists. Re-derive them from the board's own measured rate. T-012 prices the 30 GB root at $2.82/month, which is ≈ $0.094/GB-month: 30 → 20 GB saves ~$0.94/month, and 30 → 12 GB saves ~$1.69/month.
+4. **The app host is already on plain AL2023** (`i-029dd84261c922f72`: `al2023-ami-2023.12.20260803.3`). The *"check `aws_instance.domain_service` for the same leftover"* AC below is therefore answered: it is unaffected.
 
 ## Disk measured 2026-09-24 (from T-156's review) — read before sizing the new root
 
@@ -62,17 +69,19 @@ So: disable and mask the `ecs` unit in the user-data template *and* apply the sa
 
 ## Watch out for
 
-- **`user_data` is close to EC2's 16 KB limit** — 95.7% as of 2026-08-09, and the figure has moved with every T-002 fix, so do not trust any number quoted here. **Re-measure** before adding lines to `templates/drone-user-data.sh`; a few `systemctl` calls should fit, but do not assume. [T-009](T-009-user-data-size-ceiling.md) exists to remove this constraint — if it has landed, this warning is moot.
+- ~~**`user_data` is close to EC2's 16 KB limit** — 95.7% as of 2026-08-09, and the figure has moved with every T-002 fix, so do not trust any number quoted here. **Re-measure** before adding lines to `templates/drone-user-data.sh`; a few `systemctl` calls should fit, but do not assume. [T-009](T-009-user-data-size-ceiling.md) exists to remove this constraint — if it has landed, this warning is moot.~~ **Moot: T-009 is `done`.** Re-measuring the size stays an AC of the widened scope.
 - Check whether `aws_instance.domain_service` was launched from the same AMI and has the same stray agent — the gate only inspected the CI host. If so, fix both in one PR.
-- Consider whether the right long-term answer is a plain Amazon Linux 2023 AMI rather than the ECS-optimized one. That is an AMI change, so it forces instance replacement — **out of scope here**, but worth recording an opinion in the PR if the AMI filter turns out to be selecting the ECS variant unintentionally.
+- ~~Consider whether the right long-term answer is a plain Amazon Linux 2023 AMI rather than the ECS-optimized one. That is an AMI change, so it forces instance replacement — **out of scope here**, but worth recording an opinion in the PR if the AMI filter turns out to be selecting the ECS variant unintentionally.~~ **Superseded by the 2026-09-24 widening:** the AMI swap is now the scope. The filter was *not* selecting the ECS variant; `ignore_changes` kept the original ECS image (see the correction at the top).
 
 ## Acceptance criteria
+
+> **These are the ORIGINAL ACs, written for the mask-the-unit approach.** Under the widened scope, the AMI swap removes the agent instead. The first four then hold trivially on the new host; record that rather than implementing the mask (the widened ACs above say so too).
 
 - [ ] `ecs` systemd unit disabled and masked, and the `ecs-agent` container removed, on the live CI host.
 - [ ] The same change in `templates/drone-user-data.sh` (or the shared provisioning path), so a replacement instance never starts it.
 - [ ] Idempotent — safe to re-run against a host where it has already been applied, matching the existing scripts' name-guarded style.
 - [ ] `docker ps -a` on the CI host shows no `ecs-agent` entry, and none reappears after a reboot.
-- [ ] `aws_instance.domain_service` checked for the same leftover; fixed too if present, or explicitly noted as unaffected.
+- [x] `aws_instance.domain_service` checked for the same leftover; fixed too if present, or explicitly noted as unaffected. *Unaffected: it runs plain AL2023 (checked 2026-09-25, see the correction at the top).*
 - [ ] Drone and Jenkins both still healthy afterwards.
 - [ ] `user_data` size re-measured and recorded if the template grew.
 

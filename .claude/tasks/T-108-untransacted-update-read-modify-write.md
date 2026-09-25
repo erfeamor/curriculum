@@ -37,7 +37,7 @@ This is the whole reason it is a task rather than a line in someone's PR.
 |---|---|---|
 | `ExperienceController.update` | `experience/` | on `master` (T-101) |
 | `EducationController.update` | `education/` | on `master` (T-102) |
-| `ProjectController.update` | `project/` | T-104 |
+| `ProjectController.update` | `project/` | on `master` (T-104, merged) |
 
 `PersonSkillController` is **not** in scope and should be checked rather than assumed: T-103 already routes its upsert through a `TransactionTemplate` with a retry, for a different reason (insert-if-absent racing), so it may already be covered or may need a different answer.
 
@@ -45,7 +45,7 @@ This is the whole reason it is a task rather than a line in someone's PR.
 
 1. **`@Transactional` on the update path, or `@Version` on the entities?** They fix different halves. `@Transactional` closes failure mode 1 by keeping the read and the write in one persistence context; `@Version` closes failure mode 2 by turning a lost update into a `409`. Doing only the first leaves silent lost updates; doing only the second leaves the resurrection. Price them both — `@Version` adds a column and therefore a **migration**, which this task otherwise does not need.
 2. **Does a `409` on optimistic-lock failure need a contract change?** `docs/api-contract.md` design rule 4 enumerates 400/404/204 and § Skills documents a 409 for duplicate catalog names. A new 409 on section PUTs is arguably new contract surface — if so it is a docs PR first, sequenced ahead of this one, per board rule 4.
-3. **Is this reachable in the demo as deployed?** `/api/v1/**` requires a Cognito JWT and today the only credentials are the owner's, so two concurrent conflicting PUTs need one user racing themselves. Same severity shape as [T-107](T-107-post-id-cross-person-write.md): latent now, real the moment the demo has a second user, which an admin UI with logins ([T-301](T-301-admin-cv-sections-crud.md)) implies. That argues for fixing it before T-301, not for calling it urgent today.
+3. **Is this reachable in the demo as deployed?** `/api/v1/**` requires a Cognito JWT and today the only credentials are the owner's, so two concurrent conflicting PUTs need one user racing themselves. Same severity shape as [T-107](T-107-post-id-cross-person-write.md): latent now, real the moment the demo has a second user, which an admin UI with logins ([T-301](T-301-admin-cv-sections-crud.md)) implies. That argues for fixing it before T-301, not for calling it urgent today. **(2026-09-25: the lane now orders T-108 → T-301.)**
 
 ## Acceptance criteria
 
