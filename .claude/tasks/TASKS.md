@@ -13,7 +13,7 @@ The order to claim in. It is **advice, refreshed at every board-sync** — `depe
 - In parallel, no AWS: [T-409](T-409-public-react-adapter-validates-required-and-enum.md) → [T-402](T-402-public-react-cv-sections.md); [T-401](T-401-public-cv-sections.md); [T-301](T-301-admin-cv-sections-crud.md).
 
 **Next — one CI-host session** (~$1.23/day while up; keep it to one window)
-- ~~T-153~~ ✔ → ~~T-156~~ ✔ merged 2026-09-24 (CI and dev on Flyway 13.7.0; production stays on 10 until T-014, so **no new migration until then**), then [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) — both hang tests share the single executor; settle [T-019](T-019-ci-host-on-demand.md)'s untested criterion in the same run. Then [T-112](T-112-domain-service-ci-ecr-deploy.md).
+- ~~T-153~~ ✔ → ~~T-156~~ ✔ merged 2026-09-24 (CI and dev on Flyway 13.7.0; production stays on 10 until T-014, so **no new migration until then**), then ~~T-111~~ ✔ merged 2026-09-24. Both pipelines have a timeout, and both were shown firing. [T-019](T-019-ci-host-on-demand.md)'s last criterion was settled on the way. **Next: [T-112](T-112-domain-service-ci-ecr-deploy.md)** (unblocked).
 
 **Then — cv-infra, strictly one apply at a time**
 1. [T-008](T-008-drone-host-backup-and-snapshot.md) — Drone state to SSM, a proven restore, then the old snapshot goes.
@@ -80,14 +80,14 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 |----|-------|------|--------|-------|------------|----|
 | [T-108](T-108-untransacted-update-read-modify-write.md) | **PUT is an untransacted read-modify-write** — a concurrent DELETE re-INSERTs the row under a new id | cv-domain-service | todo | | — | |
 | [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** (every ordered collection but experience) | cv-domain-service | todo | | T-105 | |
-| [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) | Jenkinsfile hygiene: no `timeout {}` on the single shared executor; dead `main` Deploy gate + stale placeholder (**absorbs T-110**) | cv-domain-service | todo | | — | |
-| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today) | cv-domain-service | todo | | T-111 | |
+| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today) | cv-domain-service | todo | | T-111 ✔ | |
 
 <details>
-<summary>Defects, hygiene & hardening — 9 done</summary>
+<summary>Defects, hygiene & hardening — 10 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
+| [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) | Jenkinsfile hygiene: no `timeout {}` on the single shared executor; dead `main` Deploy gate + stale placeholder (**absorbs T-110**) | cv-domain-service | done | tech-product-owner | — | [#10](https://github.com/erfeamor/cv-domain-service/pull/10) |
 | [T-106](T-106-restrict-openapi-and-actuator-exposure.md) | Stop serving the OpenAPI spec and Prometheus metrics anonymously | cv-domain-service | done | backend-developer | — | [#4](https://github.com/erfeamor/cv-domain-service/pull/4) |
 | [T-107](T-107-post-id-cross-person-write.md) | **POST with a client-supplied id overwrites another person's row** (person, experience) | cv-domain-service | done | backend-developer | — | [#6](https://github.com/erfeamor/cv-domain-service/pull/6) |
 | [T-110](T-110-domain-service-jenkins-deploy-dead-gate.md) | Jenkins `Deploy` stage gated on `main`; stale placeholder — **absorbed into T-111** | cv-domain-service | done | tech-product-owner | — | none |
