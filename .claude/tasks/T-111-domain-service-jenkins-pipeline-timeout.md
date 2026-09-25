@@ -2,14 +2,68 @@
 id: T-111
 title: "cv-domain-service Jenkinsfile hygiene: no pipeline timeout on the CI host's ONLY executor (shared with cv-database), and a Deploy stage gated on a branch that does not exist (absorbs T-110)"
 repo: cv-domain-service
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: fix/jenkins-pipeline-hygiene   # renamed 2026-09-23 from fix/jenkins-pipeline-timeout when T-110 was absorbed; matches T-153's name for the same bundle in cv-database. Never pushed under the old name.
-pr:
+pr: https://github.com/erfeamor/cv-domain-service/pull/10
 depends_on: []
 risk: normal
 security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /security-review path
+checkpoint:
+  stage: done   # merged 0f59782 (squash of cv-domain-service#10), 2026-09-24 — H2 accepted by the human
+  repo: cv-domain-service
+  branch: fix/jenkins-pipeline-hygiene
+  worktree: none   # removed after merge
+  pr: https://github.com/erfeamor/cv-domain-service/pull/10
+  commit: 0f59782   # squash merge on master (branch head was f54866b)
+  developer: tech-product-owner   # proposed at H1: ~10-line Jenkinsfile change done inline, as T-156
+  reviewers: [code-review, infrastructure-engineer, security-review]
+  risk: normal
+  security_review: true   # adapter §5: Jenkinsfile
+  review_round: 1
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: none   # verification is Jenkins on the CI host
+  updated: 2026-09-25T14:45:41+02:00
+  budget:
+    turns: 232   # --since 2026-09-24T10:59:18.694Z
+    total_tokens: 31500000
+    subagent_tokens: 47951
+    spawns: 1   # infrastructure-engineer review
+    status: ok
+    checked: 2026-09-24T23:04:19+02:00
 ---
+
+## H1 + QA record — 2026-09-24 (PR [#10](https://github.com/erfeamor/cv-domain-service/pull/10) @ `f54866b`)
+
+**H1 (human-approved):**
+- Bound: 20-minute pipeline timeout. Jenkins history on this host: warm builds 44–97 s, slowest cold build (`~/.m2` empty) 488 s.
+- The placeholder comment points at T-112.
+- Both hang tests run.
+- The driver implements inline; one reviewer spawn.
+
+**Review round 1:** no blocking findings.
+- **Applied:** `junit` gets `allowEmptyResults: true`, so a timeout before Surefire has written a report stays ABORTED.
+- **Noted in the PR:** the 488 s cold build probably had a warm Docker cache; a freshly replaced host would also cold-pull both base images.
+- **Checked:** with BuildKit, a killed `docker build` cancels on the daemon side and leaves no orphan behind.
+
+| AC | Evidence | Result |
+|---|---|---|
+| Fails on timeout; bound justified in the PR | Scratch `chore/t111-hang-guard` (Test stage `sleep 3600`, real bound). Console: `Timeout set to expire in 20 min` → `Cancelling nested steps due to timeout` → `Timeout has been exceeded` → `Finished: ABORTED`. Duration 1207 s. `junit` printed *No test report files were found* and the result **stayed ABORTED** (the review fix working) | ✅ |
+| Normal build well inside the bound | PR-10 build 1: **71 s** (141 tests), 6% of the bound. The 488 s historical cold build is 41% | ✅ |
+| Guard demonstrated firing | as above | ✅ |
+| `branch 'master'` | diff. PR-10 console: `Stage "Deploy" skipped due to when conditional`. The PR states that a PR build cannot prove the gate; the post-merge master build will run it | ✅ |
+| Placeholder accurate | now says the ECR push and the roll are T-112's | ✅ |
+| Deploy still a no-op | body is the comment plus `echo` | ✅ |
+| PR states the limitation | § Verification | ✅ |
+| Executor released → reaper stops the host | `busyExecutors: 0` after the builds. Reaper at 22:04:15Z: `stopped i-073e5284ca2a1ceed after 20 idle minutes` | ✅ |
+
+**Also confirmed:** `Timeout set to expire` is logged **before** `Declarative: Tool Install`, so JDK and Maven provisioning is inside the bound (review point 1).
+
+**T-019's open AC is settled.** Scratch `chore/t111-hang-t019` used a 35-minute bound and a quiet sleep. Once the CPU window cleared, three consecutive reaper checks (21:49, 21:54, 21:59) logged `cpu quiet: peak 4.7–5.0%` and then **`busy: 1 executor(s) running`**, and declined to stop. The build ran on until its own bound. Recorded in T-019.
+
+**Host time:** woken by the PR push at about 21:00:30Z and stopped at 22:04:17Z, so **~64 min**, about $0.05.
 
 ## Goal
 
@@ -62,14 +116,14 @@ T-154 records the reaper's source being read on 2026-08-26: `lambda/ci_reaper/in
 
 ## Acceptance criteria
 
-- [ ] The pipeline fails on timeout rather than hanging, with the bound and its justification recorded in the PR.
-- [ ] A normal build still passes comfortably inside the bound — verified against **real build durations on this host**, cold `~/.m2` included, not an estimate.
-- [ ] **Demonstrate the guard actually fires.** T-154's sharpest criterion and it applies here unchanged: a timeout nobody has watched trigger is the unverified-claim class this board keeps cataloguing. Force a hang on a scratch branch and show the build failing at the bound.
-- [ ] **(from T-110)** `when { branch 'master' }`, matching the actual protected mainline.
-- [ ] **(from T-110)** The placeholder comment either describes the current state accurately or is gone — no surviving claim that cv-infra has yet to expose a deploy target.
-- [ ] **(from T-110)** The `Deploy` stage still does nothing at runtime — this task must not turn a placeholder into a deploy.
-- [ ] **(from T-110)** The PR states plainly that a green PR build **does not** exercise the `branch 'master'` condition (PR builds are not `master`); the evidence for the gate is the diff plus the workspace-wide fact that `master` is the mainline.
-- [ ] Confirm the executor is released afterwards and the reaper subsequently stops the box — the entire argument is cost, so a guard that fires but leaves the host up has not delivered.
+- [x] The pipeline fails on timeout rather than hanging, with the bound and its justification recorded in the PR.
+- [x] A normal build still passes comfortably inside the bound — verified against **real build durations on this host**, cold `~/.m2` included, not an estimate.
+- [x] **Demonstrate the guard actually fires.** T-154's sharpest criterion and it applies here unchanged: a timeout nobody has watched trigger is the unverified-claim class this board keeps cataloguing. Force a hang on a scratch branch and show the build failing at the bound.
+- [x] **(from T-110)** `when { branch 'master' }`, matching the actual protected mainline.
+- [x] **(from T-110)** The placeholder comment either describes the current state accurately or is gone — no surviving claim that cv-infra has yet to expose a deploy target.
+- [x] **(from T-110)** The `Deploy` stage still does nothing at runtime — this task must not turn a placeholder into a deploy.
+- [x] **(from T-110)** The PR states plainly that a green PR build **does not** exercise the `branch 'master'` condition (PR builds are not `master`); the evidence for the gate is the diff plus the workspace-wide fact that `master` is the mainline.
+- [x] Confirm the executor is released afterwards and the reaper subsequently stops the box — the entire argument is cost, so a guard that fires but leaves the host up has not delivered.
 
 ## Watch-outs
 

@@ -4,17 +4,16 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-24 (T-012 decided: go Paid, trimmed; T-155 decided: bump Flyway)
+## Now / Next / Later — refreshed 2026-09-24 (T-012 decided: go Paid, trimmed; T-155 merged: dev stack on Flyway 13.7.0)
 
 The order to claim in. It is **advice, refreshed at every board-sync** — `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Now**
 - **Human, ~1 hour:** the last $20 credit activity (Bedrock playground) — under A its credit carries over. Tracked in [T-012](T-012-aws-endgame-decision.md).
-- **[T-155](T-155-flyway-version-supports-mysql-84.md)** — Flyway 13.7.0 on the dev stack. No infra, no CI host; runs alongside anything.
 - In parallel, no AWS: [T-409](T-409-public-react-adapter-validates-required-and-enum.md) → [T-402](T-402-public-react-cv-sections.md); [T-401](T-401-public-cv-sections.md); [T-301](T-301-admin-cv-sections-crud.md).
 
 **Next — one CI-host session** (~$1.23/day while up; keep it to one window)
-- [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) → [T-156](T-156-flyway-13-cv-database-pins.md) (same `Jenkinsfile`, or one PR), then [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) — both hang tests share the single executor; settle [T-019](T-019-ci-host-on-demand.md)'s untested criterion in the same run. Then [T-112](T-112-domain-service-ci-ecr-deploy.md).
+- ~~T-153~~ ✔ → ~~T-156~~ ✔ merged 2026-09-24 (CI and dev on Flyway 13.7.0; production stays on 10 until T-014, so **no new migration until then**), then ~~T-111~~ ✔ merged 2026-09-24. Both pipelines have a timeout, and both were shown firing. [T-019](T-019-ci-host-on-demand.md)'s last criterion was settled on the way. **Next: [T-112](T-112-domain-service-ci-ecr-deploy.md)** (unblocked).
 
 **Then — cv-infra, strictly one apply at a time**
 1. [T-008](T-008-drone-host-backup-and-snapshot.md) — Drone state to SSM, a proven restore, then the old snapshot goes.
@@ -81,14 +80,14 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 |----|-------|------|--------|-------|------------|----|
 | [T-108](T-108-untransacted-update-read-modify-write.md) | **PUT is an untransacted read-modify-write** — a concurrent DELETE re-INSERTs the row under a new id | cv-domain-service | todo | | — | |
 | [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** (every ordered collection but experience) | cv-domain-service | todo | | T-105 | |
-| [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) | Jenkinsfile hygiene: no `timeout {}` on the single shared executor; dead `main` Deploy gate + stale placeholder (**absorbs T-110**) | cv-domain-service | todo | | — | |
-| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today) | cv-domain-service | todo | | T-111 | |
+| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today) | cv-domain-service | todo | | T-111 ✔ | |
 
 <details>
-<summary>Defects, hygiene & hardening — 9 done</summary>
+<summary>Defects, hygiene & hardening — 10 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
+| [T-111](T-111-domain-service-jenkins-pipeline-timeout.md) | Jenkinsfile hygiene: no `timeout {}` on the single shared executor; dead `main` Deploy gate + stale placeholder (**absorbs T-110**) | cv-domain-service | done | tech-product-owner | — | [#10](https://github.com/erfeamor/cv-domain-service/pull/10) |
 | [T-106](T-106-restrict-openapi-and-actuator-exposure.md) | Stop serving the OpenAPI spec and Prometheus metrics anonymously | cv-domain-service | done | backend-developer | — | [#4](https://github.com/erfeamor/cv-domain-service/pull/4) |
 | [T-107](T-107-post-id-cross-person-write.md) | **POST with a client-supplied id overwrites another person's row** (person, experience) | cv-domain-service | done | backend-developer | — | [#6](https://github.com/erfeamor/cv-domain-service/pull/6) |
 | [T-110](T-110-domain-service-jenkins-deploy-dead-gate.md) | Jenkins `Deploy` stage gated on `main`; stale placeholder — **absorbed into T-111** | cv-domain-service | done | tech-product-owner | — | none |
@@ -120,12 +119,9 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-033](T-033-ci-host-tls.md) | CI host serves Jenkins login and Drone OAuth over plain HTTP on a scanned public IP — decide TLS or record the accepted risk | cv-infra | todo | | — | |
 | [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3) | cv-infra | todo | | T-007 | |
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
-| [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) | cv-database Jenkinsfile hygiene: dead `main` Deploy gate + RDS comment, no timeout, no MySQL health wait, docs never name 8.4 (**absorbs T-154, T-017**) | cv-database | todo | | T-152 ✔ | |
-| [T-155](T-155-flyway-version-supports-mysql-84.md) | Flyway 10 → 13.7.0 — **decided**; this row is the dev-stack pin (`docker-compose.dev.yml`) | cv-project (meta) | todo | | — | |
-| [T-156](T-156-flyway-13-cv-database-pins.md) | Flyway 10 → 13.7.0 in cv-database: the Jenkins gate and `migrate.sh` (split from T-155) | cv-database | todo | | T-155, T-153 | |
 
 <details>
-<summary>Infra & ops — 21 done</summary>
+<summary>Infra & ops — 24 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -150,6 +146,9 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-031](T-031-board-frontmatter-validator.md) | **A validator for the task board** (`scripts/board-check.py`) | cv-project (meta) | done | infrastructure-engineer | — | [#59](https://github.com/erfeamor/curriculum/pull/59) |
 | [T-152](T-152-mysql-84-parity-cv-database.md) | Dev/CI parity: bump cv-database's stack **and its migration gate** to MySQL 8.4 | cv-database | done | backend-developer | — | [#3](https://github.com/erfeamor/cv-database/pull/3) |
 | [T-154](T-154-jenkins-pipeline-timeout.md) | No `timeout {}` on cv-database's pipeline — **absorbed into T-153** | cv-database | done | tech-product-owner | — | none |
+| [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) | cv-database Jenkinsfile hygiene: dead `main` Deploy gate + RDS comment, no timeout, no MySQL health wait, docs never name 8.4 (**absorbs T-154, T-017**) | cv-database | done | tech-product-owner | T-152 ✔ | [#5](https://github.com/erfeamor/cv-database/pull/5) |
+| [T-155](T-155-flyway-version-supports-mysql-84.md) | Flyway 10 → 13.7.0 — **decided**; the dev-stack pin (`docker-compose.dev.yml`) moved, and QA covered a Flyway-10 volume and a fresh one | cv-project (meta) | done | tech-product-owner | — | [#91](https://github.com/erfeamor/curriculum/pull/91) |
+| [T-156](T-156-flyway-13-cv-database-pins.md) | Flyway 10 → 13.7.0 in cv-database: the Jenkins gate and `migrate.sh` (split from T-155) | cv-database | done | tech-product-owner | T-155 ✔, T-153 ✔ | [#6](https://github.com/erfeamor/cv-database/pull/6) |
 
 </details>
 

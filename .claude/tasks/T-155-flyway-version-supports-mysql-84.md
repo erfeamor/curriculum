@@ -2,13 +2,37 @@
 id: T-155
 title: "Flyway 10 → 13.7.0: the dev stack's pin (docker-compose.dev.yml) — DECIDED to bump 2026-09-24; cv-database in T-156, production in T-014"
 repo: cv-project (meta)   # narrowed 2026-09-24 at the stage-0 split: cv-database's pins → T-156; production's pin rides T-014
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: chore/flyway-supports-mysql-84
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/91
 depends_on: []
 risk: normal
 security_review: false   # narrowed to one image tag in the dev compose file — no Jenkinsfile, no Terraform any more (those moved to T-156 and T-014, which carry their own flags)
+checkpoint:
+  stage: done   # merged fa9beb7 (squash of curriculum#91), 2026-09-24 — H2 accepted by the human
+  repo: cv-project (meta)
+  branch: chore/flyway-supports-mysql-84
+  worktree: none   # removed after merge
+  pr: https://github.com/erfeamor/curriculum/pull/91
+  commit: fa9beb7   # squash merge on master (branch commit was f5bccbf)
+  developer: tech-product-owner   # trivial one-line config change, done inline (T-023 precedent)
+  reviewers: [code-review]
+  risk: trivial   # re-checked at A1: 2 files, 4 lines, compose tag + CLAUDE.md prose, no §5 security path
+  security_review: false
+  review_round: 1   # /code-review inline: 0 findings; remaining flyway/flyway:10 strings are task-record history only
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: 0   # cvdl_t-155, torn down with down -v after QA
+  updated: 2026-09-24T13:50:00+02:00
+  budget:
+    turns: 64   # re-baselined --since 2026-09-24T10:59:18.694Z (plan window reset, human's word)
+    total_tokens: 4825744
+    subagent_tokens: 0
+    spawns: 0
+    status: ok
+    checked: 2026-09-24T13:40:00+02:00
 ---
 
 ## ✅ H1 DECIDED 2026-09-24 — **bump to `flyway/flyway:13.7.0`** (the human's decision), split per repo
@@ -25,6 +49,19 @@ On the evidence in § *Empirical answers* below. Split at stage 0 so every task 
 
 **Scope of this task now:** `docker-compose.dev.yml:33` `flyway/flyway:10` → `flyway/flyway:13.7.0` (exact tag); bring the dev stack up from an **existing** Flyway-10 volume and from a fresh one, and read the version and the absence of the 8.4 warning from the `flyway` container's log. The *Recommended outcome: STAY ON FLYWAY 10* section below is **superseded** by this decision and kept only as the record.
 
+
+## QA record — 2026-09-24 (stage 4, PR #91 @ f5bccbf)
+
+Isolated stack `cvdl_t-155`, slot 0 (MySQL 3316, domain 8090). The worktree's compose file ran with `--project-directory` set to the main checkout, so `cv-database` and `cv-domain-service` were built from their `master`s. Torn down with `down -v`.
+
+| Phase | What | Result |
+|---|---|---|
+| A1 | Master compose (`flyway/flyway:10`) writes a fresh history | `Flyway OSS Edition 10.22.0`, the *"upgrade recommended"* warning **present**, V1 applied, checksum `-1643462046` (baseline reproduced) |
+| A2 | **Same volume**, PR compose (`13.7.0`) | `Flyway OSS Edition 13.7.0`, **0** upgrade warnings, `Schema cv is up to date`: V1 not re-applied, checksum accepted. 11 `Duplicate entry` seed notices, the same count 10.22.0 gives (`INSERT IGNORE` re-seed, see Empirical answers) |
+| A3 | Domain API on the taken-over volume | `GET /api/v1/people/1` → 200 (seed row), `/experiences` → 200 |
+| B | **Fresh volume**, 13.7.0 only | `13.7.0`, **0** upgrade warnings, V1 applied (same checksum), seeds ran (1 person, 3 experiences), `people/1` → 200 |
+
+Still untested (unchanged, held by the invariant above): Flyway 10 reading a history that 13 has **written to**.
 
 ## Goal
 
@@ -115,9 +152,9 @@ The production pin (`cv-infra/templates/domain-service-user-data.sh:181`) is in 
 ## Acceptance criteria
 
 - [x] A decision recorded either way, with reasoning — **bump to 13.7.0, 2026-09-24** (block at the top) — "leave Flyway at 10 and document why" is a legitimate outcome and must be written down if chosen, not left implicit.
-- [ ] If bumping: no pin left at the old version anywhere (`grep -rn "flyway/flyway"` across all three repos), and the `allowPublicKeyRetrieval` question in §2 answered empirically, not from release notes. *(Question answered 2026-09-23 for 13.7.0 — see Empirical answers; the box stays unticked because it is conditional on bumping and the grep half is not done.)*
-- [ ] If bumping: migrations verified applying on the new version against **real MySQL 8.4**, with the version read from the running container. *(Done **locally** for 13.7.0 on 2026-09-23 — fresh schema, legacy conf + seeds, and takeover of a 10-written history. Still owed if bumping: the same in Jenkins CI and on the production apply.)*
-- [ ] Production and CI end on the **same** Flyway version, or the divergence is deliberate and recorded.
+- [ ] **(carried by T-156 and T-014 — the meta pin is done)** If bumping: no pin left at the old version anywhere (`grep -rn "flyway/flyway"` across all three repos), and the `allowPublicKeyRetrieval` question in §2 answered empirically, not from release notes. *(Question answered 2026-09-23 for 13.7.0 — see Empirical answers; the box stays unticked because it is conditional on bumping and the grep half is not done.)*
+- [x] **(dev stack, 2026-09-24 QA record; CI → T-156, production → T-014)** If bumping: migrations verified applying on the new version against **real MySQL 8.4**, with the version read from the running container. *(Done **locally** for 13.7.0 on 2026-09-23 — fresh schema, legacy conf + seeds, and takeover of a 10-written history. Still owed if bumping: the same in Jenkins CI and on the production apply.)*
+- [ ] **(carried by T-156 and T-014 — the meta pin is done)** Production and CI end on the **same** Flyway version, or the divergence is deliberate and recorded.
 
 ## Provenance
 
