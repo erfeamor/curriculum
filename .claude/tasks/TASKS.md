@@ -10,7 +10,7 @@ The order to claim in. It is **advice, refreshed at every board-sync** — `depe
 
 **Now — no AWS, parallel-safe (different repos)**
 - [T-402](T-402-public-react-cv-sections.md) (cv-public-react) — unblocked by T-409 (merged 2026-09-26): the adapter now tells an absent `endDate` from a present null, so "Present" is never fabricated.
-- [T-301](T-301-admin-cv-sections-crud.md) (cv-admin-react) — unblocked in the lane's sense by T-108 (merged 2026-09-26). Its Drone CI is broken until T-034 (see its note), so its CI gate needs that or a decision at its H1.
+- [T-301](T-301-admin-cv-sections-crud.md) (cv-admin-react) — T-108 landed first, as intended. **Its CI works, but a push does not wake the host.** Drone smoke check, 2026-09-26: a no-op push built green (Drone #32), and the webhook delivered 200 to the still-attached EIP. **At stage 3, make sure the CI host is running before pushing:** start it by hand, or push a wired Jenkins repo first. "No checks reported" means the host was down, not that CI passed. T-034 removes this step, and T-301 does not wait for it.
 - [T-114](T-114-test-profile-open-in-view.md) (cv-domain-service) — small, and it removes a test-mode trap that already hid one real defect.
 - Cheap meta work: [T-036](T-036-qa-env-cors-port-shift.md) (QA tooling: CORS for port-shifted previews), [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) (trivial contract prose), [T-029](T-029-code-review-cannot-see-worktrees.md) (a local adapter note), [T-032](T-032-board-check-re-review-after-live-use.md) (its link check would have caught the 4 dead links fixed 2026-09-25).
 - **Human, ~1 hour:** the last $20 credit activity (Bedrock playground). Under A its credit carries over. Tracked in [T-012](T-012-aws-endgame-decision.md).
