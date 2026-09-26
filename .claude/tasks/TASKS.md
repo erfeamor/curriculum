@@ -4,15 +4,15 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-25 (full board review; the CI-host session is complete)
+## Now / Next / Later — refreshed 2026-09-26 (wave T-409 + T-401 + T-108 merged)
 
 The order to claim in. It is **advice, refreshed at every board-sync** — `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Now — no AWS, parallel-safe (different repos)**
-- [T-409](T-409-public-react-adapter-validates-required-and-enum.md) → [T-402](T-402-public-react-cv-sections.md) (cv-public-react).
-- [T-401](T-401-public-cv-sections.md) (cv-public-vanilla).
-- [T-108](T-108-untransacted-update-read-modify-write.md) → [T-301](T-301-admin-cv-sections-crud.md). T-108 first: the admin UI is what makes concurrent edits realistic. T-301's Drone CI is broken until T-034 (see its note).
-- Cheap meta work: [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) (trivial contract prose), [T-029](T-029-code-review-cannot-see-worktrees.md) (a local adapter note), [T-032](T-032-board-check-re-review-after-live-use.md) (its link check would have caught the 4 dead links fixed 2026-09-25).
+- [T-402](T-402-public-react-cv-sections.md) (cv-public-react) — unblocked by T-409 (merged 2026-09-26): the adapter now tells an absent `endDate` from a present null, so "Present" is never fabricated.
+- [T-301](T-301-admin-cv-sections-crud.md) (cv-admin-react) — unblocked in the lane's sense by T-108 (merged 2026-09-26). Its Drone CI is broken until T-034 (see its note), so its CI gate needs that or a decision at its H1.
+- [T-114](T-114-test-profile-open-in-view.md) (cv-domain-service) — small, and it removes a test-mode trap that already hid one real defect.
+- Cheap meta work: [T-036](T-036-qa-env-cors-port-shift.md) (QA tooling: CORS for port-shifted previews), [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) (trivial contract prose), [T-029](T-029-code-review-cannot-see-worktrees.md) (a local adapter note), [T-032](T-032-board-check-re-review-after-live-use.md) (its link check would have caught the 4 dead links fixed 2026-09-25).
 - **Human, ~1 hour:** the last $20 credit activity (Bedrock playground). Under A its credit carries over. Tracked in [T-012](T-012-aws-endgame-decision.md).
 
 **Then — cv-infra, strictly one apply at a time** (one root module, local state; a merged-but-unapplied change rides the next apply)
@@ -38,13 +38,11 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |
-| [T-401](T-401-public-cv-sections.md) | Public site: render full CV | cv-public-vanilla | todo | | T-201 ✔, **T-408** | |
-| [T-402](T-402-public-react-cv-sections.md) | Public site (React): render full CV sections | cv-public-react | todo | | T-201 ✔, T-405 ✔, **T-409** | |
-| [T-409](T-409-public-react-adapter-validates-required-and-enum.md) | Public site (React): the adapter validates required fields, the `proficiency` enum, and absent-vs-null `endDate` | cv-public-react | todo | | T-407 | |
+| [T-402](T-402-public-react-cv-sections.md) | Public site (React): render full CV sections | cv-public-react | todo | | T-201 ✔, T-405 ✔, T-409 ✔ | |
 | [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | todo | | T-101…T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-403, T-404 (T-408, T-409 via T-401, T-402) | |
 
 <details>
-<summary>M2 — 11 done</summary>
+<summary>M2 — 13 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -59,6 +57,8 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 | [T-405](T-405-public-react-null-optionals.md) | Public site (React): optionals typed `null`, not absent or required | cv-public-react | done | fullstack-developer | T-209 ✔ | [#4](https://github.com/erfeamor/cv-public-react/pull/4) |
 | [T-407](T-407-public-react-tocv-null-invariant.md) | Public site (React): `toCv` establishes the null-not-absent invariant its types assert | cv-public-react | done | fullstack-developer | T-405 ✔ | [#6](https://github.com/erfeamor/cv-public-react/pull/6) |
 | [T-408](T-408-public-vanilla-bff-path-missing-prefix.md) | **Public site (vanilla): calls the BFF at `/api/v1`** — the landing page renders its error state today, and `main.js` has no test | cv-public-vanilla | done | fullstack-developer | — | [#3](https://github.com/erfeamor/cv-public-vanilla/pull/3) |
+| [T-401](T-401-public-cv-sections.md) | Public site: render full CV | cv-public-vanilla | done | tech-product-owner | T-201 ✔, **T-408** | [#4](https://github.com/erfeamor/cv-public-vanilla/pull/4) |
+| [T-409](T-409-public-react-adapter-validates-required-and-enum.md) | Public site (React): the adapter validates required fields, the `proficiency` enum, and absent-vs-null `endDate` | cv-public-react | done | tech-product-owner | T-407 | [#7](https://github.com/erfeamor/cv-public-react/pull/7) |
 
 </details>
 
@@ -82,12 +82,13 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-108](T-108-untransacted-update-read-modify-write.md) | **PUT is an untransacted read-modify-write** — a concurrent DELETE re-INSERTs the row under a new id | cv-domain-service | todo | | — | |
 | [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** (every ordered collection but experience) | cv-domain-service | todo | | T-105 | |
+| [T-113](T-113-optimistic-locking-lost-update.md) | Two concurrent PUTs silently lose one write — no `@Version`, no 409 (T-108's declined half) | cv-domain-service | todo | | T-108, T-014 | |
+| [T-114](T-114-test-profile-open-in-view.md) | The test profile runs **open-in-view ON**, production OFF — it hid T-108's real failure mode once | cv-domain-service | todo | | — | |
 | [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔ | |
 
 <details>
-<summary>Defects, hygiene & hardening — 10 done</summary>
+<summary>Defects, hygiene & hardening — 11 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -101,6 +102,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-208](T-208-error-handler-status-and-metrics-cardinality.md) | Error handler flattens **every** non-auth error to 500; unmatched paths mint **attacker-driven** Prometheus labels | cv-bff-node | done | fullstack-developer | — | [#11](https://github.com/erfeamor/cv-bff-node/pull/11) |
 | [T-210](T-210-bff-domain-types-null-not-absent.md) | BFF: `Domain*` interfaces say `null`, not absent | cv-bff-node | done | fullstack-developer | T-209 ✔ | [#10](https://github.com/erfeamor/cv-bff-node/pull/10) |
 | [T-406](T-406-public-react-bff-path-missing-prefix.md) | Public site (React): call the BFF at `/bff/api/v1`, not `/api/v1` | cv-public-react | done | fullstack-developer | — | [#5](https://github.com/erfeamor/cv-public-react/pull/5) |
+| [T-108](T-108-untransacted-update-read-modify-write.md) | **PUT is an untransacted read-modify-write** — a concurrent DELETE re-INSERTs the row under a new id | cv-domain-service | done | tech-product-owner | — | [#11](https://github.com/erfeamor/cv-domain-service/pull/11) |
 
 </details>
 
@@ -123,6 +125,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-033](T-033-ci-host-tls.md) | CI host serves Jenkins login and Drone OAuth over plain HTTP on a scanned public IP — decide TLS or record the accepted risk | cv-infra | todo | | — | |
 | [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3); **also wires Drone to the doorbell** | cv-infra | todo | | T-007 | |
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
+| [T-036](T-036-qa-env-cors-port-shift.md) | `qa-env-override.py` shifts the BFF port but not its CORS allowlist — a port-shifted frontend preview is CORS-blocked | cv-project (meta) | todo | | — | |
 
 <details>
 <summary>Infra & ops — 24 done</summary>
