@@ -77,7 +77,7 @@ The change was applied to `dc21c27` at T-209's refinement and reverted. **`src/r
 
 `/code-review` on [T-209](T-209-contract-optional-field-null-semantics.md) found that this task's **AC1 was unsatisfiable as filed**: it says *"no `?: string` remains in any `Domain*` interface"* — repo-wide — while the scope named only `cv.ts`. `src/routes/people.ts` declares a **second, independent** `DomainPerson` with the same four `?: string`, and a `PublicPerson` whose three optionals use `?:` keys.
 
-Driver-verified. That second `PublicPerson` is the **drop direction still open**: an object literal may omit a `?:` key for free, so a newly contracted head field would vanish from `GET /bff/api/v1/people/:id` with a green build — precisely the hole T-207 closed on the aggregate and never on this route, which is **anonymous by contract** ([T-013](T-013-bff-public-edge-path.md)) just like the aggregate.
+Driver-verified. That second `PublicPerson` is the **drop direction still open**: an object literal may omit a `?:` key for free, so a newly contracted head field would vanish from `GET /bff/api/v1/people/:id` with a green build — precisely the hole T-207 closed on the aggregate and never on this route, which is **anonymous by contract** ([T-013](T-013-contract-bff-public-routing.md)) just like the aggregate.
 
 Widening rather than filing a follow-up, because the AC already covered it and because ratifying rule 7 while leaving the repo contradicting it **on a public route** would be the emptiest possible outcome.
 
@@ -102,7 +102,7 @@ Widening rather than filing a follow-up, because the AC already covered it and b
 ## dev-loop notes
 
 - **Developer:** `fullstack-developer` (adapter §2). Authoritative CI: **GitHub Actions**. Gates: the `cv-bff-node` row of adapter §3.
-- `risk: normal`, `security_review: false`. The route is anonymous by contract ([T-013](T-013-bff-public-edge-path.md)) but this change **strengthens** its compile-time guard and cannot alter the payload; T-207 already carried the security review for this surface.
+- `risk: normal`, `security_review: false`. The route is anonymous by contract ([T-013](T-013-contract-bff-public-routing.md)) but this change **strengthens** its compile-time guard and cannot alter the payload; T-207 already carried the security review for this surface.
 
 ## Provenance
 
@@ -123,7 +123,7 @@ normalize() with `headline` omitted, on master  ->  CLEAN, exit 0
                                   after T-210  ->  TS2741: Property 'headline' is missing
 ```
 
-A newly contracted head field would have vanished from `GET /bff/api/v1/people/:id` — **anonymous by contract** ([T-013](T-013-bff-public-edge-path.md)) — with a green build. That is T-207's drop direction, still open on the route T-207 never reached.
+A newly contracted head field would have vanished from `GET /bff/api/v1/people/:id` — **anonymous by contract** ([T-013](T-013-contract-bff-public-routing.md)) — with a green build. That is T-207's drop direction, still open on the route T-207 never reached.
 
 ### Six probes, each applied and reverted
 

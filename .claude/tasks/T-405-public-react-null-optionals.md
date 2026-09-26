@@ -75,7 +75,7 @@ Nothing crashes at present. `PersonHeader` guards with truthiness (`person.headl
 ## Scope
 
 - All ten optionals in `src/domain/cv.ts` → `string | null` — the **eight** `?:` fields plus the **two** bare-`string` ones. `endDate: string | null` is already correct in all three interfaces and is **not** touched.
-- Update the file's header comment on two counts: it says *"Optional head fields are optional here too"* — after T-209 the wrong word, they are **nullable**, not optional — and it cites `GET /api/v1/people/:id/cv`, when the ratified public path has been `/bff/api/v1/people/:id/cv` since [T-013](T-013-bff-public-edge-path.md). Both lines are being edited anyway.
+- Update the file's header comment on two counts: it says *"Optional head fields are optional here too"* — after T-209 the wrong word, they are **nullable**, not optional — and it cites `GET /api/v1/people/:id/cv`, when the ratified public path has been `/bff/api/v1/people/:id/cv` since [T-013](T-013-contract-bff-public-routing.md). Both lines are being edited anyway.
 - **Add a null-bearing fixture** to `BffCvRepository.test.ts` — a second payload with every optional `null`, asserting it maps through to the domain `Cv` intact. This is the coverage the current fixture cannot provide.
 - Check `PersonHeader.test.tsx` covers a `null` head field; add the case if it does not. The component is already correct — this pins it.
 

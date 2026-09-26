@@ -5,6 +5,7 @@ repo: cv-public-react
 status: todo
 owner:
 branch: fix/adapter-runtime-validation
+pr:
 depends_on: [T-407]   # T-407 establishes the boundary this extends
 risk: normal
 security_review: false   # no auth or exposure change; a malformed upstream payload degrades this page only

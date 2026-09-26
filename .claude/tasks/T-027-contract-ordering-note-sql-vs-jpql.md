@@ -22,6 +22,8 @@ security_review: false   # docs-only; touches no adapter §5 security path
 
 ## Why this is worth a task rather than a shrug
 
+> **Re-read 2026-09-25.** T-103 and T-104 have both shipped. Each worked around the wording independently with the `CASE WHEN … IS NULL THEN 1 ELSE 0 END` JPQL form (`PersonSkillRepository.java:37`, `ProjectRepository.java:37`), and each left a source comment explaining why. **The contract still prescribes the SQL spelling** (`docs/api-contract.md:50-52`, where lines 39/41 below have moved). So the prose fix is still owed; it now protects the *next* ordered collection, not T-104. The "verify before writing" premise check below is unchanged.
+
 **It already cost one implementation detour, and the next task to hit it is [T-104](T-104-project-resource.md).** T-103's implementer reached the contradiction, worked around it with the portable JPQL spelling
 
 ```

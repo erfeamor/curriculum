@@ -51,6 +51,8 @@ At T-014's H2 the human is weighing this exact surface — a second port behind 
 
 ## Scope
 
+> **Cross-repo (board note 2026-09-25):** this file spans two repos. If H1 decides to implement, stage 0 splits it into two dependency-ordered single-repo tasks (cv-infra sends the header, then cv-domain-service enforces it), per adapter §2. If the decision is "accepted risk", it closes as one task.
+
 **cv-infra** — add a `custom_header` to the `domain-service-api` origin in `frontend.tf`, value from SSM (`/cv-project/<env>/edge/origin-shared-secret`) per the repo's existing secrets flow. Never in a committed `.tf` or tfvars.
 
 **cv-domain-service** — reject requests to non-public paths that lack the header. A servlet filter or the existing `SecurityConfig` chain, decided at refinement.

@@ -59,6 +59,8 @@ checkpoint:
 | PR states the limitation | § Verification | ✅ |
 | Executor released → reaper stops the host | `busyExecutors: 0` after the builds. Reaper at 22:04:15Z: `stopped i-073e5284ca2a1ceed after 20 idle minutes` | ✅ |
 
+**Post-merge master build (#9, `0f59782`, 2026-09-25 12:47Z, 73 s, SUCCESS): the Deploy stage ran for the first time.** The console shows `[Pipeline] { (Deploy)` and then `Deploy stage not yet implemented`, so the `master` gate is proven by a real run, not only by the diff.
+
 **Also confirmed:** `Timeout set to expire` is logged **before** `Declarative: Tool Install`, so JDK and Maven provisioning is inside the bound (review point 1).
 
 **T-019's open AC is settled.** Scratch `chore/t111-hang-t019` used a 35-minute bound and a quiet sleep. Once the CPU window cleared, three consecutive reaper checks (21:49, 21:54, 21:59) logged `cpu quiet: peak 4.7–5.0%` and then **`busy: 1 executor(s) running`**, and declined to stop. The build ran on until its own bound. Recorded in T-019.

@@ -35,8 +35,17 @@ Candidate designs — **decide at H1, do not assume:**
 - Choose and implement one design; remove `aws_eip` for the CI host if 1 or 2 is chosen.
 - Re-register whatever pointed at the old IP (GitHub webhooks on the Jenkins/Drone repos, Drone's `DRONE_SERVER_HOST` and GitHub OAuth app callback) — **list every consumer before changing anything**; the Drone EIP has consumers outside Terraform.
 
+## Added scope 2026-09-25 — wire Drone to the doorbell (was owned by nobody)
+
+**The cold-start AC below cannot pass today, whatever design is chosen.** `cv-admin-react`'s Drone webhook still targets the raw EIP (`http://13.39.59.12/hook`), and Drone is **not wired to [T-019](T-019-ci-host-on-demand.md)'s doorbell**: only `cv-domain-service` and `cv-database` were re-pointed. So a push to `cv-admin-react` neither builds nor wakes the stopped host (T-019 ruling 5; the warning sits in [T-301](T-301-admin-cv-sections-crud.md)). This task already re-registers every webhook that points at the old IP, so the Drone path belongs here and not in a new task:
+- Route `cv-admin-react`'s GitHub webhook through the doorbell (or whatever front door the chosen design uses), so a push **wakes the host and then reaches Drone**.
+- Record the result in T-301, whose "CI green" definition of done depends on it.
+
+Also: **settle [T-033](T-033-ci-host-tls.md)'s TLS decision at this task's H1**. Design 1's DNS name is its option (b)'s prerequisite, with the same hosted zone.
+
 ## Acceptance criteria
 
+- [ ] A push to `cv-admin-react` **while the host is stopped** wakes it and produces a green Drone build (added 2026-09-25, see above).
 - [ ] Every consumer of `13.39.59.12` enumerated in the PR (in Terraform and outside it).
 - [ ] A cold start from stopped: a push to a Jenkins repo and to `cv-admin-react` (Drone) both trigger builds that go green, **after** a stop/start cycle has changed the public IP.
 - [ ] Drone's GitHub login still works after the same cycle.

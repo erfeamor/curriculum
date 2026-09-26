@@ -29,7 +29,7 @@ snap-0d7f5ae272ce0cef5   30 GiB   from vol-0c82f0d4725b608c2   2026-08-08T08:01:
 Tags: Project=cv-project, Task=T-002, Purpose=pre-apply-gate
 ```
 
-It exists purely as a rollback for that apply. Once T-002's post-apply verification passes it is dead weight: incremental storage, roughly **$0.40–0.50/month**, on a stack where T-002 already had to seek an explicit Free Tier exception for +$8/month. Nothing currently deletes it and nothing reminds anyone to.
+It exists purely as a rollback for that apply. Once T-002's post-apply verification passes it is dead weight: incremental storage, ~~roughly **$0.40–0.50/month**, on a stack where T-002 already had to seek an explicit Free Tier exception for +$8/month~~ **$0.69/month measured** (Cost Explorer, see the header; the account is going Paid under T-012, so there is no "Free Tier exception" to count against). Nothing currently deletes it and nothing reminds anyone to.
 
 It is also **unencrypted**, since snapshots inherit the source volume's encryption and `vol-0c82f0d4725b608c2` is not encrypted. See below for why that is more than a formality here.
 
@@ -67,11 +67,11 @@ Note that T-002 now also puts **Jenkins' `JENKINS_HOME`** on this same host, so 
 
 **T-009's acceptance criterion could not be executed because of the gap this task exists to close.** It asks for a *"fresh boot self-provisions Jenkins"* proof, which means replacing the instance. Replacing it destroys `/var/lib/drone/database.sqlite`, whose `drone-deploy` AWS credentials this task records as existing **nowhere else**. So the verification was substituted with an SSM probe over the identical fetch → verify → execute path, and the criterion is recorded as deliberately unexecuted.
 
-That is the second time this gap has changed how another task is done ([T-012](T-012-aws-endgame-decision.md)'s option B is the first — it cannot be chosen until this lands). **The cost of not doing T-008 is no longer hypothetical: it is now blocking real verification work**, and it will block it again for any task that wants to prove a clean-boot path on the CI host.
+That is the second time this gap has changed how another task is done ([T-012](T-012-aws-endgame-decision.md)'s option B is the first — it cannot be chosen until this lands). *(2026-09-25: T-012 chose A, so the option-B blocker is moot. The T-009 argument stands, and T-007's replacement is now the concrete case.)* **The cost of not doing T-008 is no longer hypothetical: it is now blocking real verification work**, and it will block it again for any task that wants to prove a clean-boot path on the CI host.
 
 ## Sequencing
 
-The snapshot deletion is gated on T-002's post-apply verification passing — do not delete it while that PR is still unverified, and do not let this task block on the larger backup decision. If the backup design needs more thought, split it: delete the orphan snapshot in a small PR, and keep the design question open.
+*(2026-09-25: T-002 is `done` and its post-apply verification passed long ago, so that gate is satisfied. The snapshot's remaining job is to be the Drone credentials' only backup until the SSM move and a proven restore land here.)* The snapshot deletion is gated on T-002's post-apply verification passing — do not delete it while that PR is still unverified, and do not let this task block on the larger backup decision. If the backup design needs more thought, split it: delete the orphan snapshot in a small PR, and keep the design question open.
 
 ## Acceptance criteria
 
@@ -80,7 +80,7 @@ The snapshot deletion is gated on T-002's post-apply verification passing — do
 - [ ] If a backup mechanism is adopted: it is in Terraform, not hand-run; it covers `/var/lib/drone`; and it states whether `JENKINS_HOME` is included.
 - [ ] A **restore actually performed once** — mount or copy the artifact back and confirm Drone comes up with `cv-admin-react` still active and its secrets intact. An untested backup is not a backup.
 - [ ] Encryption decision recorded either way, with its cost/downtime implication stated rather than implied.
-- [ ] Any recurring storage cost noted against the Free Tier exception T-002 opened, so the running total stays honest.
+- [ ] Any recurring storage cost noted against [T-020](T-020-cost-model-correction.md)'s cost model (was: *"against the Free Tier exception T-002 opened"*; the account is going Paid under T-012), so the running total stays honest.
 
 ## Definition of done
 

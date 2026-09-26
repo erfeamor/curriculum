@@ -60,7 +60,7 @@ Move state to S3 with:
 
 This also fixes a problem nobody has filed yet: **state currently lives on exactly one laptop.** Losing that disk means losing the mapping between the config and every live AWS resource — recoverable only by hand-importing each one.
 
-**Free Tier:** S3 and DynamoDB usage at this scale is negligible (well under the free allowances; a few KB of state and a handful of lock writes). Unlike T-002 this needs no cost exception, but confirm rather than assume.
+**Cost (re-read 2026-09-25):** [T-012](T-012-aws-endgame-decision.md) chose the Paid plan, so "fits the Free Tier" is no longer the question. What matters is the real monthly cost, which is still cents: S3 and DynamoDB usage at this scale is negligible (well under the free allowances; a few KB of state and a handful of lock writes). Unlike T-002 this needs no cost exception, but confirm rather than assume.
 
 ### Migration is the risky step
 
@@ -79,7 +79,7 @@ The secrets have been sitting in a world-readable file. On a single-user laptop 
 
 ## Acceptance criteria
 
-- [ ] `terraform.tfstate*` are `0600` (part 1, do first).
+- [x] `terraform.tfstate*` are `0600` (part 1, do first). *Done and verified 2026-08-24; see `checkpoint.part_1_note`.*
 - [ ] State in S3 with encryption, versioning, public-access block, and locking.
 - [ ] `terraform plan` after migration shows **no changes** — proving no resource was orphaned.
 - [ ] Local state files removed from the working tree only *after* the remote backend is verified working.
