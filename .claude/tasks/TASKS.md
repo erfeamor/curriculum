@@ -4,12 +4,11 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-26 (wave T-409 + T-401 + T-108 merged)
+## Now / Next / Later — refreshed 2026-09-27 (T-402 merged; both public sites render the full CV locally)
 
 The order to claim in. It is **advice, refreshed at every board-sync** — `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Now — no AWS, parallel-safe (different repos)**
-- [T-402](T-402-public-react-cv-sections.md) (cv-public-react) — unblocked by T-409 (merged 2026-09-26): the adapter now tells an absent `endDate` from a present null, so "Present" is never fabricated.
 - [T-301](T-301-admin-cv-sections-crud.md) (cv-admin-react) — T-108 landed first, as intended. **Its CI works, but a push does not wake the host.** Drone smoke check, 2026-09-26: a no-op push built green (Drone #32), and the webhook delivered 200 to the still-attached EIP. **At stage 3, make sure the CI host is running before pushing:** start it by hand, or push a wired Jenkins repo first. "No checks reported" means the host was down, not that CI passed. T-034 removes this step, and T-301 does not wait for it.
 - [T-114](T-114-test-profile-open-in-view.md) (cv-domain-service) — small, and it removes a test-mode trap that already hid one real defect.
 - Cheap meta work: [T-036](T-036-qa-env-cors-port-shift.md) (QA tooling: CORS for port-shifted previews), [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) (trivial contract prose), [T-029](T-029-code-review-cannot-see-worktrees.md) (a local adapter note), [T-032](T-032-board-check-re-review-after-live-use.md) (its link check would have caught the 4 dead links fixed 2026-09-25).
@@ -38,11 +37,10 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |
-| [T-402](T-402-public-react-cv-sections.md) | Public site (React): render full CV sections | cv-public-react | todo | | T-201 ✔, T-405 ✔, T-409 ✔ | |
 | [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | todo | | T-101…T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-403, T-404 (T-408, T-409 via T-401, T-402) | |
 
 <details>
-<summary>M2 — 13 done</summary>
+<summary>M2 — 14 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -59,6 +57,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 | [T-408](T-408-public-vanilla-bff-path-missing-prefix.md) | **Public site (vanilla): calls the BFF at `/api/v1`** — the landing page renders its error state today, and `main.js` has no test | cv-public-vanilla | done | fullstack-developer | — | [#3](https://github.com/erfeamor/cv-public-vanilla/pull/3) |
 | [T-401](T-401-public-cv-sections.md) | Public site: render full CV | cv-public-vanilla | done | tech-product-owner | T-201 ✔, **T-408** | [#4](https://github.com/erfeamor/cv-public-vanilla/pull/4) |
 | [T-409](T-409-public-react-adapter-validates-required-and-enum.md) | Public site (React): the adapter validates required fields, the `proficiency` enum, and absent-vs-null `endDate` | cv-public-react | done | tech-product-owner | T-407 | [#7](https://github.com/erfeamor/cv-public-react/pull/7) |
+| [T-402](T-402-public-react-cv-sections.md) | Public site (React): render full CV sections | cv-public-react | done | tech-product-owner | T-201 ✔, T-405 ✔, T-409 ✔ | [#8](https://github.com/erfeamor/cv-public-react/pull/8) |
 
 </details>
 
