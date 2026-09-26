@@ -26,6 +26,8 @@ Editing UI for the four CV sections against the domain API, per [docs/api-contra
 
 **Consequence for whoever claims this task:** budget for the CI host being *stopped* when you push, and do not read "no checks reported" as "CI passed". Start the box by hand (or push to one of the two wired repos first), or raise the webhook re-point at H1 as a prerequisite and let the driver decide whether it belongs here or in its own task.
 
+**Drone smoke check, 2026-09-26 (driver, on the human's request):** a no-op commit (`2c6c45c`) pushed to a throwaway branch while the CI host was already up built **green** as Drone build #32 (`http://13.39.59.12/erfeamor/cv-admin-react/32`): install, lint, typecheck, test and build. The webhook's last delivery went from "unused" to **200**. The branch was deleted afterwards. So problem 1 above is **not** a failure today: the webhook still reaches Drone, because the EIP is still attached, and it will until T-034 releases it. Only problem 2 remains: a push to this repo does not wake a stopped host. The workaround above is therefore sufficient, and this task stays in the lane's Now group rather than waiting for T-034. The last green Drone build before this one was 2026-08-03.
+
 **Provenance:** T-019 ruling 5 recorded this and said it was "T-301's problem when it arrives". That note was written into the board's history file rather than into this file, so the task it warns has never carried the warning. Found 2026-08-24 in a board review; recorded here because this is the file the implementer actually reads.
 
 ## Pointers
