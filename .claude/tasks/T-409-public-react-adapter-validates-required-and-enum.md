@@ -2,13 +2,37 @@
 id: T-409
 title: "cv-public-react's adapter defends the nullable half of the payload and trusts the rest — required fields, the `proficiency` enum, and an absent `endDate` all pass through an unchecked cast"
 repo: cv-public-react
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: fix/adapter-runtime-validation
-pr:
+pr: https://github.com/erfeamor/cv-public-react/pull/7
 depends_on: [T-407]   # T-407 establishes the boundary this extends
 risk: normal
 security_review: false   # no auth or exposure change; a malformed upstream payload degrades this page only
+checkpoint:
+  stage: done   # merged ce6be28 (squash of cv-public-react#7), 2026-09-26 — H2 accepted by the human; QA PASS (see PR)
+  repo: cv-public-react
+  branch: fix/adapter-runtime-validation
+  worktree: none   # removed after merge
+  commit: ce6be28   # squash merge on master (branch head was 9b346ff)
+  pr: https://github.com/erfeamor/cv-public-react/pull/7
+  developer: fullstack-developer
+  reviewers: [code-review, frontend-architect]
+  risk: normal
+  security_review: false
+  review_round: 1
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: none   # unit-level; the real BFF is contract-compliant, malformed payloads exist only in fixtures
+  updated: 2026-09-26T19:25:00+02:00
+  budget:
+    turns: 80   # --since 2026-09-25T12:49:25.700Z
+    total_tokens: 21869911
+    subagent_tokens: 0
+    spawns: 3   # quality-assurance (test plan, shared by the wave) + fullstack-developer + frontend-architect (instance reused for T-401)
+    status: ok
+    checked: 2026-09-26T18:58:00+02:00
 ---
 
 ## The gap
@@ -75,12 +99,12 @@ Raised by the T-407 developer unprompted in its hand-back, and independently by 
 
 ## Acceptance criteria
 
-- [ ] A malformed payload missing a required field fails at the adapter boundary with a typed, actionable error — not at a `new Date()` call three layers up.
-- [ ] An unknown `proficiency` value cannot reach the domain model; the chosen behaviour is tested and its reasoning recorded.
-- [ ] An **absent** `endDate` is distinguishable from a present `null`, and does not silently render as "current". A test covers both.
-- [ ] The adapter's doc comment describes the boundary's real guarantees.
-- [ ] Tests for each case **fail against `master`** before the fix — the standard T-407 and T-406 were held to.
-- [ ] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` pass.
+- [x] A malformed payload missing a required field fails at the adapter boundary with a typed, actionable error — not at a `new Date()` call three layers up.
+- [x] An unknown `proficiency` value cannot reach the domain model; the chosen behaviour is tested and its reasoning recorded.
+- [x] An **absent** `endDate` is distinguishable from a present `null`, and does not silently render as "current". A test covers both.
+- [x] The adapter's doc comment describes the boundary's real guarantees.
+- [x] Tests for each case **fail against `master`** before the fix — the standard T-407 and T-406 were held to.
+- [x] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` pass.
 
 ## Watch-outs
 
@@ -100,3 +124,22 @@ Raised by the T-407 developer unprompted in its hand-back, and independently by 
 Filed by the driver, 2026-09-22, during [T-407](T-407-public-react-tocv-null-invariant.md)'s review round 1. Three sources converged on the same boundary from different directions: the T-407 developer flagged the unchecked cast unprompted in its hand-back; `/code-review` raised the required-field gap and the `proficiency` passthrough as separate findings; and the `endDate` fabrication risk came out of `/code-review`'s first finding, which also corrected the driver's own H1 reasoning — the ruling had treated all thirteen nullable fields as carrying the same meaning of `null`, and three of them do not.
 
 Verified by reading `BffCvRepository.ts` at `6b1eae2`, not inferred.
+
+## Test plan — quality-assurance, 2026-09-26 (stage 0)
+
+All unit (jest, mocked `fetch`); every new case **must fail on master first**.
+- [x] Missing required field → typed `CvPayloadError` naming the JSON path (`experiences[0].startDate`): experience `company`/`role`/`startDate`; education `institution`/`degree`/`startDate`; project `name`; skill `name`; person `name`.
+- [x] Wrong-typed required field (`startDate: 123`, `company: null`) → same error.
+- [x] `proficiency` outside the four literals (`"MASTER"`, `"advanced"`, `""`) → rejected per the H1 behaviour; each of the four literals still passes (parametrized).
+- [x] **Named** tests replace the three anonymous `endDate` cases in T-407's `describe.each`: absent `endDate` on experience / education / project → `CvPayloadError`, not `null`.
+- [x] Present-and-`null` `endDate` on all three → domain `null` (T-407 preserved).
+- [x] Regression: `allNull`, `emptyStrings`, missing-section-arrays → `[]`, non-`endDate` omitted optional keys → `null` all still pass unchanged.
+- [x] `app/page.tsx`: `CvFetchError` (network/5xx) still renders the `role="alert"`; `CvPayloadError` behaves per H1 and is tested on the implemented branch.
+- [x] Doc comment narrowed to what is validated vs merely normalized (inspection at review).
+- Gates: `npm run lint`, `typecheck`, `test`, `build`. No live cases for malformed payloads (the real BFF is compliant); optional happy-path smoke.
+
+## H1 decisions — human, 2026-09-26
+
+- **Hand-written guards**, no validation library (zero runtime deps beyond next/react/react-dom, verified).
+- **Every contract violation throws one typed `CvPayloadError` naming the JSON path:** a missing or wrong-typed required field, an absent `endDate` key, or a `proficiency` outside the four literals. Unknown `proficiency` rejects the **whole payload**, not just that skill: one rule, one test shape.
+- **`app/page.tsx` lets `CvPayloadError` propagate** (the human chose "Propagate"). Under ISR, Next keeps serving the last good static page and logs the error; a first build against a bad payload fails. `CvFetchError` (network/5xx) keeps today's "unavailable" alert. This is the "fail loudly" that a running page can actually do.
