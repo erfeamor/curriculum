@@ -2,14 +2,41 @@
 id: T-032
 title: "Re-review board-check.py after a week of real use — synthetic rounds found 34 defects and never converged"
 repo: cv-project (meta)
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: chore/board-check-re-review
 depends_on: [T-031]
 risk: normal
 security_review: false   # read-only tooling in the meta repo; no adapter §5 path. A1 re-checks against the real diff.
 pr:
+checkpoint:
+  stage: 1   # H1 accepted 2026-09-27 (see the H1 note below); infrastructure-engineer implementing
+  repo: cv-project (meta)
+  branch: chore/board-check-re-review
+  worktree: /home/erfeamor/work/cvdl-worktrees/T-032
+  pr:
+  developer: infrastructure-engineer
+  reviewers: [code-review, quality-assurance]
+  risk: normal
+  security_review: false
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a   # read-only tooling; no stack
+  updated: 2026-09-27T12:30:00+02:00
+  budget:
+    turns: 130   # --since 2026-09-27T09:19:56.000Z (baseline reset by the human)
+    total_tokens: 17000000
+    subagent_tokens: 0
+    spawns: 2   # quality-assurance (shared plan) + infrastructure-engineer
+    status: ok
+    checked: 2026-09-27T12:30:00+02:00
 ---
+
+## H1 — accepted by the human, 2026-09-27
+
+**One task, two phases.** Phase A builds link integrity (dead target, and ID/target agreement, skipping code spans and fences) and widens check 5. Phase B is the re-review: a mutation re-run, classification of in-the-wild findings, the eighth-key hunt over at least six YAML forms, adoption signals, and a false-positive sweep over 10 snapshots, half of them driver checkpoint writes. It ends in a verdict. QA's 20-case plan is binding. **The T-019 passenger was done by the driver at H1**: see T-019.
 
 ## Goal
 
