@@ -13,6 +13,7 @@ Run:  python3 -m unittest discover -s scripts -p 'test_*.py'
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -187,6 +188,117 @@ class OverrideDocument(unittest.TestCase):
                          ["/wt/T-151/sql:/flyway/sql:ro"])
         self.assertEqual(mounts["services"], ["flyway"])
         self.assertIn("volumes: !override", self.render(doc))
+
+
+class CorsOriginShift(unittest.TestCase):
+    """T-036: a frontend preview served on its slot's shifted port must get a
+    matching Access-Control-Allow-Origin. Derived from the base compose's own
+    CORS_ALLOWED_ORIGINS values — never a hardcoded service table (plan case
+    1-10, /tmp scratchpad t036-plan.md)."""
+
+    def test_case1_red_first_slot0_domain_service_lacks_shifted_origins(self):
+        # Today's generator (pre-T-036) leaves CORS_ALLOWED_ORIGINS alone: this
+        # must FAIL before the fix and PASS after it.
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, 10)
+        self.assertIn("5183", cors_map["domain-service"]["value"])
+        self.assertIn("4183", cors_map["domain-service"]["value"])
+
+    def test_case2_slot0_domain_service_origin_set(self):
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, (0 + 1) * 10)
+        self.assertEqual(
+            set(cors_map["domain-service"]["origins"]),
+            {"http://localhost:5173", "http://localhost:4173",
+             "http://localhost:5183", "http://localhost:4183"})
+
+    def test_case3_slot2_includes_shifted_and_keeps_base(self):
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, (2 + 1) * 10)
+        origins = cors_map["domain-service"]["origins"]
+        self.assertIn("http://localhost:5203", origins)
+        self.assertIn("http://localhost:4203", origins)
+        self.assertIn("http://localhost:5173", origins)
+        self.assertIn("http://localhost:4173", origins)
+
+    def test_case4_bff_only_shifts_the_origin_it_actually_has(self):
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, (0 + 1) * 10)
+        self.assertEqual(set(cors_map["bff"]["origins"]),
+                         {"http://localhost:4173", "http://localhost:4183"})
+
+    def test_case5_public_react_port_never_appears(self):
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, 10)
+        for cors in cors_map.values():
+            self.assertNotIn("4300", ",".join(cors["origins"]))
+            self.assertNotIn("4310", ",".join(cors["origins"]))
+
+    def test_case6_services_without_the_key_get_no_entry(self):
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, 10)
+        for svc in ("mysql", "flyway", "prometheus", "grafana"):
+            self.assertNotIn(svc, cors_map)
+
+    def test_case7_additive_merge_keeps_base_values(self):
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, 10)
+        for base_origin in ("http://localhost:5173", "http://localhost:4173"):
+            self.assertIn(base_origin, cors_map["domain-service"]["origins"])
+
+    def test_case8_generator_never_edits_the_base_compose_file(self):
+        before = (REPO_ROOT / "docker-compose.dev.yml").read_text()
+        qeo.shifted_cors_origins(DEV_COMPOSE, 10)
+        after = (REPO_ROOT / "docker-compose.dev.yml").read_text()
+        self.assertEqual(before, after)
+
+    def test_case10_empty_value_does_not_crash(self):
+        compose = {"services": {"s": {"environment": {"CORS_ALLOWED_ORIGINS": ""}}}}
+        cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertEqual(cors_map["s"]["origins"], [])
+        self.assertEqual(cors_map["s"]["value"], "")
+
+    def test_non_frontend_and_unparseable_origins_pass_through(self):
+        compose = {"services": {"s": {"environment": {
+            "CORS_ALLOWED_ORIGINS": "http://localhost:9999,not-an-origin,,"}}}}
+        cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertEqual(cors_map["s"]["origins"],
+                         ["http://localhost:9999", "not-an-origin"])
+
+
+class CorsOverrideIntegration(unittest.TestCase):
+    """CLI-level checks (case 9, 11, 12)."""
+
+    def run_cli(self, *args):
+        return subprocess.run(
+            [sys.executable, str(SCRIPT), *args],
+            capture_output=True, text=True, cwd=str(REPO_ROOT))
+
+    def test_case9_json_exposes_cors_origins(self):
+        r = self.run_cli("--task", "T-036", "--slot", "0", "--json",
+                         "--no-worktree-check")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        out = json.loads(r.stdout)
+        self.assertEqual(
+            set(out["cors_origins"]["domain-service"]),
+            {"http://localhost:5173", "http://localhost:4173",
+             "http://localhost:5183", "http://localhost:4183"})
+        self.assertEqual(set(out["cors_origins"]["bff"]),
+                         {"http://localhost:4173", "http://localhost:4183"})
+
+    def test_case11_compose_config_merges_the_shifted_origins(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self.run_cli("--task", "T-036cfg", "--slot", "1",
+                             "--no-worktree-check", "--out-dir", tmp)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            override_path = Path(tmp) / "docker-compose.override.cvdl_t-036cfg.yml"
+            self.assertTrue(override_path.is_file())
+            cfg = subprocess.run(
+                ["docker", "compose",
+                 "-f", str(REPO_ROOT / "docker-compose.dev.yml"),
+                 "-f", str(override_path), "config"],
+                capture_output=True, text=True)
+            self.assertEqual(cfg.returncode, 0, cfg.stderr)
+            merged = yaml.safe_load(cfg.stdout)
+            domain_cors = merged["services"]["domain-service"]["environment"][
+                "CORS_ALLOWED_ORIGINS"]
+            self.assertEqual(
+                set(domain_cors.split(",")),
+                {"http://localhost:5173", "http://localhost:4173",
+                 "http://localhost:5193", "http://localhost:4193"})
 
 
 class WorktreeResolution(unittest.TestCase):
