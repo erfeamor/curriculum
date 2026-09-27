@@ -10,7 +10,7 @@ risk: normal
 security_review: false   # read-only tooling in the meta repo; no adapter §5 path. A1 re-checks against the real diff.
 pr:
 checkpoint:
-  stage: 1   # H1 accepted 2026-09-27 (see the H1 note below); infrastructure-engineer implementing
+  stage: review   # round 2 in progress: the human chose to rebuild check 8 on markdown_it (2026-09-27); branch at 4df3d36 before round 2
   repo: cv-project (meta)
   branch: chore/board-check-re-review
   worktree: /home/erfeamor/work/cvdl-worktrees/T-032
@@ -19,15 +19,15 @@ checkpoint:
   reviewers: [code-review, quality-assurance]
   risk: normal
   security_review: false
-  review_round: 0
+  review_round: 2   # r1 (/code-review high, 10 findings incl. FPs, all fixed in a2a42ae); QA lens: evidence reproduced, no blockers
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a   # read-only tooling; no stack
-  updated: 2026-09-27T12:30:00+02:00
+  updated: 2026-09-27T15:00:00+02:00
   budget:
-    turns: 130   # --since 2026-09-27T09:19:56.000Z (baseline reset by the human)
-    total_tokens: 17000000
+    turns: 220   # --since 2026-09-27T09:19:56.000Z
+    total_tokens: 36949728
     subagent_tokens: 0
     spawns: 2   # quality-assurance (shared plan) + infrastructure-engineer
     status: ok
