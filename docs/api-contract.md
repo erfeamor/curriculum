@@ -7,7 +7,7 @@ Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF 
 1. Every section resource is **person-scoped**: nested under `/api/v1/people/{personId}`. A request for a section of a nonexistent person returns `404`.
 2. Skills are the exception: the **catalog** is global (`/api/v1/skills`), the **assignment** (skill + proficiency) is person-scoped.
 3. Dates are ISO-8601 (`YYYY-MM-DD`). `endDate: null` means "current".
-4. Validation errors return `400` with Spring's default problem body; unknown IDs return `404`; success on `DELETE` is `204`.
+4. Validation errors return `400` with Spring's default problem body; unknown IDs return `404`; success on `DELETE` is `204`. A dated section (experience, education, project) whose `startDate` and `endDate` are **both** non-null must have `endDate` ≥ `startDate` (equal is allowed); an inverted period is a validation error, `400` on `POST` and `PUT`. A `null` on either side is not checked by this rule: `null` `endDate` means "current" (rule 3), and a project may omit either date.
 5. The domain service exposes internal `id`s; the BFF **strips ids and emails** from public payloads (same rule as the existing `people/:id` normalization).
 6. Every collection response is **explicitly ordered** — see § Ordering. An endpoint returning rows in the database's natural order does not satisfy this contract.
 7. **Optional fields are always present; `null` is the empty value.** Every field this contract declares in a **response** body — section resources, the person head, and the BFF's payloads alike — is a key in that response whether or not it has a value. An optional field with no value serializes as `"fieldOfStudy": null`, never as a missing key. A consumer may assume the key exists and must handle `null`; it must not treat a missing key as the empty case.
@@ -47,9 +47,18 @@ It is `id` ASC for four of the five collections. **Person skills are the excepti
 | `project.start_date` | yes — the only nullable date of the three | undated projects **last** |
 | `skill.category` | yes | uncategorized skills **last** |
 
-Both must be expressed explicitly — `ORDER BY start_date IS NULL, start_date DESC, id ASC` and `ORDER BY category IS NULL, category ASC, name ASC, skill_id ASC` — rather than relying on the engine default. The default happens to disagree with both rules today, so leaving it implicit is not merely fragile, it is wrong now. `experience.start_date` and `education.start_date` are `NOT NULL`; do not add NULL handling there, where it would be dead code implying a nullability the schema does not have.
+Both must be expressed explicitly rather than relying on the engine default. **The intended semantics, written in SQL** (read this as the rule, not as a snippet to paste): `ORDER BY start_date IS NULL, start_date DESC, id ASC` and `ORDER BY category IS NULL, category ASC, name ASC, skill_id ASC`. The default happens to disagree with both rules today, so leaving it implicit is not merely fragile, it is wrong now. `experience.start_date` and `education.start_date` are `NOT NULL`; do not add NULL handling there, where it would be dead code implying a nullability the schema does not have.
 
 **Implementation note — the nullable cases need `@Query`.** Spring Data's derived method names support `OrderBy…Asc/Desc` chains but cannot express a synthetic `IS NULL` sort key. Experiences, education and the skill catalog can use the derived form (`findByPersonIdOrderByStartDateDescIdAsc`); **projects and person skills cannot** and require an explicit `@Query`. Following the derived idiom there would compile, look right, and produce the wrong NULL placement.
+
+**Write the NULL key in JPQL as `CASE`, not `IS NULL`.** `@Query` is JPQL unless `nativeQuery = true`, and JPQL has no boolean sort key: Hibernate 6.5.2 rejects the SQL spelling at startup (`SyntaxException: … mismatched input 'IS'`, verified 2026-09-27 in T-027 by swapping it into `ProjectRepository`). The form to write is:
+
+```
+ORDER BY CASE WHEN p.startDate IS NULL THEN 1 ELSE 0 END, p.startDate DESC, p.id ASC
+ORDER BY CASE WHEN s.category IS NULL THEN 1 ELSE 0 END, s.category ASC, s.name ASC, ps.id.skillId ASC
+```
+
+The worked examples are `ProjectRepository` and `PersonSkillRepository` in cv-domain-service. They run identically on H2 (tests) and MySQL 8.4 (production). `nativeQuery = true` with the SQL spelling would also work, but it is not preferred: every other query in the repository is JPQL, and a native query moves a column rename from a startup failure to a runtime one. HQL's `NULLS LAST` parses in Hibernate 6.5.2, but its rendering on MySQL (which has no native `NULLS LAST`) has **not** been verified here, so do not use it without a test against MySQL.
 
 Ordering is **not** pagination — § Non-goals rules out the latter for v1 and says nothing about the former.
 
