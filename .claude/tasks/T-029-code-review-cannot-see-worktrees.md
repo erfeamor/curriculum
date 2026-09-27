@@ -10,7 +10,7 @@ depends_on: []
 risk: normal
 security_review: false   # tooling/process change in the meta repo; no adapter §5 security path
 checkpoint:
-  stage: 1   # H1 accepted 2026-09-27
+  stage: review   # adapter §7 edited locally (8-line diff after the reviewer table); /code-review not yet run — stopped at SOFT
   repo: cv-project (meta)
   branch: fix/code-review-on-worktrees
   worktree: none   # local adapter edit + board record
@@ -24,14 +24,14 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a
-  updated: 2026-09-27T12:00:00+02:00
+  updated: 2026-09-27T13:00:00+02:00
   budget:
-    turns: 514   # --since 2026-09-25T12:49:25.700Z (session-wide)
-    total_tokens: 115504286
+    turns: 572   # --since 2026-09-25T12:49:25.700Z (session-wide); SOFT reached
+    total_tokens: 119591145
     subagent_tokens: 0
     spawns: 0   # quality-assurance (shared T-302/T-115 plan)
-    status: ok
-    checked: 2026-09-27T12:00:00+02:00
+    status: soft
+    checked: 2026-09-27T13:00:00+02:00
 ---
 
 ## H1 — accepted by the human, 2026-09-27

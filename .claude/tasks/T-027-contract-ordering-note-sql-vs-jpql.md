@@ -5,33 +5,33 @@ repo: cv-project (meta)
 status: in_progress
 owner: tech-product-owner
 branch: docs/contract-ordering-jpql-note
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/99
 depends_on: []
 risk: trivial
 security_review: false   # docs-only; touches no adapter §5 security path
 checkpoint:
-  stage: 1   # H1 accepted 2026-09-27
+  stage: pr   # contract PR open; /code-review low on d82262a: no findings (scope stated); carries T-115's rule-4 line
   repo: cv-project (meta)
   branch: docs/contract-ordering-jpql-note
   worktree: none   # meta repo branch
-  pr:
-  developer: backend-developer
+  pr: https://github.com/erfeamor/curriculum/pull/99
+  developer: tech-product-owner   # docs-only contract prose, trivial
   reviewers: [code-review]
   risk: trivial
   security_review: false
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a
-  updated: 2026-09-27T12:00:00+02:00
+  updated: 2026-09-27T13:00:00+02:00
   budget:
-    turns: 514   # --since 2026-09-25T12:49:25.700Z (session-wide)
-    total_tokens: 115504286
+    turns: 572   # --since 2026-09-25T12:49:25.700Z (session-wide); SOFT reached
+    total_tokens: 119591145
     subagent_tokens: 0
     spawns: 0   # quality-assurance (shared T-302/T-115 plan)
-    status: ok
-    checked: 2026-09-27T12:00:00+02:00
+    status: soft
+    checked: 2026-09-27T13:00:00+02:00
 ---
 
 ## H1 — premise verified, accepted by the human, 2026-09-27

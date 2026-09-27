@@ -10,7 +10,7 @@ depends_on: [T-027]   # contract line lands in T-027's PR (board rule 4)
 risk: normal
 security_review: false
 checkpoint:
-  stage: 1   # H1 accepted 2026-09-27
+  stage: 1   # backend-developer implementing in the worktree; SOFT reached mid-stage
   repo: cv-domain-service
   branch: fix/section-period-validation
   worktree: /home/erfeamor/work/cvdl-worktrees/T-115
@@ -24,14 +24,14 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   env_slot: 0
-  updated: 2026-09-27T12:00:00+02:00
+  updated: 2026-09-27T13:00:00+02:00
   budget:
-    turns: 514   # --since 2026-09-25T12:49:25.700Z (session-wide)
-    total_tokens: 115504286
+    turns: 572   # --since 2026-09-25T12:49:25.700Z (session-wide); SOFT reached
+    total_tokens: 119591145
     subagent_tokens: 0
-    spawns: 1   # quality-assurance (shared T-302/T-115 plan)
-    status: ok
-    checked: 2026-09-27T12:00:00+02:00
+    spawns: 2   # quality-assurance (shared plan) + developer
+    status: soft
+    checked: 2026-09-27T13:00:00+02:00
 ---
 
 ## H1 — accepted by the human, 2026-09-27
