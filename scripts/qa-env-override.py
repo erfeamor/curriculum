@@ -50,6 +50,25 @@ back quietly to the main checkout would recreate the defect.
 Provenance is emitted as build LABELS (task/branch/commit/worktree), so QA proves
 which tree was built with `docker inspect` — no service needs a /version endpoint,
 and it works for modifying tasks that have no distinguishing endpoint.
+
+CORS origins for a shifted frontend preview (T-036)
+-----------------------------------------------------
+Shifting host ports alone left a gap: a frontend preview served on its slot's
+shifted port (adapter §6) sends an `Origin` header the base compose's
+`CORS_ALLOWED_ORIGINS` never listed, so the BFF/domain-service answers with no
+`Access-Control-Allow-Origin` and a real browser blocks it. The fix is derived
+from the base compose's own values, never a hardcoded service table: for every
+service whose base `CORS_ALLOWED_ORIGINS` lists an origin on a KNOWN frontend
+preview port (`FRONTEND_PREVIEW_PORTS`, below — currently admin `:5173` and
+public-vanilla `:4173`), the override appends that same origin shifted by the
+same offset used for host ports, and leaves every other origin untouched.
+`cv-public-react` (base `:4300`) is deliberately not a known frontend preview
+port: it is runtime-decoupled from the domain-service/BFF — it only fetches the
+BFF's aggregate endpoint server-side during ISR — so it never sends a browser
+`Origin` either CORS check would see, and shifting it would open an allowance
+with no request that needs it. The base origins are always kept, so a stack
+running on the base ports is unaffected; a service with no `CORS_ALLOWED_ORIGINS`
+key gets no key invented for it.
 """
 
 from __future__ import annotations
@@ -78,6 +97,22 @@ LABEL_NS = "com.cvproject.dev-loop"
 TASKS_DIR = REPO_ROOT / ".claude" / "tasks"
 # Docker Compose project names: lowercase, must start alnum, then [a-z0-9_-].
 _SANITIZE = re.compile(r"[^a-z0-9_-]+")
+
+# Host ports where a locally-launched frontend dev/preview server can present a
+# browser-visible Origin a service's CORS_ALLOWED_ORIGINS check must recognise
+# (T-036, adapter §6). This is the ONE place those ports live for that purpose —
+# shifted_cors_origins() below reads it, and nothing else in this module names
+# admin/vanilla by hand. cv-public-react's base port (4300) is deliberately
+# absent: see the module docstring for why.
+FRONTEND_PREVIEW_PORTS = {
+    5173,  # cv-admin-react   (vite dev/preview --port)
+    4173,  # cv-public-vanilla (vite dev/preview --port)
+}
+
+# An `http(s)://host:port` origin, the only shape CORS_ALLOWED_ORIGINS entries
+# take in this compose file. Anything else (no port, a bare host, an empty
+# string from a trailing comma) simply does not match — degrade, don't raise.
+_ORIGIN_RE = re.compile(r"^(https?://[^/:\s]+):(\d+)$")
 
 
 class OverrideList(list):
@@ -464,6 +499,127 @@ def remap_service_ports(ports, offset):
     return new_list, mappings
 
 
+def _normalize_origin(origin: str) -> str:
+    """Cheap normalization applied only for matching (review round 1, finding
+    6): a single trailing slash is the one shape variance worth absorbing
+    here, so `http://localhost:4173/` is still recognised as the same origin
+    as `http://localhost:4173` and gets shifted instead of silently kept."""
+    return origin.strip().rstrip("/")
+
+
+def _origin_port(origin: str):
+    """The numeric port of an `http(s)://host:port` origin, or None when the
+    string isn't shaped like one (IPv6, no explicit port, a wildcard, …).
+    Never raises: a malformed or empty CORS_ALLOWED_ORIGINS entry degrades to
+    "nothing to shift", not a crash."""
+    match = _ORIGIN_RE.match(_normalize_origin(origin))
+    return int(match.group(2)) if match else None
+
+
+def _shift_origin(origin: str, offset: int) -> str:
+    """`origin` with its port increased by `offset`. Caller must have already
+    confirmed the origin matches `_ORIGIN_RE` (e.g. via `_origin_port`)."""
+    match = _ORIGIN_RE.match(_normalize_origin(origin))
+    scheme_host, port = match.group(1), int(match.group(2))
+    return f"{scheme_host}:{port + offset}"
+
+
+def _env_mapping(env) -> dict:
+    """Env vars as a {key: value} dict regardless of which compose form the
+    service used — mapping (`KEY: value`) or list (`- KEY=value`). A plain
+    `isinstance(env, dict)` check used to skip the list form in silence
+    (review round 1, finding 5): a service written that way got no CORS shift
+    at all, with nothing said about it. Anything else (env absent, a bare
+    non-string entry) contributes no keys.
+
+    A key present with value `None` means "take it from the host shell" —
+    Compose's own passthrough syntax, spelled either as a mapping key with no
+    value (`CORS_ALLOWED_ORIGINS:`, which YAML parses as null) or a list entry
+    with no `=` (`- CORS_ALLOWED_ORIGINS`, review round 2 finding 2). Both
+    forms are normalised to `None` here so callers make one check, not two."""
+    if isinstance(env, dict):
+        return dict(env)
+    if isinstance(env, list):
+        out = {}
+        for entry in env:
+            if not isinstance(entry, str):
+                continue
+            if "=" in entry:
+                key, _, value = entry.partition("=")
+                out[key] = value
+            else:
+                out[entry.strip()] = None
+        return out
+    return {}
+
+
+def shifted_cors_origins(compose: dict, offset: int) -> dict:
+    """{service: {"origins": [...], "value": "a,b,c"}} for every service whose
+    base compose sets CORS_ALLOWED_ORIGINS — and ONLY those (a service with no
+    such key gets no entry here, so main() never invents one for it). Reads
+    both compose env forms (`_env_mapping`).
+
+    Additive and derived from the base compose's own values, never a hardcoded
+    service table (that hard-coding is exactly the bug T-036 fixes): each base
+    origin whose port is in FRONTEND_PREVIEW_PORTS gets a twin appended, shifted
+    by `offset` — the same rule remap_service_ports uses for host ports. Every
+    other origin (a non-frontend port, or one already shifted) is kept as-is.
+    The base origins are always kept, so the unshifted stack is unaffected.
+
+    A value with nothing shiftable — a genuinely empty string, or a
+    comma-separated list none of whose entries parse as an origin — comes back
+    unchanged: no crash, no invented entry. An origin that does not parse as
+    `scheme://host:port` at all (IPv6, no explicit port, a wildcard) is kept
+    as-is but named on stderr (review round 1, finding 6) — the module's own
+    "a silent zero is indistinguishable from the bug still being there" rule
+    applies here just as it does to the worktree repoint.
+
+    A `None` value (host-env passthrough, either compose spelling — review
+    round 2, findings 1 and 2) gets no entry here at all: writing
+    `CORS_ALLOWED_ORIGINS: None` into the override would coerce to the
+    literal string "None" and block every origin. Named on stderr instead.
+    """
+    out = {}
+    for name, svc in (compose.get("services") or {}).items():
+        env = _env_mapping((svc or {}).get("environment"))
+        if "CORS_ALLOWED_ORIGINS" not in env:
+            continue
+        raw_value = env["CORS_ALLOWED_ORIGINS"]
+        if raw_value is None:
+            print(f"qa-env-override: {name!r} CORS_ALLOWED_ORIGINS value "
+                  f"comes from the host env; not shifted", file=sys.stderr)
+            continue
+        base_value = str(raw_value)
+        origins = [o.strip() for o in base_value.split(",") if o.strip()]
+        merged = list(origins)
+        for origin in origins:
+            port = _origin_port(origin)
+            if port in FRONTEND_PREVIEW_PORTS:
+                shifted = _shift_origin(origin, offset)
+                if shifted not in merged:
+                    merged.append(shifted)
+            elif port is None:
+                print(f"qa-env-override: cannot parse CORS origin for "
+                      f"shifting on {name!r}: {origin!r} (kept as-is, not "
+                      f"shifted)", file=sys.stderr)
+        out[name] = {
+            "origins": merged,
+            "value": ",".join(merged) if merged else base_value,
+        }
+    return out
+
+
+def merge_cors_override(services: dict, cors_map: dict) -> None:
+    """Mutate `services` (the override document's `services` mapping) in
+    place, setting each cors_map service's CORS_ALLOWED_ORIGINS. A plain dict
+    merge is enough here — unlike the port list, Compose already replaces a
+    matching top-level environment key wholesale, so no `!override` tag is
+    needed for a scalar env value."""
+    for name, cors in cors_map.items():
+        entry = services.setdefault(name, {})
+        entry.setdefault("environment", {})["CORS_ALLOWED_ORIGINS"] = cors["value"]
+
+
 def build_override(compose: dict, offset: int, build_target=None, mount_target=None):
     """(override_doc, port_report, build_report, mount_report).
 
@@ -634,6 +790,12 @@ def main(argv=None):
     override, report, build_report, mount_report = build_override(
         base, offset, build_target, mount_services or None)
 
+    # T-036: append each slot's shifted frontend-preview origin onto every
+    # service that sets CORS_ALLOWED_ORIGINS, so a preview served on the
+    # shifted port gets a matching Access-Control-Allow-Origin.
+    cors_map = shifted_cors_origins(base, offset)
+    merge_cors_override(override["services"], cors_map)
+
     # Ruling 3: say which of the three outcomes happened, always. A silent zero
     # is indistinguishable from the bug not being fixed.
     notes = []
@@ -776,6 +938,7 @@ def main(argv=None):
             "override_file": str(override_path),
             "ports": {svc: ms for svc, ms in report.items()},
             "endpoints": {svc: f"localhost:{p}" for svc, p in endpoints.items()},
+            "cors_origins": {svc: c["origins"] for svc, c in cors_map.items()},
             "worktree": ident,
             "worktree_note": wt_note,
             "expect_branch": expect_branch,
@@ -799,6 +962,8 @@ def main(argv=None):
         for svc, ms in report.items():
             pairs = ", ".join(f"{m['published']}→{m['target']}" for m in ms)
             print(f"  {svc:<16} host→container  {pairs}")
+        for svc, cors in cors_map.items():
+            print(f"  {svc:<16} CORS_ALLOWED_ORIGINS  {cors['value']}")
         print(f"\nbuild: {note}")
         print(f"\nup:    {up_cmd}")
         print(f"down:  {down_cmd}")

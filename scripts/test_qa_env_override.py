@@ -12,7 +12,10 @@ Run:  python3 -m unittest discover -s scripts -p 'test_*.py'
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
+import json
 import os
 import subprocess
 import sys
@@ -187,6 +190,192 @@ class OverrideDocument(unittest.TestCase):
                          ["/wt/T-151/sql:/flyway/sql:ro"])
         self.assertEqual(mounts["services"], ["flyway"])
         self.assertIn("volumes: !override", self.render(doc))
+
+
+class CorsOriginShift(unittest.TestCase):
+    """T-036: a frontend preview served on its slot's shifted port must get a
+    matching Access-Control-Allow-Origin. Derived from the base compose's own
+    CORS_ALLOWED_ORIGINS values — never a hardcoded service table (plan case
+    1-10, /tmp scratchpad t036-plan.md)."""
+
+    def test_case1_red_first_slot0_domain_service_lacks_shifted_origins(self):
+        # Today's generator (pre-T-036) leaves CORS_ALLOWED_ORIGINS alone: this
+        # must FAIL before the fix and PASS after it.
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, 10)
+        self.assertIn("5183", cors_map["domain-service"]["value"])
+        self.assertIn("4183", cors_map["domain-service"]["value"])
+
+    def test_case2_slot0_domain_service_origin_set(self):
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, (0 + 1) * 10)
+        self.assertEqual(
+            set(cors_map["domain-service"]["origins"]),
+            {"http://localhost:5173", "http://localhost:4173",
+             "http://localhost:5183", "http://localhost:4183"})
+
+    def test_case3_slot2_includes_shifted_and_keeps_base(self):
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, (2 + 1) * 10)
+        origins = cors_map["domain-service"]["origins"]
+        self.assertIn("http://localhost:5203", origins)
+        self.assertIn("http://localhost:4203", origins)
+        self.assertIn("http://localhost:5173", origins)
+        self.assertIn("http://localhost:4173", origins)
+
+    def test_case4_bff_only_shifts_the_origin_it_actually_has(self):
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, (0 + 1) * 10)
+        self.assertEqual(set(cors_map["bff"]["origins"]),
+                         {"http://localhost:4173", "http://localhost:4183"})
+
+    def test_case5_public_react_port_never_appears(self):
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, 10)
+        for cors in cors_map.values():
+            self.assertNotIn("4300", ",".join(cors["origins"]))
+            self.assertNotIn("4310", ",".join(cors["origins"]))
+
+    def test_case6_services_without_the_key_get_no_entry(self):
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, 10)
+        for svc in ("mysql", "flyway", "prometheus", "grafana"):
+            self.assertNotIn(svc, cors_map)
+
+    def test_case7_additive_merge_keeps_base_values(self):
+        cors_map = qeo.shifted_cors_origins(DEV_COMPOSE, 10)
+        for base_origin in ("http://localhost:5173", "http://localhost:4173"):
+            self.assertIn(base_origin, cors_map["domain-service"]["origins"])
+
+    def test_case8_generator_never_edits_the_base_compose_file(self):
+        before = (REPO_ROOT / "docker-compose.dev.yml").read_text()
+        qeo.shifted_cors_origins(DEV_COMPOSE, 10)
+        after = (REPO_ROOT / "docker-compose.dev.yml").read_text()
+        self.assertEqual(before, after)
+
+    def test_case10_empty_value_does_not_crash(self):
+        compose = {"services": {"s": {"environment": {"CORS_ALLOWED_ORIGINS": ""}}}}
+        cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertEqual(cors_map["s"]["origins"], [])
+        self.assertEqual(cors_map["s"]["value"], "")
+
+    def test_non_frontend_and_unparseable_origins_pass_through(self):
+        compose = {"services": {"s": {"environment": {
+            "CORS_ALLOWED_ORIGINS": "http://localhost:9999,not-an-origin,,"}}}}
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertEqual(cors_map["s"]["origins"],
+                         ["http://localhost:9999", "not-an-origin"])
+
+    def test_list_form_environment_is_shifted_too(self):
+        """A service that declares `environment:` as `- KEY=value` (review
+        round 1, finding 5) must be treated identically to mapping form."""
+        compose = {"services": {"s": {"environment": [
+            "CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:4173",
+            "OTHER=1",
+        ]}}}
+        cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertEqual(
+            set(cors_map["s"]["origins"]),
+            {"http://localhost:5173", "http://localhost:4173",
+             "http://localhost:5183", "http://localhost:4183"})
+
+    def test_list_form_service_without_the_key_gets_no_entry(self):
+        compose = {"services": {"s": {"environment": ["OTHER=1"]}}}
+        cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertNotIn("s", cors_map)
+
+    def test_mapping_form_passthrough_value_is_not_shifted_and_is_reported(self):
+        """review round 2, finding 1: `CORS_ALLOWED_ORIGINS:` with no value
+        means "take it from the host shell" (YAML null) — must not become
+        the literal string "None" and must not get an override written."""
+        compose = {"services": {"s": {"environment": {
+            "CORS_ALLOWED_ORIGINS": None}}}}
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertNotIn("s", cors_map)
+        err = buf.getvalue()
+        self.assertIn("'s'", err)
+        self.assertIn("host env", err)
+
+    def test_list_form_passthrough_key_is_not_shifted_and_is_reported(self):
+        """review round 2, finding 2: a list entry with no `=`
+        (`- CORS_ALLOWED_ORIGINS`) is the list-form spelling of the same
+        host-env passthrough — must be recognised, not merely dropped."""
+        compose = {"services": {"s": {"environment": ["CORS_ALLOWED_ORIGINS"]}}}
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertNotIn("s", cors_map)
+        err = buf.getvalue()
+        self.assertIn("'s'", err)
+        self.assertIn("host env", err)
+
+    def test_unparseable_origin_is_reported_on_stderr_and_kept_as_is(self):
+        """finding 6: an origin the regex can't parse (IPv6, no explicit
+        port) must be named loudly, not silently left unshifted."""
+        compose = {"services": {"s": {"environment": {
+            "CORS_ALLOWED_ORIGINS": "http://[::1]:5173,http://localhost"}}}}
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertEqual(cors_map["s"]["origins"],
+                         ["http://[::1]:5173", "http://localhost"])
+        err = buf.getvalue()
+        self.assertIn("http://[::1]:5173", err)
+        self.assertIn("http://localhost", err)
+        self.assertIn("'s'", err)
+
+    def test_trailing_slash_is_normalised_before_matching(self):
+        """finding 6: cheap to normalise, so a trailing slash on an otherwise
+        well-formed frontend origin must still get shifted, not skipped."""
+        compose = {"services": {"s": {"environment": {
+            "CORS_ALLOWED_ORIGINS": "http://localhost:4173/"}}}}
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertIn("http://localhost:4183", cors_map["s"]["origins"])
+        self.assertEqual(buf.getvalue(), "")  # normalised, not reported as unparseable
+
+
+class CorsOverrideIntegration(unittest.TestCase):
+    """CLI-level checks (case 9, 11, 12)."""
+
+    def run_cli(self, *args):
+        return subprocess.run(
+            [sys.executable, str(SCRIPT), *args],
+            capture_output=True, text=True, cwd=str(REPO_ROOT))
+
+    def test_case9_json_exposes_cors_origins(self):
+        # review round 1, finding 4: must not write into the real repo root.
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self.run_cli("--task", "T-036", "--slot", "0", "--json",
+                             "--no-worktree-check", "--out-dir", tmp)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            out = json.loads(r.stdout)
+        self.assertEqual(
+            set(out["cors_origins"]["domain-service"]),
+            {"http://localhost:5173", "http://localhost:4173",
+             "http://localhost:5183", "http://localhost:4183"})
+        self.assertEqual(set(out["cors_origins"]["bff"]),
+                         {"http://localhost:4173", "http://localhost:4183"})
+
+    def test_case11_compose_config_merges_the_shifted_origins(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self.run_cli("--task", "T-036cfg", "--slot", "1",
+                             "--no-worktree-check", "--out-dir", tmp)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            override_path = Path(tmp) / "docker-compose.override.cvdl_t-036cfg.yml"
+            self.assertTrue(override_path.is_file())
+            cfg = subprocess.run(
+                ["docker", "compose",
+                 "-f", str(REPO_ROOT / "docker-compose.dev.yml"),
+                 "-f", str(override_path), "config"],
+                capture_output=True, text=True)
+            self.assertEqual(cfg.returncode, 0, cfg.stderr)
+            merged = yaml.safe_load(cfg.stdout)
+            domain_cors = merged["services"]["domain-service"]["environment"][
+                "CORS_ALLOWED_ORIGINS"]
+            self.assertEqual(
+                set(domain_cors.split(",")),
+                {"http://localhost:5173", "http://localhost:4173",
+                 "http://localhost:5193", "http://localhost:4193"})
 
 
 class WorktreeResolution(unittest.TestCase):
