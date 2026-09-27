@@ -10,7 +10,7 @@ depends_on: []
 risk: trivial
 security_review: false   # docs-only; touches no adapter §5 security path
 checkpoint:
-  stage: pr   # contract PR open; /code-review low on d82262a: no findings (scope stated); carries T-115's rule-4 line
+  stage: H2   # PR #99 open, /code-review clean with stated scope; awaiting human merge
   repo: cv-project (meta)
   branch: docs/contract-ordering-jpql-note
   worktree: none   # meta repo branch
@@ -24,14 +24,14 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a
-  updated: 2026-09-27T13:00:00+02:00
+  updated: 2026-09-27T11:40:00+02:00
   budget:
-    turns: 572   # --since 2026-09-25T12:49:25.700Z (session-wide); SOFT reached
-    total_tokens: 119591145
+    turns: 55   # budget baseline reset by the human: --since 2026-09-27T09:19:56.000Z
+    total_tokens: 6385214
     subagent_tokens: 0
     spawns: 0   # quality-assurance (shared T-302/T-115 plan)
-    status: soft
-    checked: 2026-09-27T13:00:00+02:00
+    status: ok
+    checked: 2026-09-27T11:40:00+02:00
 ---
 
 ## H1 — premise verified, accepted by the human, 2026-09-27

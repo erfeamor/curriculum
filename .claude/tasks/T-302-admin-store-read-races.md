@@ -2,37 +2,37 @@
 id: T-302
 title: "cv-admin-react section/skills stores: rare load-vs-write interleavings leave a wrong list, notice or error on screen until reload"
 repo: cv-admin-react
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: fix/admin-store-read-races
-pr:
+pr: https://github.com/erfeamor/cv-admin-react/pull/14
 depends_on: [T-301]
 risk: normal
 security_review: false
 checkpoint:
-  stage: A1   # stage 1 done: aa1988d on the branch, not pushed; 15 files; 226/226 Jest, typecheck/lint/build/build-storybook clean per developer; no counter removed (developer: a write starting just before a load can still re-read after it) — reviewer to check. SOFT stop — A1 not started
+  stage: qa   # review converged at round 3 (db1b584, no findings); Drone push+PR builds green; exploratory QA running on slot 0
   repo: cv-admin-react
   branch: fix/admin-store-read-races
   worktree: /home/erfeamor/work/cvdl-worktrees/T-302
-  commit: aa1988d
-  pr:
+  commit: db1b584
+  pr: https://github.com/erfeamor/cv-admin-react/pull/14
   developer: fullstack-developer
   reviewers: [code-review, frontend-architect]
   risk: normal
   security_review: false
-  review_round: 0
+  review_round: 3   # r1: 3 blockers (/code-review; architect clean); r2: regression (empty list A→B→A); r3: clean
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
   env_slot: 1
-  updated: 2026-09-27T13:00:00+02:00
+  updated: 2026-09-27T11:40:00+02:00
   budget:
-    turns: 572   # --since 2026-09-25T12:49:25.700Z (session-wide); SOFT reached
-    total_tokens: 119591145
+    turns: 55   # budget baseline reset by the human: --since 2026-09-27T09:19:56.000Z
+    total_tokens: 6385214
     subagent_tokens: 0
     spawns: 2   # quality-assurance (shared plan) + developer
-    status: soft
-    checked: 2026-09-27T13:00:00+02:00
+    status: ok
+    checked: 2026-09-27T11:40:00+02:00
 ---
 
 ## H1 — accepted by the human, 2026-09-27

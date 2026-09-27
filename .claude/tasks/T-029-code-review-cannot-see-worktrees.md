@@ -10,7 +10,7 @@ depends_on: []
 risk: normal
 security_review: false   # tooling/process change in the meta repo; no adapter §5 security path
 checkpoint:
-  stage: review   # adapter §7 edited locally (8-line diff after the reviewer table); /code-review not yet run — stopped at SOFT
+  stage: H2   # local adapter §7 edit; /code-review low on the saved diff: no findings (scope stated); driver checked reviewer table + adapter consistency inline; specialist lens waiver to be decided at H2
   repo: cv-project (meta)
   branch: fix/code-review-on-worktrees
   worktree: none   # local adapter edit + board record
@@ -19,19 +19,19 @@ checkpoint:
   reviewers: [code-review]
   risk: normal
   security_review: false
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a
-  updated: 2026-09-27T13:00:00+02:00
+  updated: 2026-09-27T11:40:00+02:00
   budget:
-    turns: 572   # --since 2026-09-25T12:49:25.700Z (session-wide); SOFT reached
-    total_tokens: 119591145
+    turns: 55   # budget baseline reset by the human: --since 2026-09-27T09:19:56.000Z
+    total_tokens: 6385214
     subagent_tokens: 0
     spawns: 0   # quality-assurance (shared T-302/T-115 plan)
-    status: soft
-    checked: 2026-09-27T13:00:00+02:00
+    status: ok
+    checked: 2026-09-27T11:40:00+02:00
 ---
 
 ## H1 — accepted by the human, 2026-09-27

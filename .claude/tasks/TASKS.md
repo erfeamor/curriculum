@@ -83,8 +83,8 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 |----|-------|------|--------|-------|------------|----|
 | [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** (every ordered collection but experience) | cv-domain-service | todo | | T-105 | |
 | [T-113](T-113-optimistic-locking-lost-update.md) | Two concurrent PUTs silently lose one write — no `@Version`, no 409 (T-108's declined half) | cv-domain-service | todo | | T-108, T-014 | |
-| [T-115](T-115-section-period-cross-field-validation.md) | The domain service accepts `endDate` earlier than `startDate` on a section | cv-domain-service | in_progress | tech-product-owner | T-027 | |
-| [T-302](T-302-admin-store-read-races.md) | Admin section/skills stores: rare load-vs-write interleavings show a wrong list, notice or error until reload | cv-admin-react | in_progress | tech-product-owner | T-301 | |
+| [T-115](T-115-section-period-cross-field-validation.md) | The domain service accepts `endDate` earlier than `startDate` on a section | cv-domain-service | in_review | tech-product-owner | T-027 | [cv-domain-service#13](https://github.com/erfeamor/cv-domain-service/pull/13) |
+| [T-302](T-302-admin-store-read-races.md) | Admin section/skills stores: rare load-vs-write interleavings show a wrong list, notice or error until reload | cv-admin-react | in_review | tech-product-owner | T-301 | [cv-admin-react#14](https://github.com/erfeamor/cv-admin-react/pull/14) |
 | [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔ | |
 
 <details>

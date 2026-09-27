@@ -2,37 +2,37 @@
 id: T-115
 title: "The domain service accepts a section whose `endDate` is earlier than its `startDate`"
 repo: cv-domain-service
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: fix/section-period-validation
-pr:
+pr: https://github.com/erfeamor/cv-domain-service/pull/13
 depends_on: [T-027]   # contract line lands in T-027's PR (board rule 4)
 risk: normal
 security_review: false
 checkpoint:
-  stage: A1   # stage 1 done: 417017e on the branch, not pushed; 10 files; 172 tests, checkstyle 0 violations per developer; 7 fail-first; merges only after curriculum#99. SOFT stop — A1 not started
+  stage: H2   # CI green (Jenkins PR-13 #1); exploratory QA on MySQL 8.4 slot 1: all pass, torn down. Merge blocked on curriculum#99 (contract line)
   repo: cv-domain-service
   branch: fix/section-period-validation
   worktree: /home/erfeamor/work/cvdl-worktrees/T-115
-  commit: 417017e
-  pr:
+  commit: dbd0e06
+  pr: https://github.com/erfeamor/cv-domain-service/pull/13
   developer: backend-developer
   reviewers: [code-review, quality-assurance]
   risk: normal
   security_review: false
-  review_round: 0
+  review_round: 1   # /code-review: 1 finding (vacuous body test) fixed in dbd0e06; QA coverage: no blocking gaps
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
   env_slot: 0
-  updated: 2026-09-27T13:00:00+02:00
+  updated: 2026-09-27T11:40:00+02:00
   budget:
-    turns: 572   # --since 2026-09-25T12:49:25.700Z (session-wide); SOFT reached
-    total_tokens: 119591145
+    turns: 55   # budget baseline reset by the human: --since 2026-09-27T09:19:56.000Z
+    total_tokens: 6385214
     subagent_tokens: 0
     spawns: 2   # quality-assurance (shared plan) + developer
-    status: soft
-    checked: 2026-09-27T13:00:00+02:00
+    status: ok
+    checked: 2026-09-27T11:40:00+02:00
 ---
 
 ## H1 — accepted by the human, 2026-09-27
