@@ -29,13 +29,21 @@ Eight checks, each mapped to a real incident:
      every `[T-xxx](T-nnn-slug.md)` link in TASKS.md, HISTORY.md, README.md
      and every task file resolves to a file that exists (primary), and the
      visible id agrees with the id the target actually names (secondary --
-     a different defect from a dead link). Inline code spans and fenced
-     blocks are skipped: this board quotes broken links on purpose to
-     document past incidents. Offline and deterministic on purpose: no
-     external URLs, no anchors, no title-equality check (titles are
-     deliberately shortened/annotated on board rows and left in place by
-     the strike-don't-delete convention -- see the task file for why a
-     title check was ruled out).
+     a different defect from a dead link). Offline and deterministic on
+     purpose: no external URLs, no anchors as a navigation destination, no
+     title-equality check (titles are deliberately shortened/annotated on
+     board rows and left in place by the strike-don't-delete convention --
+     see the task file for why a title check was ruled out).
+
+     Round 2 review, 2026-09-27: rebuilt on markdown_it's CommonMark token
+     stream rather than a hand-rolled approximation of it (fences, code
+     spans, blockquotes, indented code, HTML comments and backslash-
+     escapes are excluded by the PARSER now, not by regexes trying to
+     re-derive CommonMark's own grammar one surface form at a time -- see
+     the ruling below and the check-8 section for why). Reference-style
+     links (`[x][ref]` + a `[ref]: dest` definition) are resolved by the
+     parser at no extra cost, so they are IN scope now, not a documented
+     limitation.
 
 Ruling (binding, from H1 — see the task file's checkpoint.h1_rulings):
   - Check 1 never delegates to yaml.safe_load() for KEY EXTRACTION.
@@ -59,6 +67,17 @@ Ruling (binding, from H1 — see the task file's checkpoint.h1_rulings):
     and acceptance-checkbox state is never enforced (2026-08-20 sweep ruled it
     convention).
   - Does not parse the body. Prose drift is what sweeps are for.
+  - Check 8 never hand-rolls CommonMark. Round 1 review (2026-09-27) found
+    8 (really ~15) real defects in a regex/state-machine approximation of
+    fences, code spans, blockquotes, indented code, HTML comments and
+    escapes -- the identical failure shape check 1's own ruling above
+    already lived through and rejected for YAML. Round 2 (same day)
+    replaced it with markdown_it's real CommonMark token stream: only
+    `link_open` tokens inside `inline` content count, so everything the
+    regex version had to re-derive by hand is instead excluded by
+    construction. markdown-it-py is now a hard requirement, PyYAML-style
+    (see the import below) -- there is exactly ONE implementation of
+    check 8, matching check 1's own precedent.
 
 Usage:
     scripts/board-check.py                  # check the live board, exit 0/1
@@ -103,6 +122,20 @@ try:
     import yaml
 except ModuleNotFoundError:
     sys.exit("board-check: PyYAML is required (pip install pyyaml).")
+
+# markdown_it is check 8's real CommonMark parser (round 2 review,
+# 2026-09-27) -- same hard-requirement shape as PyYAML above and the same
+# reasoning: a prior regex/state-machine version hand-rolled fences, code
+# spans, blockquotes, indented code, HTML comments and escapes one surface
+# form at a time (round 1 review, same day, found 8 real defects in it,
+# several false positives), which is exactly the failure PyYAML's own
+# ruling above already rejected for check 1. No optional fallback.
+try:
+    from markdown_it import MarkdownIt
+except ModuleNotFoundError:
+    sys.exit("board-check: markdown-it-py is required "
+              "(pip install markdown-it-py, or the python3-markdown-it "
+              "package on Debian/Ubuntu).")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TASKS_DIR = REPO_ROOT / ".claude" / "tasks"
@@ -687,149 +720,90 @@ def check_board_agreement(tasks_dir: Path, board_path: Path, task_files: dict) -
 # as a navigation destination, no title-equality check (see the module
 # docstring and T-032's task file for why those are out of scope).
 #
-# MANDATORY: inline code spans (including ones spanning multiple lines
-# within one paragraph) and fenced code blocks are skipped, per CommonMark
-# fence-matching rules (same character, closing run >= opening run's
-# length, <=3 spaces indent, a backtick fence's info string may not itself
-# contain a backtick). Also skipped: fences/text inside blockquotes, 4+
-# space indented code blocks, HTML comments, and an escaped `\[`. Learned
-# by prototyping against the live board 2026-08-24 (two false positives,
-# both inside backticks in this board's own incident write-ups) and by
-# round-1 review 2026-09-27 (T-023's blockquoted fence, T-011's indented
-# YAML block-scalar table, and several fence/code-span edge cases that a
-# naive "any 3+ backticks/tildes toggles" or "same-line-only" span check
-# gets wrong). T-031 calls one confirmed false positive fatal to adoption.
+# Round 2 review, 2026-09-27: rebuilt on markdown_it's real CommonMark
+# parser rather than a hand-rolled approximation of it. The round-1
+# version tried to re-derive, in regexes and a line-based state machine,
+# exactly the set of rules a CommonMark parser already enforces: fence
+# open/close matching, inline code spans (including ones spanning a line
+# break), blockquote nesting, indented code blocks, HTML comments, and
+# backslash escapes -- and round 1's review still found 8 (really ~15)
+# real defects in that approximation, several of them false positives.
+# That is the identical shape check 1's OWN history already lived through
+# (see the module-docstring ruling): a hand-rolled scanner needing round
+# after round of surface-form-specific fixes while staying blind to
+# others. The fix is the same one check 1 already took: delegate to a
+# real parser. Walking `md.parse(text)`'s token stream, only `link_open`
+# tokens inside an `inline` token's `.children` are links at all --
+# everything the regex version had to positively exclude (fences, spans,
+# blockquotes, indented code, HTML, escapes) is structurally absent from
+# that stream in the first place, not filtered out by us.
 #
-# Known limitations, deliberately out of scope (see T-032's task file):
-# reference-style links (`[x][ref]` + a separate `[ref]: dest` definition)
-# and link TEXT split across lines (`[T-\n032](...)`) are not recognized.
-# Neither has been seen live on this board.
+# Line numbers come from the enclosing block token's `.map` (its 0-indexed
+# [start, end) line range) rather than the exact line within it, per this
+# round's instructions. This is coarser than the old per-line regex scan
+# for one real case on this board: TASKS.md's lifecycle tables have no
+# blank line between rows, so CommonMark (with no GFM table extension
+# available in this environment -- confirmed, no mdit_py_plugins package
+# installed) folds an entire table into ONE paragraph token, and every
+# link in it reports the table's first line rather than its own row.
+# Traded deliberately for parser-grade correctness on the things that
+# were actually wrong; see the task file's round-2 section for the
+# `TASKS.md`-table check confirming this doesn't create a NEW false
+# positive/negative, only a less-specific line number.
+#
+# Reference-style links (`[x][ref]` + a `[ref]: dest` definition
+# elsewhere in the same file) are resolved by markdown_it automatically,
+# so they are IN SCOPE now -- confirmed empirically, not assumed. Link
+# text split across a line break within one paragraph is also handled
+# (it's one continuous inline token to the parser). Neither is a
+# documented limitation any more.
 # --------------------------------------------------------------------------
 
-# The [] part and the (...) part are captured separately -- the destination
-# is parsed by _normalize_link_destination below, since it may carry a
-# leading ./ or ../tasks/, a trailing anchor and/or "title", or <angle
-# brackets>, none of which changes what file it targets. `(?<!\\)` skips an
-# ESCAPED opening bracket (`\[not a link](...)`), which renders literally.
-_LINK_RE = re.compile(r'(?<!\\)\[([^\]]*)\]\(([^)]*)\)')
-_TITLE_SUFFIX_RE = re.compile(r'''\s+(?:"[^"]*"|'[^']*'|\([^()]*\))\s*$''')
-_ANGLE_DEST_RE = re.compile(r'^<([^>]*)>$')
+_MD = MarkdownIt("commonmark")
+
 # Bare filename only (no further `/`) after stripping the two prefixes this
 # board actually uses; the anchor, if any, is discarded (captured OUTSIDE
 # group 1) rather than validated -- board rule per T-032: anchors churn and
-# are harmless, not a navigation destination this check owns.
+# are harmless, not a navigation destination this check owns. markdown_it
+# has already stripped any `<angle brackets>` and split off a `"title"`
+# into its own token attribute before this ever runs, so neither is dealt
+# with here any more (round-1's regex version had to do both by hand).
 _TASK_TARGET_RE = re.compile(r'^(?:\./|\.\./tasks/)?(T-\d+[^/#]*\.md)(?:#\S*)?$')
-_HTML_COMMENT_RE = re.compile(r'<!--.*?-->', re.DOTALL)
-# A fence-open/close CANDIDATE: <=3 spaces of indent (CommonMark; a fence
-# indented 4+ is instead an indented code block, see the indent check in
-# _iter_markdown_links), a run of >=3 of the same character, then whatever
-# is left on the line (the info string for an opener; must be blank/that
-# same character repeated for a closer, checked separately).
-_FENCE_LINE_RE = re.compile(r'^( {0,3})(`{3,}|~{3,})(.*)$')
-# A leading run of blockquote markers (`> `, possibly nested/repeated) --
-# stripped before every other check below runs, so a fence or an indented
-# block INSIDE a blockquote (T-023's live shape) is still recognized as one.
-_BLOCKQUOTE_PREFIX_RE = re.compile(r'^(?:[ \t]*>[ \t]?)*')
+_EXACT_TASK_ID_RE = re.compile(r'^T-0*(\d+)$')
 
 
-def _blank_html_comments(text: str) -> str:
-    """Replace every HTML comment with the same number of newlines, so
-    line numbers reported for anything else in the file are unaffected."""
-    return _HTML_COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
-
-
-def _normalize_link_destination(raw: str):
-    """The raw text between `(` and `)` of a markdown link -> the bare
-    `T-nnn-slug.md` filename it targets, with a leading `./` or
-    `../tasks/`, a trailing `"title"`/`'title'`/`(title)`, surrounding
-    `<angle brackets>`, and a trailing `#anchor` all stripped -- or None
-    if it isn't shaped like a task-file link at all (an anchor-only link,
-    an external URL, a path elsewhere in the repo)."""
-    dest = _TITLE_SUFFIX_RE.sub("", raw.strip()).strip()
-    m = _ANGLE_DEST_RE.match(dest)
-    if m:
-        dest = m.group(1)
-    m = _TASK_TARGET_RE.match(dest)
+def _normalize_link_destination(href: str):
+    """A link token's `href` attribute -> the bare `T-nnn-slug.md`
+    filename it targets, or None if it isn't shaped like a task-file
+    link at all (an anchor-only link, an external URL, a path elsewhere
+    in the repo)."""
+    m = _TASK_TARGET_RE.match(href.strip())
     return m.group(1) if m else None
-
-
-def _split_code_spans(line: str, carry):
-    """One line's text with every inline code span removed, plus the
-    updated `carry` state for a span left open at end-of-line (None if
-    none is open). `carry` is the backtick-run LENGTH still awaiting its
-    matching close, threaded in by the caller across lines within one
-    paragraph (CommonMark: an unclosed span runs to the end of the
-    paragraph, not just the end of its opening line -- round-1 finding
-    #2). Tokenizes on maximal backtick runs, so a SHORTER run inside an
-    already-open span of a different length is correctly just more code
-    content, not a close (`` `a`b`` `` has one span, not two)."""
-    in_code = carry is not None
-    need_len = carry
-    out = []
-    for tok in re.split(r'(`+)', line):
-        if tok and tok[0] == "`":
-            run_len = len(tok)
-            if in_code:
-                if run_len == need_len:
-                    in_code = False
-                    need_len = None
-            else:
-                in_code = True
-                need_len = run_len
-        elif not in_code:
-            out.append(tok)
-    return "".join(out), (need_len if in_code else None)
 
 
 def _iter_markdown_links(path: Path):
     """Yields (line_no, visible_text, target) for every task-file-shaped
-    markdown link in `path`, skipping (per the section comment above)
-    fenced code blocks (CommonMark-correct fence matching, including
-    inside a blockquote), inline code spans (including multi-line ones),
-    4+-space indented code blocks, and HTML comments."""
-    text = _blank_html_comments(path.read_text())
-    lines = text.split("\n")
-    in_fence = False
-    fence_char = fence_len = None
-    code_carry = None
-    for i, raw in enumerate(lines, start=1):
-        content = _BLOCKQUOTE_PREFIX_RE.sub("", raw)
-
-        if in_fence:
-            m = _FENCE_LINE_RE.match(content)
-            if (m and m.group(2)[0] == fence_char
-                    and len(m.group(2)) >= fence_len
-                    and m.group(3).strip() == ""):
-                in_fence = False
-            continue  # every line strictly between open and close is code
-
-        if content.strip() == "":
-            code_carry = None  # blank line: paragraph (and any open span) ends
+    markdown link in `path`, found by walking markdown_it's own
+    CommonMark token stream (see the section comment above for why)."""
+    for block in _MD.parse(path.read_text()):
+        if block.type != "inline" or not block.map:
             continue
-
-        m = _FENCE_LINE_RE.match(content)
-        if m:
-            run, info = m.group(2), m.group(3)
-            # A backtick fence's info string may not itself contain a
-            # backtick (CommonMark) -- that shape is inline content (an
-            # inline code span plus trailing text), not a fence-open.
-            if not (run[0] == "`" and "`" in info):
-                in_fence, fence_char, fence_len = True, run[0], len(run)
-                code_carry = None
+        line_no = block.map[0] + 1  # 0-indexed block-start line -> file line
+        children = block.children or []
+        i = 0
+        while i < len(children):
+            if children[i].type != "link_open":
+                i += 1
                 continue
-            # else: falls through and is scanned as ordinary text below.
-
-        if len(content) - len(content.lstrip(" ")) >= 4:
-            continue  # indented code block -- no inline markdown inside
-
-        visible, code_carry = _split_code_spans(content, code_carry)
-        for lm in _LINK_RE.finditer(visible):
-            target = _normalize_link_destination(lm.group(2))
+            target = _normalize_link_destination(children[i].attrs.get("href", ""))
+            j = i + 1
+            text_parts = []
+            while j < len(children) and children[j].type != "link_close":
+                text_parts.append(children[j].content)
+                j += 1
             if target is not None:
-                yield i, lm.group(1), target
-
-
-_EXACT_TASK_ID_RE = re.compile(r'^T-0*(\d+)$')
+                yield line_no, "".join(text_parts), target
+            i = j + 1
 
 
 def check_link_integrity(tasks_dir: Path, scan_files: list[Path],

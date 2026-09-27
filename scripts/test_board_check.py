@@ -2196,6 +2196,85 @@ class LinkIntegrityRound1Findings(TempDirCase):
         self.assertTrue(dead, [str(f) for f in findings])
 
 
+class LinkIntegrityRound2ParserRebuild(TempDirCase):
+    """T-032 round 2 review, 2026-09-27: check 8 rebuilt on markdown_it's
+    CommonMark token stream. Confirms two capabilities that were
+    documented LIMITATIONS under the regex version and are now free
+    consequences of using a real parser -- not asserted from the docs,
+    verified against actual behaviour."""
+
+    def _write_task(self, task_id: str, body: str = "body.\n") -> None:
+        fm = textwrap.dedent(f"""\
+            id: {task_id}
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """)
+        (self.root / f"{task_id}-x.md").write_text(f"---\n{fm}---\n{body}")
+
+    def _write_board(self, task_ids) -> None:
+        rows = [board_line(t, "Task", "todo") for t in task_ids]
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n")
+
+    def _append(self, filename: str, text: str) -> None:
+        path = self.root / filename
+        path.write_text(path.read_text() + text if path.is_file() else text)
+
+    def test_reference_style_link_dead_target_now_caught(self):
+        """`[x][ref]` + a `[ref]: dest` definition elsewhere in the file
+        -- out of scope under the regex version, resolved by markdown_it
+        automatically."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\nSee [the details][ref] for more.\n\n"
+                      "[ref]: T-971-invented.md\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+    def test_reference_style_link_correct_target_stays_silent(self):
+        self._write_task("T-972")
+        self._write_board(["T-972"])
+        self._append("TASKS.md",
+                      "\nSee [T-972][ref] for more.\n\n"
+                      "[ref]: T-972-x.md\n")
+        findings = bc.run(self.root)
+        self.assertFalse(any(f.key in ("link", "link-id") for f in findings),
+                          [str(f) for f in findings])
+
+    def test_line_number_is_the_1_indexed_file_line_not_0_indexed(self):
+        """markdown_it's block.map is a 0-indexed [start, end) line range;
+        mutation testing found nothing in the existing suite pinned the
+        `+ 1` conversion to a real file line number down -- every other
+        test only checks WHICH finding fired, never the exact line."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", "\n\n\n[T-971](T-971-invented.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link" and f.file.name == "TASKS.md"]
+        self.assertTrue(dead, [str(f) for f in findings])
+        # TASKS.md is TABLE_HEADER (1) + TABLE_SEP (2) + 1 row (3), then
+        # three blank lines (4, 5, 6), then the link's own paragraph (7).
+        self.assertEqual(dead[0].line, 7, [str(f) for f in findings])
+
+    def test_link_text_split_across_a_line_break_recognized(self):
+        """`[T-\\n032](...)` -- one continuous inline token to a real
+        parser, so the reconstructed text is `T-032` intact. Documented
+        as unrecognized under the regex version."""
+        self._write_task("T-014")
+        self._write_task("T-015")
+        self._write_board(["T-014", "T-015"])
+        self._append("TASKS.md", "\n[T-\n015](T-014-x.md)\n")
+        findings = bc.run(self.root)
+        mismatch = [f for f in findings if f.key == "link-id"]
+        self.assertTrue(mismatch, [str(f) for f in findings])
+
+
 # --------------------------------------------------------------------------
 # End-to-end / CLI
 # --------------------------------------------------------------------------
