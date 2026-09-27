@@ -530,15 +530,25 @@ def _env_mapping(env) -> dict:
     `isinstance(env, dict)` check used to skip the list form in silence
     (review round 1, finding 5): a service written that way got no CORS shift
     at all, with nothing said about it. Anything else (env absent, a bare
-    string, a list entry with no `=`) contributes no keys."""
+    non-string entry) contributes no keys.
+
+    A key present with value `None` means "take it from the host shell" —
+    Compose's own passthrough syntax, spelled either as a mapping key with no
+    value (`CORS_ALLOWED_ORIGINS:`, which YAML parses as null) or a list entry
+    with no `=` (`- CORS_ALLOWED_ORIGINS`, review round 2 finding 2). Both
+    forms are normalised to `None` here so callers make one check, not two."""
     if isinstance(env, dict):
         return dict(env)
     if isinstance(env, list):
         out = {}
         for entry in env:
-            if isinstance(entry, str) and "=" in entry:
+            if not isinstance(entry, str):
+                continue
+            if "=" in entry:
                 key, _, value = entry.partition("=")
                 out[key] = value
+            else:
+                out[entry.strip()] = None
         return out
     return {}
 
@@ -563,13 +573,23 @@ def shifted_cors_origins(compose: dict, offset: int) -> dict:
     as-is but named on stderr (review round 1, finding 6) — the module's own
     "a silent zero is indistinguishable from the bug still being there" rule
     applies here just as it does to the worktree repoint.
+
+    A `None` value (host-env passthrough, either compose spelling — review
+    round 2, findings 1 and 2) gets no entry here at all: writing
+    `CORS_ALLOWED_ORIGINS: None` into the override would coerce to the
+    literal string "None" and block every origin. Named on stderr instead.
     """
     out = {}
     for name, svc in (compose.get("services") or {}).items():
         env = _env_mapping((svc or {}).get("environment"))
         if "CORS_ALLOWED_ORIGINS" not in env:
             continue
-        base_value = str(env["CORS_ALLOWED_ORIGINS"])
+        raw_value = env["CORS_ALLOWED_ORIGINS"]
+        if raw_value is None:
+            print(f"qa-env-override: {name!r} CORS_ALLOWED_ORIGINS value "
+                  f"comes from the host env; not shifted", file=sys.stderr)
+            continue
+        base_value = str(raw_value)
         origins = [o.strip() for o in base_value.split(",") if o.strip()]
         merged = list(origins)
         for origin in origins:

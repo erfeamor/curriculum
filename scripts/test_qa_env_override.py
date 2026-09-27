@@ -280,6 +280,33 @@ class CorsOriginShift(unittest.TestCase):
         cors_map = qeo.shifted_cors_origins(compose, 10)
         self.assertNotIn("s", cors_map)
 
+    def test_mapping_form_passthrough_value_is_not_shifted_and_is_reported(self):
+        """review round 2, finding 1: `CORS_ALLOWED_ORIGINS:` with no value
+        means "take it from the host shell" (YAML null) — must not become
+        the literal string "None" and must not get an override written."""
+        compose = {"services": {"s": {"environment": {
+            "CORS_ALLOWED_ORIGINS": None}}}}
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertNotIn("s", cors_map)
+        err = buf.getvalue()
+        self.assertIn("'s'", err)
+        self.assertIn("host env", err)
+
+    def test_list_form_passthrough_key_is_not_shifted_and_is_reported(self):
+        """review round 2, finding 2: a list entry with no `=`
+        (`- CORS_ALLOWED_ORIGINS`) is the list-form spelling of the same
+        host-env passthrough — must be recognised, not merely dropped."""
+        compose = {"services": {"s": {"environment": ["CORS_ALLOWED_ORIGINS"]}}}
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertNotIn("s", cors_map)
+        err = buf.getvalue()
+        self.assertIn("'s'", err)
+        self.assertIn("host env", err)
+
     def test_unparseable_origin_is_reported_on_stderr_and_kept_as_is(self):
         """finding 6: an origin the regex can't parse (IPv6, no explicit
         port) must be named loudly, not silently left unshifted."""
