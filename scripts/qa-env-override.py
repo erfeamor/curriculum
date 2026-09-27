@@ -499,26 +499,55 @@ def remap_service_ports(ports, offset):
     return new_list, mappings
 
 
+def _normalize_origin(origin: str) -> str:
+    """Cheap normalization applied only for matching (review round 1, finding
+    6): a single trailing slash is the one shape variance worth absorbing
+    here, so `http://localhost:4173/` is still recognised as the same origin
+    as `http://localhost:4173` and gets shifted instead of silently kept."""
+    return origin.strip().rstrip("/")
+
+
 def _origin_port(origin: str):
     """The numeric port of an `http(s)://host:port` origin, or None when the
-    string isn't shaped like one. Never raises: a malformed or empty
-    CORS_ALLOWED_ORIGINS entry degrades to "nothing to shift", not a crash."""
-    match = _ORIGIN_RE.match(origin.strip())
+    string isn't shaped like one (IPv6, no explicit port, a wildcard, …).
+    Never raises: a malformed or empty CORS_ALLOWED_ORIGINS entry degrades to
+    "nothing to shift", not a crash."""
+    match = _ORIGIN_RE.match(_normalize_origin(origin))
     return int(match.group(2)) if match else None
 
 
 def _shift_origin(origin: str, offset: int) -> str:
     """`origin` with its port increased by `offset`. Caller must have already
     confirmed the origin matches `_ORIGIN_RE` (e.g. via `_origin_port`)."""
-    match = _ORIGIN_RE.match(origin.strip())
+    match = _ORIGIN_RE.match(_normalize_origin(origin))
     scheme_host, port = match.group(1), int(match.group(2))
     return f"{scheme_host}:{port + offset}"
+
+
+def _env_mapping(env) -> dict:
+    """Env vars as a {key: value} dict regardless of which compose form the
+    service used — mapping (`KEY: value`) or list (`- KEY=value`). A plain
+    `isinstance(env, dict)` check used to skip the list form in silence
+    (review round 1, finding 5): a service written that way got no CORS shift
+    at all, with nothing said about it. Anything else (env absent, a bare
+    string, a list entry with no `=`) contributes no keys."""
+    if isinstance(env, dict):
+        return dict(env)
+    if isinstance(env, list):
+        out = {}
+        for entry in env:
+            if isinstance(entry, str) and "=" in entry:
+                key, _, value = entry.partition("=")
+                out[key] = value
+        return out
+    return {}
 
 
 def shifted_cors_origins(compose: dict, offset: int) -> dict:
     """{service: {"origins": [...], "value": "a,b,c"}} for every service whose
     base compose sets CORS_ALLOWED_ORIGINS — and ONLY those (a service with no
-    such key gets no entry here, so main() never invents one for it).
+    such key gets no entry here, so main() never invents one for it). Reads
+    both compose env forms (`_env_mapping`).
 
     Additive and derived from the base compose's own values, never a hardcoded
     service table (that hard-coding is exactly the bug T-036 fixes): each base
@@ -529,21 +558,30 @@ def shifted_cors_origins(compose: dict, offset: int) -> dict:
 
     A value with nothing shiftable — a genuinely empty string, or a
     comma-separated list none of whose entries parse as an origin — comes back
-    unchanged: no crash, no invented entry.
+    unchanged: no crash, no invented entry. An origin that does not parse as
+    `scheme://host:port` at all (IPv6, no explicit port, a wildcard) is kept
+    as-is but named on stderr (review round 1, finding 6) — the module's own
+    "a silent zero is indistinguishable from the bug still being there" rule
+    applies here just as it does to the worktree repoint.
     """
     out = {}
     for name, svc in (compose.get("services") or {}).items():
-        env = (svc or {}).get("environment")
-        if not isinstance(env, dict) or "CORS_ALLOWED_ORIGINS" not in env:
+        env = _env_mapping((svc or {}).get("environment"))
+        if "CORS_ALLOWED_ORIGINS" not in env:
             continue
         base_value = str(env["CORS_ALLOWED_ORIGINS"])
         origins = [o.strip() for o in base_value.split(",") if o.strip()]
         merged = list(origins)
         for origin in origins:
-            if _origin_port(origin) in FRONTEND_PREVIEW_PORTS:
+            port = _origin_port(origin)
+            if port in FRONTEND_PREVIEW_PORTS:
                 shifted = _shift_origin(origin, offset)
                 if shifted not in merged:
                     merged.append(shifted)
+            elif port is None:
+                print(f"qa-env-override: cannot parse CORS origin for "
+                      f"shifting on {name!r}: {origin!r} (kept as-is, not "
+                      f"shifted)", file=sys.stderr)
         out[name] = {
             "origins": merged,
             "value": ",".join(merged) if merged else base_value,

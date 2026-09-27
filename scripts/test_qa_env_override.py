@@ -12,7 +12,9 @@ Run:  python3 -m unittest discover -s scripts -p 'test_*.py'
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -254,9 +256,55 @@ class CorsOriginShift(unittest.TestCase):
     def test_non_frontend_and_unparseable_origins_pass_through(self):
         compose = {"services": {"s": {"environment": {
             "CORS_ALLOWED_ORIGINS": "http://localhost:9999,not-an-origin,,"}}}}
-        cors_map = qeo.shifted_cors_origins(compose, 10)
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            cors_map = qeo.shifted_cors_origins(compose, 10)
         self.assertEqual(cors_map["s"]["origins"],
                          ["http://localhost:9999", "not-an-origin"])
+
+    def test_list_form_environment_is_shifted_too(self):
+        """A service that declares `environment:` as `- KEY=value` (review
+        round 1, finding 5) must be treated identically to mapping form."""
+        compose = {"services": {"s": {"environment": [
+            "CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:4173",
+            "OTHER=1",
+        ]}}}
+        cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertEqual(
+            set(cors_map["s"]["origins"]),
+            {"http://localhost:5173", "http://localhost:4173",
+             "http://localhost:5183", "http://localhost:4183"})
+
+    def test_list_form_service_without_the_key_gets_no_entry(self):
+        compose = {"services": {"s": {"environment": ["OTHER=1"]}}}
+        cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertNotIn("s", cors_map)
+
+    def test_unparseable_origin_is_reported_on_stderr_and_kept_as_is(self):
+        """finding 6: an origin the regex can't parse (IPv6, no explicit
+        port) must be named loudly, not silently left unshifted."""
+        compose = {"services": {"s": {"environment": {
+            "CORS_ALLOWED_ORIGINS": "http://[::1]:5173,http://localhost"}}}}
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertEqual(cors_map["s"]["origins"],
+                         ["http://[::1]:5173", "http://localhost"])
+        err = buf.getvalue()
+        self.assertIn("http://[::1]:5173", err)
+        self.assertIn("http://localhost", err)
+        self.assertIn("'s'", err)
+
+    def test_trailing_slash_is_normalised_before_matching(self):
+        """finding 6: cheap to normalise, so a trailing slash on an otherwise
+        well-formed frontend origin must still get shifted, not skipped."""
+        compose = {"services": {"s": {"environment": {
+            "CORS_ALLOWED_ORIGINS": "http://localhost:4173/"}}}}
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            cors_map = qeo.shifted_cors_origins(compose, 10)
+        self.assertIn("http://localhost:4183", cors_map["s"]["origins"])
+        self.assertEqual(buf.getvalue(), "")  # normalised, not reported as unparseable
 
 
 class CorsOverrideIntegration(unittest.TestCase):
@@ -268,10 +316,12 @@ class CorsOverrideIntegration(unittest.TestCase):
             capture_output=True, text=True, cwd=str(REPO_ROOT))
 
     def test_case9_json_exposes_cors_origins(self):
-        r = self.run_cli("--task", "T-036", "--slot", "0", "--json",
-                         "--no-worktree-check")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        out = json.loads(r.stdout)
+        # review round 1, finding 4: must not write into the real repo root.
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self.run_cli("--task", "T-036", "--slot", "0", "--json",
+                             "--no-worktree-check", "--out-dir", tmp)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            out = json.loads(r.stdout)
         self.assertEqual(
             set(out["cors_origins"]["domain-service"]),
             {"http://localhost:5173", "http://localhost:4173",
