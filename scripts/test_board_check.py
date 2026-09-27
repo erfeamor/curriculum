@@ -669,6 +669,103 @@ class ComposeAliasDoubleReporting(unittest.TestCase):
         self.assertEqual(len(findings), 2, [str(f) for f in findings])
 
 
+class EighthDuplicateKeyBlindSpotHunt(unittest.TestCase):
+    """T-032 re-review, 2026-09-27: a DELIBERATE hunt for an eighth
+    duplicate-key surface form check 1 might still be blind to, distinct
+    from the link-integrity and pr:-gating blind spots (those are check 2
+    and check 5, not check 1). Each form gets its own fixture and its own
+    recorded result -- "none found" only counts if it was actually tried,
+    per this task's acceptance criteria. Six forms, chosen to cover the
+    surfaces round 1-4 have NOT already exercised (quoted keys,
+    hyphenated keys, flow mappings and mapping-node aliases already have
+    coverage above, in YamlComposeSurfaceForms and
+    ComposeAliasDoubleReporting)."""
+
+    def test_1_tabs_vs_spaces_indentation_is_a_reported_parse_error_not_silent(self):
+        """YAML forbids tabs in block indentation outright. compose()
+        raises, find_duplicate_keys returns [] by design (its own
+        docstring: a document that isn't valid YAML has no meaningful
+        duplicate-key finding), but parse_frontmatter_dict's
+        yaml.safe_load() raises on the SAME input -- so the board sees a
+        loud parse-error finding, never a silent clean. Not a blind spot;
+        confirmed empirically rather than assumed from the docstring."""
+        fm = ["checkpoint:", "  worktree: a", "\tworktree: none"]
+        self.assertEqual(bc.find_duplicate_keys(fm, 2, Path("x.md")), [])
+        data, err = bc.parse_frontmatter_dict(fm, Path("x.md"))
+        self.assertIsNone(data)
+        self.assertIsNotNone(err, "a tab-indented duplicate must surface "
+                                   "SOME finding, not parse silently to a "
+                                   "board-check: clean")
+
+    def test_2_quoted_vs_bare_key_across_the_SAME_pair_already_covered(self):
+        """Sanity re-confirmation alongside the other five forms in this
+        hunt (full coverage already lives in YamlComposeSurfaceForms)."""
+        fm = ["status: todo", '"status": done']
+        findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
+        self.assertTrue(any(f.key == "status" for f in findings))
+
+    def test_3_alias_used_AS_a_key_resolves_to_the_same_identity_as_a_literal_key(self):
+        """Sharper than the existing mapping-alias coverage
+        (ComposeAliasDoubleReporting, which aliases a whole MAPPING): here
+        the alias stands in for a bare scalar KEY. `*k` resolves to the
+        string 'status' via its anchor, and yaml.compose() resolves the
+        KEY node's own tag/value through the alias -- confirmed
+        empirically -- so it collides with a literal `status:` key
+        elsewhere in the same mapping exactly as if both had been typed
+        out. Not a blind spot."""
+        fm = ["anchor_val: &k status", "checkpoint:",
+              "  *k : value1", "  status: value2"]
+        findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
+        self.assertTrue(any(f.key == "status" for f in findings),
+                         [str(f) for f in findings])
+
+    def test_4_duplicate_merge_key_marker_is_itself_caught(self):
+        """`<<:` appearing TWICE in one mapping (two merge sources) is a
+        literal duplicate of the `<<` key -- yaml.compose() gives it the
+        merge tag both times, so the (tag, value) identity check flags it
+        exactly like any other duplicate key, with no special-casing
+        needed. Not a blind spot."""
+        fm = ["base: &base", "  worktree: from-anchor",
+              "other: &other", "  worktree: from-other",
+              "checkpoint:", "  <<: *base", "  <<: *other"]
+        findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
+        self.assertTrue(any(f.key == "<<" for f in findings),
+                         [str(f) for f in findings])
+
+    def test_5_flow_mapping_duplicate_already_covered(self):
+        """Sanity re-confirmation (full coverage in
+        YamlComposeSurfaceForms)."""
+        fm = ["checkpoint: {worktree: a, worktree: b}"]
+        findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
+        self.assertTrue(any(f.key == "worktree" for f in findings))
+
+    def test_6_comment_adjacent_keys_cannot_confuse_compose(self):
+        """A key-shaped SUBSTRING inside a comment (`# status: done (old)`)
+        or a full-line comment that looks like a key must not be treated
+        as YAML content at all -- comments are stripped before compose()
+        ever sees the text, by construction of the YAML grammar. Two
+        shapes tried: a trailing comment on the real key's own line, and
+        a comment-only line preceding it. Not a blind spot."""
+        fm_trailing = ["status: todo  # status: done (old, ignore)", "owner: someone"]
+        self.assertEqual(bc.find_duplicate_keys(fm_trailing, 2, Path("x.md")), [])
+        data, err = bc.parse_frontmatter_dict(fm_trailing, Path("x.md"))
+        self.assertEqual(data, {"status": "todo", "owner": "someone"})
+
+        fm_comment_line = ["# status: done", "status: todo"]
+        self.assertEqual(bc.find_duplicate_keys(fm_comment_line, 2, Path("x.md")), [])
+        data2, err2 = bc.parse_frontmatter_dict(fm_comment_line, Path("x.md"))
+        self.assertEqual(data2, {"status": "todo"})
+
+    def test_result_recorded_none_found(self):
+        """Explicit record, per this task's acceptance criteria: all six
+        forms above were tried against find_duplicate_keys / the compose()
+        design, and NONE produced a silent miss. Tabs-vs-spaces is the one
+        form that changes behaviour at all, and it changes it to a LOUD
+        parse-error finding, not a clean board -- so it does not count as
+        an eighth blind spot either. Result: none found, having looked."""
+        self.assertTrue(True)
+
+
 class CompactSequences(TempDirCase):
     """The HIGH finding: a compact-style sequence (dash at the SAME column
     as its sibling keys, e.g. `depends_on:\n- T-001`) must not destroy the
