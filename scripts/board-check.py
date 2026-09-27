@@ -418,10 +418,24 @@ def check_pr_present(data: dict, fm_lines, first_line, path: Path) -> list[Findi
     status never examined. board-check reported clean throughout,
     including in the same session that wrote it.
 
-    The gate now only short-circuits when checkpoint.pr is ALSO absent
-    (the ordinary case: most in_progress/todo/blocked tasks have no PR at
-    all, and must stay silent -- the false-positive guard T-031 calls
-    fatal to adoption if it fires there)."""
+    Round 1 review, 2026-09-27, three more findings on that widening:
+      #6 checkpoint.pr can ITSELF hold a sentinel ("none"/"n/a"/"-") --
+         that is not a real PR either, and must stay silent at every
+         status, reusing the same sentinel set as the top-level field.
+         `cp_pr_is_real` below is the fix: it is what every other branch
+         gates on now, not bare truthiness of cp_pr_text.
+      #5 `pr: none` (the T-010 sentinel) on a `done` task is legitimate
+         ONLY when checkpoint.pr is genuinely absent/sentinel too. A
+         real checkpoint.pr contradicts the "no PR ever existed"
+         declaration and must be reported.
+      #7 the rule-6 violation is `status` not in (in_review, done) + a
+         REAL checkpoint.pr, full stop -- regardless of what top-level
+         pr: holds. The original widening only looked inside the
+         "pr_text empty/sentinel" branch, so a top-level pr: that had
+         been filled in to AGREE with checkpoint.pr (without status ever
+         moving) stayed silent. `blocked` is deliberately skipped rather
+         than given "should be in_review" advice, which does not fit a
+         blocked task's shape (the reviewer's own second option)."""
     findings = []
     status = data.get("status")
     pr = data.get("pr")
@@ -430,12 +444,31 @@ def check_pr_present(data: dict, fm_lines, first_line, path: Path) -> list[Findi
     checkpoint = data.get("checkpoint")
     cp_pr = checkpoint.get("pr") if isinstance(checkpoint, dict) else None
     cp_pr_text = str(cp_pr).strip() if cp_pr else ""
+    cp_pr_is_real = bool(cp_pr_text) and cp_pr_text.lower() not in _PR_NONE_SENTINELS
 
-    if status not in ("in_review", "done") and not cp_pr_text:
+    if status not in ("in_review", "done"):
+        if not cp_pr_is_real or status == "blocked":
+            return findings
+        message = (f"status is {status!r} but checkpoint.pr already "
+                   f"holds {cp_pr_text!r} — board rule 6 requires "
+                   f"status: in_review (and pr: set) the moment a PR is "
+                   f"open; {status!r} is the status this check's "
+                   f"original gate never examined (T-201, commit "
+                   f"422fbeb).")
+        findings.append(Finding(
+            path, line_of(fm_lines, first_line, "pr"), "pr", message))
         return findings
 
+    # status is in_review or done from here.
     if pr_text == "" or is_sentinel:
         if status == "done" and is_sentinel:
+            if cp_pr_is_real:
+                findings.append(Finding(
+                    path, line_of(fm_lines, first_line, "pr"), "pr",
+                    f"pr: uses the {pr_text!r} sentinel (declaring no PR "
+                    f"ever existed) but checkpoint.pr holds a real PR: "
+                    f"{cp_pr_text!r} — the sentinel is only valid when "
+                    f"no PR ever existed, and this task has one."))
             return findings  # explicit, recognized "no PR exists" sentinel
         if is_sentinel:
             # A sentinel value is NOT empty (pr_text is truthy, e.g.
@@ -446,29 +479,17 @@ def check_pr_present(data: dict, fm_lines, first_line, path: Path) -> list[Findi
                        f"{pr_text!r} — that sentinel is only valid on a "
                        f"`done` task; {status!r} means a PR is "
                        f"definitionally open.")
-        elif status not in ("in_review", "done"):
-            # cp_pr_text is truthy here (the gate above would have
-            # returned otherwise): status hasn't been moved to in_review
-            # even though a real PR already exists in checkpoint.pr --
-            # board rule 6 says that combination IS the defect, not a
-            # milder version of the in_review/done case below.
-            message = (f"status is {status!r} but checkpoint.pr already "
-                       f"holds {cp_pr_text!r} while top-level pr: is "
-                       f"empty — board rule 6 requires status: in_review "
-                       f"(and pr: set) the moment a PR is open; "
-                       f"{status!r} is the status this check's original "
-                       f"gate never examined (T-201, commit 422fbeb).")
         else:
             hint = (f" (checkpoint.pr holds {cp_pr_text!r} — board rule 6 "
                      f"says the top-level key is what the board and "
                      f"driver read)"
-                     if cp_pr_text else "")
+                     if cp_pr_is_real else "")
             message = f"status is {status!r} but top-level pr: is empty{hint}."
         findings.append(Finding(
             path, line_of(fm_lines, first_line, "pr"), "pr", message))
         return findings
 
-    if cp_pr_text and cp_pr_text != pr_text:
+    if cp_pr_is_real and cp_pr_text != pr_text:
         findings.append(Finding(
             path, nested_line_of(fm_lines, first_line, "checkpoint", "pr"),
             "checkpoint.pr",
@@ -658,73 +679,189 @@ def check_board_agreement(tasks_dir: Path, board_path: Path, task_files: dict) -
 
 
 # --------------------------------------------------------------------------
-# Check 8 — link integrity. Primary: every `[T-xxx](T-nnn-slug.md)` link's
-# target resolves to a real file. Secondary: the visible id and the id the
-# target actually names agree (a different defect from a dead link -- the
-# target resolves fine, but names the wrong task). Both offline and
-# deterministic: no network, no anchors, no title-equality check (see the
-# module docstring and T-032's task file for why those are out of scope).
+# Check 8 — link integrity. Primary: every `[x](T-nnn-slug.md)` link's
+# target resolves to a real file. Secondary: an EXACT `[T-xxx]` link text
+# whose numeric id disagrees with the id its target actually names (a
+# different defect from a dead link -- the target resolves fine, but names
+# the wrong task). Both offline and deterministic: no network, no anchors
+# as a navigation destination, no title-equality check (see the module
+# docstring and T-032's task file for why those are out of scope).
 #
-# MANDATORY: inline code spans and fenced blocks are skipped. Learned by
-# prototyping against the live board 2026-08-24 -- a throwaway version of
-# this check produced two false positives, both inside backticks in this
-# board's own incident write-ups, which quote broken links on purpose to
-# document them (the strike-don't-delete convention). T-031 calls one
-# confirmed false positive fatal to adoption.
+# MANDATORY: inline code spans (including ones spanning multiple lines
+# within one paragraph) and fenced code blocks are skipped, per CommonMark
+# fence-matching rules (same character, closing run >= opening run's
+# length, <=3 spaces indent, a backtick fence's info string may not itself
+# contain a backtick). Also skipped: fences/text inside blockquotes, 4+
+# space indented code blocks, HTML comments, and an escaped `\[`. Learned
+# by prototyping against the live board 2026-08-24 (two false positives,
+# both inside backticks in this board's own incident write-ups) and by
+# round-1 review 2026-09-27 (T-023's blockquoted fence, T-011's indented
+# YAML block-scalar table, and several fence/code-span edge cases that a
+# naive "any 3+ backticks/tildes toggles" or "same-line-only" span check
+# gets wrong). T-031 calls one confirmed false positive fatal to adoption.
+#
+# Known limitations, deliberately out of scope (see T-032's task file):
+# reference-style links (`[x][ref]` + a separate `[ref]: dest` definition)
+# and link TEXT split across lines (`[T-\n032](...)`) are not recognized.
+# Neither has been seen live on this board.
 # --------------------------------------------------------------------------
 
-_LINK_RE = re.compile(r'\[([^\]]*)\]\((T-\d+[^)]*\.md)\)')
-# A run of one or more backticks, non-greedy content, the SAME run again --
-# this handles both a plain `code span` and the doubled-backtick form this
-# board uses to quote a span whose own content contains a single backtick
-# (`` `like this` ``), because \1 requires the closing run to match the
-# opening run's exact length, not just "some backticks".
-_CODE_SPAN_RE = re.compile(r'(`+)(.*?)\1')
-# Leading whitespace allowed -- a fence inside an indented list item is
-# still a fence.
-_FENCE_RE = re.compile(r'^\s*(`{3,}|~{3,})')
+# The [] part and the (...) part are captured separately -- the destination
+# is parsed by _normalize_link_destination below, since it may carry a
+# leading ./ or ../tasks/, a trailing anchor and/or "title", or <angle
+# brackets>, none of which changes what file it targets. `(?<!\\)` skips an
+# ESCAPED opening bracket (`\[not a link](...)`), which renders literally.
+_LINK_RE = re.compile(r'(?<!\\)\[([^\]]*)\]\(([^)]*)\)')
+_TITLE_SUFFIX_RE = re.compile(r'''\s+(?:"[^"]*"|'[^']*'|\([^()]*\))\s*$''')
+_ANGLE_DEST_RE = re.compile(r'^<([^>]*)>$')
+# Bare filename only (no further `/`) after stripping the two prefixes this
+# board actually uses; the anchor, if any, is discarded (captured OUTSIDE
+# group 1) rather than validated -- board rule per T-032: anchors churn and
+# are harmless, not a navigation destination this check owns.
+_TASK_TARGET_RE = re.compile(r'^(?:\./|\.\./tasks/)?(T-\d+[^/#]*\.md)(?:#\S*)?$')
+_HTML_COMMENT_RE = re.compile(r'<!--.*?-->', re.DOTALL)
+# A fence-open/close CANDIDATE: <=3 spaces of indent (CommonMark; a fence
+# indented 4+ is instead an indented code block, see the indent check in
+# _iter_markdown_links), a run of >=3 of the same character, then whatever
+# is left on the line (the info string for an opener; must be blank/that
+# same character repeated for a closer, checked separately).
+_FENCE_LINE_RE = re.compile(r'^( {0,3})(`{3,}|~{3,})(.*)$')
+# A leading run of blockquote markers (`> `, possibly nested/repeated) --
+# stripped before every other check below runs, so a fence or an indented
+# block INSIDE a blockquote (T-023's live shape) is still recognized as one.
+_BLOCKQUOTE_PREFIX_RE = re.compile(r'^(?:[ \t]*>[ \t]?)*')
+
+
+def _blank_html_comments(text: str) -> str:
+    """Replace every HTML comment with the same number of newlines, so
+    line numbers reported for anything else in the file are unaffected."""
+    return _HTML_COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+
+
+def _normalize_link_destination(raw: str):
+    """The raw text between `(` and `)` of a markdown link -> the bare
+    `T-nnn-slug.md` filename it targets, with a leading `./` or
+    `../tasks/`, a trailing `"title"`/`'title'`/`(title)`, surrounding
+    `<angle brackets>`, and a trailing `#anchor` all stripped -- or None
+    if it isn't shaped like a task-file link at all (an anchor-only link,
+    an external URL, a path elsewhere in the repo)."""
+    dest = _TITLE_SUFFIX_RE.sub("", raw.strip()).strip()
+    m = _ANGLE_DEST_RE.match(dest)
+    if m:
+        dest = m.group(1)
+    m = _TASK_TARGET_RE.match(dest)
+    return m.group(1) if m else None
+
+
+def _split_code_spans(line: str, carry):
+    """One line's text with every inline code span removed, plus the
+    updated `carry` state for a span left open at end-of-line (None if
+    none is open). `carry` is the backtick-run LENGTH still awaiting its
+    matching close, threaded in by the caller across lines within one
+    paragraph (CommonMark: an unclosed span runs to the end of the
+    paragraph, not just the end of its opening line -- round-1 finding
+    #2). Tokenizes on maximal backtick runs, so a SHORTER run inside an
+    already-open span of a different length is correctly just more code
+    content, not a close (`` `a`b`` `` has one span, not two)."""
+    in_code = carry is not None
+    need_len = carry
+    out = []
+    for tok in re.split(r'(`+)', line):
+        if tok and tok[0] == "`":
+            run_len = len(tok)
+            if in_code:
+                if run_len == need_len:
+                    in_code = False
+                    need_len = None
+            else:
+                in_code = True
+                need_len = run_len
+        elif not in_code:
+            out.append(tok)
+    return "".join(out), (need_len if in_code else None)
 
 
 def _iter_markdown_links(path: Path):
-    """Yields (line_no, visible_text, target) for every `[x](T-nnn....md)`
-    link in `path`, skipping fenced code blocks entirely and inline code
-    spans within a scanned line."""
-    lines = path.read_text().split("\n")
+    """Yields (line_no, visible_text, target) for every task-file-shaped
+    markdown link in `path`, skipping (per the section comment above)
+    fenced code blocks (CommonMark-correct fence matching, including
+    inside a blockquote), inline code spans (including multi-line ones),
+    4+-space indented code blocks, and HTML comments."""
+    text = _blank_html_comments(path.read_text())
+    lines = text.split("\n")
     in_fence = False
+    fence_char = fence_len = None
+    code_carry = None
     for i, raw in enumerate(lines, start=1):
-        if _FENCE_RE.match(raw):
-            in_fence = not in_fence
-            continue
+        content = _BLOCKQUOTE_PREFIX_RE.sub("", raw)
+
         if in_fence:
+            m = _FENCE_LINE_RE.match(content)
+            if (m and m.group(2)[0] == fence_char
+                    and len(m.group(2)) >= fence_len
+                    and m.group(3).strip() == ""):
+                in_fence = False
+            continue  # every line strictly between open and close is code
+
+        if content.strip() == "":
+            code_carry = None  # blank line: paragraph (and any open span) ends
             continue
-        stripped = _CODE_SPAN_RE.sub("", raw)
-        for m in _LINK_RE.finditer(stripped):
-            yield i, m.group(1), m.group(2)
+
+        m = _FENCE_LINE_RE.match(content)
+        if m:
+            run, info = m.group(2), m.group(3)
+            # A backtick fence's info string may not itself contain a
+            # backtick (CommonMark) -- that shape is inline content (an
+            # inline code span plus trailing text), not a fence-open.
+            if not (run[0] == "`" and "`" in info):
+                in_fence, fence_char, fence_len = True, run[0], len(run)
+                code_carry = None
+                continue
+            # else: falls through and is scanned as ordinary text below.
+
+        if len(content) - len(content.lstrip(" ")) >= 4:
+            continue  # indented code block -- no inline markdown inside
+
+        visible, code_carry = _split_code_spans(content, code_carry)
+        for lm in _LINK_RE.finditer(visible):
+            target = _normalize_link_destination(lm.group(2))
+            if target is not None:
+                yield i, lm.group(1), target
 
 
-def check_link_integrity(tasks_dir: Path, scan_files: list[Path]) -> list[Finding]:
-    existing = {p.name for p in tasks_dir.glob("T-*.md")
-                if re.match(r'^T-\d+-.+\.md$', p.name)}
+_EXACT_TASK_ID_RE = re.compile(r'^T-0*(\d+)$')
+
+
+def check_link_integrity(tasks_dir: Path, scan_files: list[Path],
+                          task_paths: list[Path]) -> list[Finding]:
+    existing = {p.name for p in task_paths}
     findings: list[Finding] = []
     for path in scan_files:
         if not path.is_file():
             continue
         for line_no, text, target in _iter_markdown_links(path):
-            target_id_m = re.match(r'(T-\d+)', target)
-            target_id = target_id_m.group(1) if target_id_m else None
             if target not in existing:
                 findings.append(Finding(
                     path, line_no, "link",
                     f"link target {target!r} does not resolve to any file "
                     f"under {tasks_dir.name}/ (dead link)."))
                 continue
-            text_id_m = re.search(r'T-\d+', text)
-            if text_id_m and target_id and text_id_m.group(0) != target_id:
+            # ID/target agreement only applies when the link TEXT is
+            # EXACTLY a task id (round-1 finding #4) -- descriptive prose
+            # that merely mentions another task ("follow-up to T-031")
+            # is not claiming to BE that task's link. Compared
+            # numerically, not as strings, so T-32 and T-032 agree. The
+            # target always starts with T-\d+ (guaranteed by
+            # _TASK_TARGET_RE above), so target_id_m always matches.
+            target_id_m = _EXACT_TASK_ID_RE.match(re.match(r'T-\d+', target).group(0))
+            text_id_m = _EXACT_TASK_ID_RE.match(text.strip())
+            if text_id_m and int(text_id_m.group(1)) != int(target_id_m.group(1)):
                 findings.append(Finding(
                     path, line_no, "link-id",
-                    f"link text names {text_id_m.group(0)} but its target "
-                    f"{target!r} names {target_id} — the link resolves, "
-                    f"but the visible id and the target disagree."))
+                    f"link text names {text.strip()!r} but its target "
+                    f"{target!r} names T-{target_id_m.group(1)} — the "
+                    f"link resolves, but the visible id and the target "
+                    f"disagree."))
     return findings
 
 
@@ -803,7 +940,7 @@ def run(tasks_dir: Path) -> list[Finding]:
 
     scan_files = [tasks_dir / "TASKS.md", tasks_dir / "HISTORY.md",
                   tasks_dir / "README.md", *task_paths]
-    findings.extend(check_link_integrity(tasks_dir, scan_files))
+    findings.extend(check_link_integrity(tasks_dir, scan_files, task_paths))
 
     return findings
 

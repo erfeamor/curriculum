@@ -1497,6 +1497,107 @@ class PrPresenceWidenedToInProgress(TempDirCase):
         self.assertFalse(any(f.key == "pr" for f in findings), [str(f) for f in findings])
 
 
+class PrPresenceRound1Findings(TempDirCase):
+    """T-032 review round 1 (`/code-review high`), 2026-09-27: real
+    defects found by probing edges of the widened check 5."""
+
+    def test_red_done_pr_none_sentinel_but_real_checkpoint_pr(self):
+        """Finding #5: `pr: none` on a `done` task is the T-010 exemption
+        ONLY when checkpoint.pr is genuinely absent. Here it isn't --
+        checkpoint.pr holds a real PR URL, so the sentinel contradicts
+        the task's own checkpoint rather than legitimately declaring
+        that no PR ever existed."""
+        b = make_board(self.root)
+        b.add_task("T-984", textwrap.dedent("""\
+            id: T-984
+            status: done
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: none
+            checkpoint:
+              stage: done
+              pr: https://example.invalid/pr/9
+            """), status="done")
+        b.write_board()
+        findings = b.check()
+        self.assertTrue(any(f.key == "pr" for f in findings),
+                         [str(f) for f in findings])
+
+    def test_green_checkpoint_pr_sentinel_is_not_a_real_pr_at_any_status(self):
+        """Finding #6: checkpoint.pr can itself hold a sentinel
+        ("none"/"n/a"/"-"). That is NOT a real PR either -- silence at
+        every status, reusing the top-level sentinel set. Previously any
+        truthy cp_pr_text (including the literal string "none") counted
+        as "real", which would wrongly widen the rule-6 check onto a
+        task that never actually had an open PR."""
+        for status, task_id in (("todo", "T-985"), ("in_progress", "T-986"),
+                                 ("blocked", "T-987")):
+            with self.subTest(status=status):
+                b = make_board(self.root)
+                b.add_task(task_id, textwrap.dedent(f"""\
+                    id: {task_id}
+                    status: {status}
+                    owner: someone
+                    risk: normal
+                    security_review: false
+                    depends_on: []
+                    checkpoint:
+                      pr: none
+                    """), status=status)
+                b.write_board()
+                findings = b.check()
+                self.assertFalse(any(f.key == "pr" for f in findings),
+                                  [str(f) for f in findings])
+
+    def test_red_rule6_fires_even_when_top_level_pr_agrees_with_checkpoint(self):
+        """Finding #7: the rule-6 violation is `status: in_progress` + a
+        REAL checkpoint.pr, whatever top-level pr: holds. Previously this
+        only fired inside the `pr_text == "" or is_sentinel` branch, so a
+        top-level pr: filled in to AGREE with checkpoint.pr -- without
+        status ever moving to in_review -- stayed silent."""
+        b = make_board(self.root)
+        b.add_task("T-988", textwrap.dedent("""\
+            id: T-988
+            status: in_progress
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: https://example.invalid/pr/11
+            checkpoint:
+              pr: https://example.invalid/pr/11
+            """), status="in_progress")
+        b.write_board()
+        findings = b.check()
+        pr_findings = [f for f in findings if f.key == "pr"]
+        self.assertTrue(pr_findings, [str(f) for f in findings])
+        self.assertIn("rule 6", pr_findings[0].message)
+
+    def test_green_blocked_with_real_checkpoint_pr_stays_silent(self):
+        """Finding #7's other half: a blocked task's stale checkpoint.pr
+        does not get "should be in_review" advice, which does not fit
+        that shape -- skipped rather than reworded, per the reviewer's
+        own explicit second option."""
+        b = make_board(self.root)
+        b.add_task("T-989", textwrap.dedent("""\
+            id: T-989
+            status: blocked
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            checkpoint:
+              pr: https://example.invalid/pr/12
+            """), status="blocked")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.key == "pr" for f in findings),
+                          [str(f) for f in findings])
+
+
 class PrPresence422fbebRegression(unittest.TestCase):
     """The exact historical incident, recovered from git rather than
     reinvented (per this board's standing practice and T-031's own
@@ -1822,14 +1923,277 @@ class LinkIntegrity(TempDirCase):
         self.assertEqual(hit_files, {"T-973-x.md", "TASKS.md", "HISTORY.md", "README.md"},
                           [str(f) for f in findings])
 
-    def test_live_board_has_zero_link_findings(self):
-        """Acceptance criterion: the five dead links and the one T-201
-        cross-reference were all repaired on 2026-08-24, so the expected
-        result on the CURRENT board is zero. Anything this finds is live
-        drift, not a test bug."""
-        findings = bc.run(LIVE_TASKS_DIR)
-        link_findings = [f for f in findings if f.key in ("link", "link-id")]
-        self.assertEqual(link_findings, [], [str(f) for f in link_findings])
+
+class LinkIntegrityRound1Findings(TempDirCase):
+    """T-032 review round 1 (`/code-review high`), 2026-09-27: real
+    defects found by probing edges of check 8, several of them false
+    positives (T-031's fatal-to-adoption class) or false negatives on
+    "cheap" link forms this board already writes."""
+
+    def _write_task(self, task_id: str, body: str = "body.\n") -> None:
+        fm = textwrap.dedent(f"""\
+            id: {task_id}
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """)
+        (self.root / f"{task_id}-x.md").write_text(f"---\n{fm}---\n{body}")
+
+    def _write_board(self, task_ids) -> None:
+        rows = [board_line(t, "Task", "todo") for t in task_ids]
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n")
+
+    def _append(self, filename: str, text: str) -> None:
+        path = self.root / filename
+        path.write_text(path.read_text() + text if path.is_file() else text)
+
+    def _link_findings(self, findings):
+        return [f for f in findings if f.key in ("link", "link-id")]
+
+    # -- #1: CommonMark fence rules (char/length/indent match) ----------
+
+    def test_red_mismatched_fence_char_does_not_close(self):
+        """A stray ``` inside a still-open ~~~ fence is content, not a
+        closer -- the two characters don't match. The naive
+        any-3-backticks-or-tildes toggle closed on it anyway, so the
+        quoted dead link on the next line got scanned as real content."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", (
+            "\n~~~\nsome content\n```\n[T-971](T-971-invented.md)\n~~~\n"))
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_shorter_closing_run_does_not_close(self):
+        """A closing fence must be AT LEAST AS LONG as the opener. A
+        4-backtick open followed by a 3-backtick line must NOT close --
+        the naive toggle (any run >= 3) closed on it anyway."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", (
+            "\n````\ncontent\n```\n[T-971](T-971-invented.md)\n````\n"))
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_backtick_fence_info_string_with_a_backtick_is_not_a_fence(self):
+        """A backtick fence's info string cannot contain a backtick per
+        CommonMark -- so this whole line is an inline code span
+        (` ```code``` `) followed by plain text, not a fence-open. The
+        naive check treated it as a fence-open and swallowed everything
+        after it (including the real link on the SAME line) as fence
+        content, never scanning it at all."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\n```code``` then [T-971](T-971-invented.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, "the dead link on the same line as the "
+                               f"invalid fence-open must still be found: "
+                               f"{[str(f) for f in findings]}")
+
+    # -- #2: inline code spans wrapping across lines ---------------------
+
+    def test_red_multiline_code_span_not_recognized(self):
+        """A single backtick opened on one line and closed on the next
+        is one code span spanning the whole paragraph in CommonMark. The
+        old per-line-only stripping never saw the closing backtick, so
+        nothing on line 1 got stripped and the bracketed pseudo-link
+        inside the still-open span was scanned as real."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\nSee `[T-971](T-971-invented.md)\nstill open` and more.\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_multiline_code_span_carry_hides_the_START_of_the_next_line(self):
+        """Sharper than the fixture above: the pseudo-link sits at the
+        VERY START of line 2, before line 2's own closing backtick.
+        Dropping the carried-over 'still open' state (rather than merely
+        never detecting it) would let line 2 start scanning as ordinary
+        text and see this link before reaching the close -- confirmed by
+        mutation testing to be the one shape the fixture above does not
+        actually exercise (line 1 alone already hides its own tail
+        regardless of what carries over)."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\nSee `some text\n[T-971](T-971-invented.md)` still open.\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_guard_multiline_span_resets_at_a_blank_line(self):
+        """A blank line ends the paragraph (and any still-open span with
+        it) -- an unclosed backtick must not swallow an unrelated
+        paragraph's real, resolvable link."""
+        self._write_task("T-972")
+        self._write_board(["T-972"])
+        self._append("TASKS.md",
+                      "\nAn unclosed span starts here `oops\n\n[T-972](T-972-x.md)\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    # -- #3: blockquote fences, indented code, HTML comments, \[ --------
+
+    def test_red_fence_inside_blockquote_is_skipped(self):
+        """T-023:81-86's live shape: a fenced block whose every line
+        carries a `> ` blockquote prefix. `^\\s*` never matches a line
+        starting with `>`, so the naive check never recognized this as a
+        fence at all and scanned the quoted broken link inside it."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", (
+            "\n> ```\n> [T-971](T-971-invented.md)\n> ```\n"))
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_tilde_fence_inside_blockquote_is_skipped(self):
+        """Same shape with a TILDE fence rather than backticks. Mutation
+        testing found the backtick version above alone is not a clean
+        isolation of blockquote-prefix stripping: a ```-fenced blockquote
+        happens to ALSO get hidden by the multi-line code-span carry
+        (the un-stripped `> ` + ``` tokenizes as an inline span that
+        coincidentally spans the same range), so a mutant that dropped
+        blockquote handling entirely still passed it. Tildes are not
+        code-span delimiters, so this fixture isolates the blockquote
+        fence path on its own."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", (
+            "\n> ~~~\n> [T-971](T-971-invented.md)\n> ~~~\n"))
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_four_space_indented_code_block_is_skipped(self):
+        """T-011:41-47's live shape (a YAML block-scalar table, heavily
+        indented): a 4+-space-indented line is a CommonMark indented
+        code block and carries no inline markdown. Confirmed empirically
+        against the whole live board first that no real link anywhere
+        sits on a >=4-space-indented line, so this cannot regress
+        anything real."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\nSome paragraph.\n\n    [T-971](T-971-invented.md)\n\nMore text.\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_html_comment_is_skipped(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\n<!-- broken example: [T-971](T-971-invented.md) -->\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_escaped_opening_bracket_is_not_a_link(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\nNot a link: \\[T-971](T-971-invented.md)\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    # -- #4: ID mismatch only on an EXACT task-id link text --------------
+
+    def test_red_descriptive_text_mentioning_another_id_stays_silent(self):
+        """Link text that merely MENTIONS a different task id in prose
+        ("follow-up to T-031") is not claiming to BE that task's link --
+        only an EXACT `[T-nnn]` text is a mismatch candidate."""
+        self._write_task("T-014")
+        self._write_board(["T-014"])
+        self._append("TASKS.md", "\n[follow-up to T-031](T-014-x.md)\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_green_numeric_id_compare_allows_unpadded_form(self):
+        """`T-32` and `T-032` name the same task -- compare numerically,
+        not as strings."""
+        self._write_task("T-032")
+        self._write_board(["T-032"])
+        self._append("TASKS.md", "\n[T-32](T-032-x.md)\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_exact_id_text_still_catches_a_real_mismatch(self):
+        """The narrowing to exact-id text must not swallow the real
+        defect this check exists to catch."""
+        self._write_task("T-014")
+        self._write_task("T-015")
+        self._write_board(["T-014", "T-015"])
+        self._append("TASKS.md", "\n[T-015](T-014-x.md)\n")
+        findings = bc.run(self.root)
+        mismatch = [f for f in findings if f.key == "link-id"]
+        self.assertTrue(mismatch, [str(f) for f in findings])
+
+    # -- #8: cheap link forms --------------------------------------------
+
+    def test_red_anchor_stripped_but_file_part_still_checked(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\n[details](T-971-invented.md#some-section)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+    def test_green_anchor_on_a_real_target_stays_silent(self):
+        self._write_task("T-972")
+        self._write_board(["T-972"])
+        self._append("TASKS.md", "\n[details](T-972-x.md#some-section)\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_dot_slash_prefix_checked(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", "\n[details](./T-971-invented.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+    def test_red_dotdot_tasks_prefix_checked(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", "\n[details](../tasks/T-971-invented.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+    def test_red_trailing_title_checked(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      '\n[details](T-971-invented.md "some title")\n')
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+    def test_red_angle_bracket_destination_checked(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", "\n[details](<T-971-invented.md>)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
 
 
 # --------------------------------------------------------------------------
