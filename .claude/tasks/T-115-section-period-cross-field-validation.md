@@ -10,10 +10,11 @@ depends_on: [T-027]   # contract line lands in T-027's PR (board rule 4)
 risk: normal
 security_review: false
 checkpoint:
-  stage: 1   # backend-developer implementing in the worktree; SOFT reached mid-stage
+  stage: A1   # stage 1 done: 417017e on the branch, not pushed; 10 files; 172 tests, checkstyle 0 violations per developer; 7 fail-first; merges only after curriculum#99. SOFT stop — A1 not started
   repo: cv-domain-service
   branch: fix/section-period-validation
   worktree: /home/erfeamor/work/cvdl-worktrees/T-115
+  commit: 417017e
   pr:
   developer: backend-developer
   reviewers: [code-review, quality-assurance]

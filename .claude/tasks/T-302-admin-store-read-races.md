@@ -10,10 +10,11 @@ depends_on: [T-301]
 risk: normal
 security_review: false
 checkpoint:
-  stage: 1   # fullstack-developer implementing in the worktree; SOFT reached mid-stage
+  stage: A1   # stage 1 done: aa1988d on the branch, not pushed; 15 files; 226/226 Jest, typecheck/lint/build/build-storybook clean per developer; no counter removed (developer: a write starting just before a load can still re-read after it) — reviewer to check. SOFT stop — A1 not started
   repo: cv-admin-react
   branch: fix/admin-store-read-races
   worktree: /home/erfeamor/work/cvdl-worktrees/T-302
+  commit: aa1988d
   pr:
   developer: fullstack-developer
   reviewers: [code-review, frontend-architect]
