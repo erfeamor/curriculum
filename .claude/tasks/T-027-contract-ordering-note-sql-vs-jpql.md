@@ -2,14 +2,41 @@
 id: T-027
 title: "Contract: the ordering note prescribes SQL syntax for a JPQL context"
 repo: cv-project (meta)
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: docs/contract-ordering-jpql-note
 pr:
 depends_on: []
 risk: trivial
 security_review: false   # docs-only; touches no adapter §5 security path
+checkpoint:
+  stage: 1   # H1 accepted 2026-09-27
+  repo: cv-project (meta)
+  branch: docs/contract-ordering-jpql-note
+  worktree: none   # meta repo branch
+  pr:
+  developer: backend-developer
+  reviewers: [code-review]
+  risk: trivial
+  security_review: false
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a
+  updated: 2026-09-27T12:00:00+02:00
+  budget:
+    turns: 514   # --since 2026-09-25T12:49:25.700Z (session-wide)
+    total_tokens: 115504286
+    subagent_tokens: 0
+    spawns: 0   # quality-assurance (shared T-302/T-115 plan)
+    status: ok
+    checked: 2026-09-27T12:00:00+02:00
 ---
+
+## H1 — premise verified, accepted by the human, 2026-09-27
+
+**The premise holds: the note is wrong, not ambiguous.** The literal form was swapped into `ProjectRepository` in a throwaway worktree at `cf508e4`, and `ProjectRepositoryTest` ran with 11/11 errors at startup: `org.hibernate.query.SyntaxException: At 1:75 and token 'IS', mismatched input 'IS'`. The parser's expected-token list includes `NULLS`, so `DESC NULLS LAST` parses as HQL. Its MySQL rendering is **unverified**; the contract should say so rather than recommend it. The same PR carries [T-115](T-115-section-period-cross-field-validation.md)'s rule-4 line.
 
 ## Goal
 

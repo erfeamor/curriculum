@@ -2,14 +2,44 @@
 id: T-115
 title: "The domain service accepts a section whose `endDate` is earlier than its `startDate`"
 repo: cv-domain-service
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: fix/section-period-validation
 pr:
-depends_on: []
+depends_on: [T-027]   # contract line lands in T-027's PR (board rule 4)
 risk: normal
 security_review: false
+checkpoint:
+  stage: 1   # H1 accepted 2026-09-27
+  repo: cv-domain-service
+  branch: fix/section-period-validation
+  worktree: /home/erfeamor/work/cvdl-worktrees/T-115
+  pr:
+  developer: backend-developer
+  reviewers: [code-review, quality-assurance]
+  risk: normal
+  security_review: false
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: 0
+  updated: 2026-09-27T12:00:00+02:00
+  budget:
+    turns: 514   # --since 2026-09-25T12:49:25.700Z (session-wide)
+    total_tokens: 115504286
+    subagent_tokens: 0
+    spawns: 1   # quality-assurance (shared T-302/T-115 plan)
+    status: ok
+    checked: 2026-09-27T12:00:00+02:00
 ---
+
+## H1 — accepted by the human, 2026-09-27
+
+- **Contract first:** rule 4 in `docs/api-contract.md` gains the cross-field line, in the same meta PR as [T-027](T-027-contract-ordering-note-sql-vs-jpql.md). T-115 may implement in parallel but **merges only after that PR**.
+- **Rule:** checked **only when both dates are non-null** (`endDate ≥ startDate`, equal allowed). One-sided project dates keep today's behavior.
+- **Shape:** no class-level constraint exists in the repo yet; one reusable constraint over the three entities is preferred to three ad hoc checks.
+- **Test plan:** QA's 10 cases (POST+PUT inverted → 400 for all three, fail-first; equal, null `endDate`, no-date project accepted; validator unit test; malformed date unaffected).
 
 ## The gap
 

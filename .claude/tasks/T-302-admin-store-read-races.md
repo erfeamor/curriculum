@@ -2,14 +2,43 @@
 id: T-302
 title: "cv-admin-react section/skills stores: rare load-vs-write interleavings leave a wrong list, notice or error on screen until reload"
 repo: cv-admin-react
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: fix/admin-store-read-races
 pr:
 depends_on: [T-301]
 risk: normal
 security_review: false
+checkpoint:
+  stage: 1   # H1 accepted 2026-09-27
+  repo: cv-admin-react
+  branch: fix/admin-store-read-races
+  worktree: /home/erfeamor/work/cvdl-worktrees/T-302
+  pr:
+  developer: fullstack-developer
+  reviewers: [code-review, frontend-architect]
+  risk: normal
+  security_review: false
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: 1
+  updated: 2026-09-27T12:00:00+02:00
+  budget:
+    turns: 514   # --since 2026-09-25T12:49:25.700Z (session-wide)
+    total_tokens: 115504286
+    subagent_tokens: 0
+    spawns: 1   # quality-assurance (shared T-302/T-115 plan)
+    status: ok
+    checked: 2026-09-27T12:00:00+02:00
 ---
+
+## H1 — accepted by the human, 2026-09-27
+
+- **Writes during a load:** forms and write buttons are disabled while `loading`. The store **also rejects** a write that arrives mid-load, with a distinct error (not a silent no-op), so a UI bug surfaces.
+- **Notices split per list:** `skillsStore` gets `catalogNotice` + `assignmentsNotice`; each is cleared **only** by a successful re-read of its own list. `sectionStore` keeps one notice with the same rule. Writes that do not re-read never clear a notice.
+- **Test plan:** QA's 9 cases (4 fail-first scenarios, UI-disabled check, 3 regressions, exploratory race probe). The runner is **Jest**, not Vitest.
 
 ## The gap
 

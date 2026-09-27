@@ -2,14 +2,41 @@
 id: T-029
 title: "/code-review silently reviews the wrong thing when given no explicit target"
 repo: cv-project (meta)
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: fix/code-review-on-worktrees
 pr:
 depends_on: []
 risk: normal
 security_review: false   # tooling/process change in the meta repo; no adapter §5 security path
+checkpoint:
+  stage: 1   # H1 accepted 2026-09-27
+  repo: cv-project (meta)
+  branch: fix/code-review-on-worktrees
+  worktree: none   # local adapter edit + board record
+  pr:
+  developer: tech-product-owner
+  reviewers: [code-review]
+  risk: normal
+  security_review: false
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a
+  updated: 2026-09-27T12:00:00+02:00
+  budget:
+    turns: 514   # --since 2026-09-25T12:49:25.700Z (session-wide)
+    total_tokens: 115504286
+    subagent_tokens: 0
+    spawns: 0   # quality-assurance (shared T-302/T-115 plan)
+    status: ok
+    checked: 2026-09-27T12:00:00+02:00
 ---
+
+## H1 — accepted by the human, 2026-09-27
+
+Adapter §7 (local, gitignored) gains the explicit-target invocation that this board has used since 2026-09-24: worktree path + branch vs `origin/master`. It also gains the rule that **every review record states the scope it examined**: commit range, file count, and, for test-only diffs, that the driver read the diff itself. A review that returns without a stated scope is recorded as **"did not run"**, never as clean. The board carries the record because the adapter cannot ride in a PR.
 
 > ## PREMISE CORRECTED 2026-08-22, HOURS AFTER FILING — worktrees were never the cause
 >

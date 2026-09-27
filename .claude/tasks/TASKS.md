@@ -83,8 +83,8 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 |----|-------|------|--------|-------|------------|----|
 | [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** (every ordered collection but experience) | cv-domain-service | todo | | T-105 | |
 | [T-113](T-113-optimistic-locking-lost-update.md) | Two concurrent PUTs silently lose one write — no `@Version`, no 409 (T-108's declined half) | cv-domain-service | todo | | T-108, T-014 | |
-| [T-115](T-115-section-period-cross-field-validation.md) | The domain service accepts `endDate` earlier than `startDate` on a section | cv-domain-service | todo | | — | |
-| [T-302](T-302-admin-store-read-races.md) | Admin section/skills stores: rare load-vs-write interleavings show a wrong list, notice or error until reload | cv-admin-react | todo | | T-301 | |
+| [T-115](T-115-section-period-cross-field-validation.md) | The domain service accepts `endDate` earlier than `startDate` on a section | cv-domain-service | in_progress | tech-product-owner | T-027 | |
+| [T-302](T-302-admin-store-read-races.md) | Admin section/skills stores: rare load-vs-write interleavings show a wrong list, notice or error until reload | cv-admin-react | in_progress | tech-product-owner | T-301 | |
 | [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔ | |
 
 <details>
@@ -120,8 +120,8 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-012](T-012-aws-endgame-decision.md) | **Paid-vs-teardown — DECIDED 2026-09-24: A, go Paid with the stack trimmed**; upgrade by 2026-12-15 | cv-project (meta) | in_progress | tech-product-owner | — | |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution (cross-repo: split at stage 0 if implemented) | cv-infra + cv-domain-service | todo | | T-022 | |
-| [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) | Contract: the ordering note prescribes SQL syntax for a JPQL context | cv-project (meta) | todo | | — | |
-| [T-029](T-029-code-review-cannot-see-worktrees.md) | `/code-review` **silently reviews the wrong thing** without an explicit target | cv-project (meta) | todo | | — | |
+| [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) | Contract: the ordering note prescribes SQL syntax for a JPQL context | cv-project (meta) | in_progress | tech-product-owner | — | |
+| [T-029](T-029-code-review-cannot-see-worktrees.md) | `/code-review` **silently reviews the wrong thing** without an explicit target | cv-project (meta) | in_progress | tech-product-owner | — | |
 | [T-032](T-032-board-check-re-review-after-live-use.md) | Re-review `board-check.py` after live use, plus two blind spots: **link integrity** and **status-gated `pr:`** | cv-project (meta) | todo | | T-031 ✔ | |
 | [T-033](T-033-ci-host-tls.md) | CI host serves Jenkins login and Drone OAuth over plain HTTP on a scanned public IP — decide TLS or record the accepted risk | cv-infra | todo | | — | |
 | [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3); **also wires Drone to the doorbell** | cv-infra | todo | | T-007 | |
