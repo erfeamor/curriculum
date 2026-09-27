@@ -133,9 +133,9 @@ Worth noting what did catch it: a review agent reading the frontmatter, not the 
 
 ### Acceptance criteria (added to the list below)
 
-- [ ] **A task with `checkpoint.pr` set and an empty or sentinel top-level `pr:` is reported, at any status** — with `in_progress` + a set `checkpoint.pr` called out as a board-rule-6 violation in its own right.
-- [ ] **A fixture reproduces the 2026-08-27 incident specifically** — `status: in_progress`, empty `pr:`, `checkpoint.pr` holding a URL — and is **confirmed red before the check exists**, per this board's standing practice. The real instance is recoverable from `git show 422fbeb:.claude/tasks/T-201-bff-cv-aggregate.md` rather than needing to be invented.
-- [ ] **A task with no `checkpoint.pr` and no `pr:` produces no finding at any status**, with a fixture — this is the false-positive guard, and it is the half that decides whether the check survives contact with the board.
+- [x] **A task with `checkpoint.pr` set and an empty or sentinel top-level `pr:` is reported, at any status** — with `in_progress` + a set `checkpoint.pr` called out as a board-rule-6 violation in its own right.
+- [x] **A fixture reproduces the 2026-08-27 incident specifically** — `status: in_progress`, empty `pr:`, `checkpoint.pr` holding a URL — and is **confirmed red before the check exists**, per this board's standing practice. The real instance is recoverable from `git show 422fbeb:.claude/tasks/T-201-bff-cv-aggregate.md` rather than needing to be invented.
+- [x] **A task with no `checkpoint.pr` and no `pr:` produces no finding at any status**, with a fixture — this is the false-positive guard, and it is the half that decides whether the check survives contact with the board.
 
 
 ## One passenger, added 2026-08-24 on the human's instruction
@@ -148,19 +148,111 @@ Worth noting what did catch it: a review agent reading the frontmatter, not the 
 
 ## Acceptance criteria
 
-- [ ] At least **7 days** of real board edits have elapsed since `ae343eb` (2026-08-23).
-- [ ] Every finding the tool produced in that window is classified **true / false positive**, with the false positives reproduced.
-- [ ] A deliberate attempt to find an **eighth duplicate-key** blind spot is made and its result recorded either way — "none found" is a valid and useful outcome, but only if it was actually looked for. **(Distinct from the link-integrity criteria below: that is a blind spot in a different check. Finding one does not discharge the hunt for the other.)**
-- [ ] The mutation check is re-run and every mutant dies.
-- [ ] **Link integrity is checked** — every `](T-NNN-*.md)` target in `TASKS.md`, `HISTORY.md`, `README.md` and every task file resolves to a file that exists. Offline, deterministic; no external URLs, no anchors.
-- [ ] **ID/target agreement is checked** — a link whose visible text names one task and whose target names another fails. This is a *different* defect from a dead link and needs its own fixture; the link in question resolves.
-- [ ] **Regression fixtures reproduce the 2026-08-24 incident specifically** — a row linking `T-015` to a non-existent `T-015-bff-container-registry.md`, and a row linking `[T-015]` to an existing `T-014-*.md`. Both must be confirmed **red before the check exists**, per this board's standing practice and T-031's own precedent of reproducing the four real shadowing incidents.
-- [ ] **Links inside inline code spans and fenced blocks are skipped**, with a fixture proving it — this file quotes broken links on purpose to document them, and a prototype produced **two false positives here** before this rule was added. T-031 calls one confirmed false positive fatal to adoption.
-- [ ] **The new check does not fire on the current board** — the five real dead links and the one in T-201 were repaired on 2026-08-24, so the expected result is zero. Anything it finds is live drift: fix it in the same PR (T-031 H1 ruling 2) and record it as a second data point for the verdict.
-- [ ] **No title-equality check was added**, and the reason is recorded. Board rows deliberately shorten and annotate titles, and strike-don't-delete leaves superseded ones in place — a title check would fire on correct content, and a validator that cries wolf gets switched off.
-- [ ] A written verdict: **converged**, **needs another round**, or **the approach is wrong**. The third is a real option and must not be excluded by sunk cost.
+- [x] At least **7 days** of real board edits have elapsed since `ae343eb` (2026-08-23). *(35 days, as of this session 2026-09-27; 37 board-touching commits in that window.)*
+- [x] Every finding the tool produced in that window is classified **true / false positive**, with the false positives reproduced. *(Zero false positives found — see Re-review section below. Nothing to reproduce; every finding in every sample was a true positive.)*
+- [x] A deliberate attempt to find an **eighth duplicate-key** blind spot is made and its result recorded either way — "none found" is a valid and useful outcome, but only if it was actually looked for. **(Distinct from the link-integrity criteria below: that is a blind spot in a different check. Finding one does not discharge the hunt for the other.)** *(Six forms tried, `scripts/test_board_check.py::EighthDuplicateKeyBlindSpotHunt` — none found.)*
+- [x] The mutation check is re-run and every mutant dies. *(23 mutations across new+existing checks; 1 survivor found and closed — see table below.)*
+- [x] **Link integrity is checked** — every `](T-NNN-*.md)` target in `TASKS.md`, `HISTORY.md`, `README.md` and every task file resolves to a file that exists. Offline, deterministic; no external URLs, no anchors.
+- [x] **ID/target agreement is checked** — a link whose visible text names one task and whose target names another fails. This is a *different* defect from a dead link and needs its own fixture; the link in question resolves.
+- [x] **Regression fixtures reproduce the 2026-08-24 incident specifically** — a row linking `T-015` to a non-existent `T-015-bff-container-registry.md`, and a row linking `[T-015]` to an existing `T-014-*.md`. Both must be confirmed **red before the check exists**, per this board's standing practice and T-031's own precedent of reproducing the four real shadowing incidents.
+- [x] **Links inside inline code spans and fenced blocks are skipped**, with a fixture proving it — this file quotes broken links on purpose to document them, and a prototype produced **two false positives here** before this rule was added. T-031 calls one confirmed false positive fatal to adoption.
+- [x] **The new check does not fire on the current board** — the five real dead links and the one in T-201 were repaired on 2026-08-24, so the expected result is zero. Anything it finds is live drift: fix it in the same PR (T-031 H1 ruling 2) and record it as a second data point for the verdict. *(Confirmed zero on the current board — no live drift to fix in this branch. See Re-review section for a SECOND incident the check independently confirmed against git history: 4 more dead links, 2026-09-25, `9767706`.)*
+- [x] **No title-equality check was added**, and the reason is recorded. Board rows deliberately shorten and annotate titles, and strike-don't-delete leaves superseded ones in place — a title check would fire on correct content, and a validator that cries wolf gets switched off. *(Recorded in `check_link_integrity`'s own section comment in `scripts/board-check.py` and reaffirmed in the Re-review section below.)*
+- [x] A written verdict: **converged**, **needs another round**, or **the approach is wrong**. The third is a real option and must not be excluded by sunk cost. *(Converged — see Re-review section.)*
 
-## Definition of done
+## Re-review — 2026-09-27
+
+**Phase A (build).** `a2bdb9c` adds check 8 (link integrity: resolution + ID/target agreement, both offline, code-span/fence-aware) and widens check 5 (`pr:` presence) to any status once `checkpoint.pr` already holds a real value. Every RED-FIRST case named in the binding test plan (dead link, ID/target mismatch, scan coverage across all four surfaces, the `422fbeb`/T-201 regression, the `in_progress` widening) was confirmed failing before the corresponding check existed. `python3 scripts/board-check.py` on this branch's board produces **zero link findings** — the five dead links + T-204 cross-reference from 2026-08-24 stay fixed; there is no live drift in this repo state, so nothing needed fixing in the same PR. 125 tests green at the end of phase A.
+
+**Phase B (re-review).**
+
+### 1. Mutation re-run (item 13)
+
+Script: `/tmp/.../scratchpad/mutate.py` (scratchpad only, not shipped) — reverts one guard at a time across both pre-existing checks (1–7) and the two new/widened ones (5, 8), runs the full suite, restores the file exactly, records KILLED/SURVIVOR.
+
+| # | Mutation | Result |
+|---|---|---|
+| m01 | check 1: drop `.tag` from the duplicate-key identity | KILLED |
+| m02 | check 1: invert the `seen` membership test | KILLED |
+| m03 | check 1: remove the `visited`-node de-dup guard | KILLED |
+| m04 | `read_frontmatter`: OPENING fence `.rstrip()` → `.strip()` | **SURVIVOR → fixed** |
+| m05 | `read_frontmatter`: CLOSING fence `.rstrip()` → `.strip()` | KILLED |
+| m06 | check 3: `todo and owner` → `todo or owner` | KILLED |
+| m07 | check 3: invert the `elif` owner-required branch | KILLED |
+| m08 | check 4: `status != "done"` → `== "done"` | KILLED |
+| m09 | check 4: invert the worktree-sentinel test | KILLED |
+| m10 | check 5: revert the widened status gate | KILLED |
+| m11 | check 5: `pr_text == "" or is_sentinel` → `and` | KILLED |
+| m12 | check 5: remove the `done`+sentinel early return | KILLED |
+| m13 | check 5: invert the `checkpoint.pr` disagreement test | KILLED |
+| m14 | check 6: invert `dep_id not in known_ids` | KILLED |
+| m15 | check 7: invert `status not in STATUS_VALUES` | KILLED |
+| m16 | check 7: invert the `UNREFINED_EXEMPT` membership test | KILLED |
+| m17 | check 2: invert the board/file status-agreement test | KILLED |
+| m18 | check 2: invert the malformed-row column-count test | KILLED |
+| m19 | check 8: invert the dead-link existence test | KILLED |
+| m20 | check 8: invert the ID/target-agreement test | KILLED |
+| m21 | check 8: disable the fence toggle | KILLED |
+| m22 | check 8: disable the code-span strip | KILLED |
+| m23 | `run()`: id-collision `len(paths) > 1` → `>= 1` | KILLED |
+
+**23 mutations, 22 killed on the first pass, 1 survivor (m04).** m04 was not a functional defect — `.rstrip()` genuinely ships in the code — it was a coverage gap: nothing exercised an indented **opening** fence, the mirror image of round 3's real closing-fence bug. Closed with a direct `read_frontmatter()` regression test (commit `8391b09`, test-only, no `board-check.py` change). Re-ran after the fix: **23/23 killed, 0 survivors.**
+
+### 2. In-the-wild findings, classified (item 14)
+
+Searched `git log -p ae343eb..HEAD -- .claude/tasks/ scripts/` for every mention of `board-check`, `false positive`, `--no-`, "silenced" (37 board-touching commits in the window). Every finding found is a **true positive**; none is a false positive:
+
+- **`b03664d` (2026-08-26).** *"The opt-in `board-check` hook earned its keep three times in one session, catching a task file with no board row, and twice catching a file/board status disagreement... including the `checkpoint.worktree` clear at close-out."* Three true positives: check 2 (missing board row), check 2 (status disagreement) ×2, one of which is check 4's worktree-clear rule. Same session also confirms the hook is registered and used (see adoption, below).
+- **`422fbeb` (2026-08-27), T-201.** The already-documented `pr:`-gating miss this task exists to fix. Confirmed live (not reconstructed): `git show 422fbeb:.claude/tasks/T-201-bff-cv-aggregate.md` — `status: in_progress`, empty `pr:`, `checkpoint.pr` set. The OLD tool reported clean (a false *negative*, not a false positive — it produced no finding at all). The widened check now reports it, and current live T-201 (`done`, `pr:` set) is silent. Fixture: `PrPresence422fbebRegression`.
+- **`218b9dc` (2026-08-24), the "fifth sweep."** Already documented in this file's own provenance: five invented filenames + the T-201→T-204 cross-reference, caught by a hand shell loop, not the tool — another false negative of the pre-check-8 tool, now closed by check 8.
+- **`9767706` (2026-09-26), a SECOND, previously undocumented instance of the same class**, found in this session by running check 8 against `9767706`'s parent (`4b77edb`, 2026-09-25): **4 more real dead links**, all `T-013-bff-public-edge-path.md` (T-013's file was since renamed to `T-013-contract-bff-public-routing.md`; 3 references in `T-210-bff-domain-types-null-not-absent.md`, 1 in `T-405-public-react-null-optionals.md`). Commit message confirms: *"4 dead links to T-013 fixed (T-210, T-405)."* board-check (pre-check-8) reported clean throughout this incident too — a second real-world confirmation that link rot recurs and check 8 catches it, not a synthetic worry.
+- **No confirmed false positive anywhere in the window.** No `--no-*` flag exists on this tool's CLI at all (only `--tasks-dir`/`--quiet`), so there is no escape hatch to even reach for. No commit deletes a flagged key to silence a finding rather than correcting it — every fix found (T-201's `pr:`, T-210/T-405's links, T-409's missing `pr:` key) sets the field to a *correct* value, never removes it.
+
+### 3. Eighth duplicate-key blind-spot hunt (item 15)
+
+`scripts/test_board_check.py::EighthDuplicateKeyBlindSpotHunt`, six forms, one fixture each:
+
+| Form | Result |
+|---|---|
+| Tabs vs spaces (indentation) | YAML forbids tabs in block indentation; `compose()` raises, `find_duplicate_keys` returns `[]` by design, but `parse_frontmatter_dict`'s own `yaml.safe_load` ALSO raises — a loud parse-error finding, never a silent clean. Not a blind spot. |
+| Quoted vs bare keys | Already caught (pre-existing coverage, re-confirmed). |
+| Anchors/aliases used AS a key (`*k` resolving to `status`, colliding with a literal `status:`) | Caught — `compose()` resolves the alias's tag/value through to the key identity check. Not a blind spot. |
+| Merge keys (`<<: *a` / `<<: *b` twice in one mapping) | Caught — both `<<:` occurrences share the merge tag, so the identity check flags the literal duplicate marker itself. Not a blind spot. |
+| Flow-mapping duplicates | Already caught (pre-existing coverage, re-confirmed). |
+| Comment-adjacent keys (trailing `# status: ...` comment; comment-only line matching a key) | No effect — comments are stripped before `compose()` ever sees the text; empirically confirmed both shapes parse to only the real keys. Not a blind spot. |
+
+**Result: none found, having actually tried all six.** Tabs-vs-spaces is the only form that changes behaviour at all, and it changes it to a correct loud error, not a silent clean.
+
+### 4. Adoption signals (item 16)
+
+- **Hook registration**: `.claude/settings.json` (gitignored, per T-031 H2's ruling — script committed, registration opt-in, never distributed) is present and correctly configured in the working checkout, registering `board-check-hook.py` on `PostToolUse` for `Edit|Write|MultiEdit`.
+- **Actual use, not just registration**: `b03664d` records the hook firing and catching three real defects in one session (above).
+- **No `--no-*` reached for**: the CLI has no such flag to reach for (`--tasks-dir`, `--quiet` only).
+- **No key deleted to silence a finding**: every real incident found in the window was closed by *correcting* the flagged field, never by removing it (T-201's `pr:`, T-210/T-405's links, T-409's missing `pr:` key — see item 14).
+
+### 5. Driver invocation sampling (item 17)
+
+Ran the **contemporaneous** `scripts/board-check.py` (as it existed at each commit, via `git archive`) against that commit's own `.claude/tasks/` tree, for 3 checkpoint-write commits:
+
+| Commit | Date | Result |
+|---|---|---|
+| `7618ec0` ("checkpoint T-026 at stage 4") | 2026-08-26 | clean — genuinely clean at that time (T-201 was still in that version's `UNREFINED_EXEMPT`, correctly). |
+| `422fbeb` ("T-201 at review round 1") | 2026-08-27 | clean — but **wrongly** clean: this is the exact `pr:`-gating incident, reported clean only because that version's check 5 never examined `in_progress`. |
+| `533cfa1` ("T-207 ... PARKED at review") | 2026-08-27 | clean — genuinely clean. |
+
+The driver's board-check invocation ran and matched the historical record at all three; one of the three is the known miss, now fixed.
+
+### 6. False-positive sweep (item 18)
+
+10 board snapshots via `git archive` + **today's** `board-check.py` (to test the checks this task adds/widens against real historical data), 5 checkpoint-write-style + 5 merge/close-style, spanning 2026-08-26 to 2026-09-27: `7618ec0`, `8825d96`, `422fbeb`, `533cfa1`, `a78e953` (checkpoint-write); `725ec8b`, `c7c7c79`, `c54d324`, `9767706`, `52aaeb4` (merge/close).
+
+Filtered to this task's own checks (`key` in `link`, `link-id`, `pr`): **1 finding across all 10 snapshots — `422fbeb`'s `pr` finding, a confirmed true positive** (item 14). The other 9 snapshots: zero. **False-positive rate: 0/10 snapshots, 0 false positives.**
+
+(4 of the 10 snapshots also show `risk`/`security_review`-missing findings on T-201 from **check 7**, pre-dating this task — these are an artifact of replaying *today's* `UNREFINED_EXEMPT` set, which no longer includes T-201, against board state from *before* T-201's 2026-08-27 refinement, when the contemporaneous script legitimately exempted it (`git show 7618ec0:scripts/board-check.py` confirms `T-201` was in that version's set). Not a tool defect, not in this task's scope, and not counted in the rate above — flagged here only so the number isn't misread.)
+
+### 7. Verdict — **converged**
+
+Reasoning: round 3's mutation pass found 11 real survivors; this re-run of the same method against a larger surface (7 pre-existing checks plus the 2 new/widened ones, 23 targeted mutations) found exactly **1**, and it was a test-coverage gap, not a functional defect. The tool has run against 35 days and 37 commits of real, unscripted board editing and produced **zero confirmed false positives** — the failure mode T-031 calls fatal to adoption never happened. The two blind spots that *were* found live (link integrity, `pr:` status-gating) each mapped cleanly onto exactly this project's existing structure — one narrow check, one incident, fixtures reproducing the real commit — with no architectural strain, and a *second*, independent real-world dead-link incident (`9767706`) confirms the new check's value against data it was never tuned to. The eighth-blind-spot hunt (six deliberately chosen forms) found nothing, and the one form that behaves differently (tabs) fails loudly rather than silently. The adoption signal is positive: the hook is registered, actually used, and every real incident found was fixed forward, never silenced. Weighed against "the approach is wrong" deliberately, not by default: nothing here suggests the incident-per-check structure is straining — the opposite, it kept absorbing new incidents (T-032 itself is the third round of that) without needing to change shape. **Converged** is the answer this evidence supports, not the one sunk cost would prefer.
 
 PR open from `chore/board-check-re-review` with the verdict recorded on this task, or — if nothing is found — this task closed with the evidence that nothing was found. **Note there is no CI in this repo**; A1 and QA carry the whole weight.
 
