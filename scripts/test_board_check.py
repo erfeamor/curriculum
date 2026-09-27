@@ -558,6 +558,22 @@ class FrontmatterFenceTruncation(TempDirCase):
                           f"body content after the real fence was parsed as "
                           f"frontmatter: {[str(f) for f in findings]}")
 
+    def test_opening_fence_also_requires_column_zero(self):
+        """T-032 mutation round, 2026-09-27: mutating the OPENING fence's
+        `.rstrip()` to `.strip()` (the exact class of bug fixed above for
+        the CLOSING fence) survived every existing test. An indented first
+        line is not a real frontmatter fence -- `.strip()` would eat the
+        leading whitespace and wrongly accept it as one, the same failure
+        mode as the closing-fence bug, just on the other side of the
+        block. This test closes that gap directly against
+        read_frontmatter() rather than round-tripping through board.check()."""
+        path = self.root / "T-942-x.md"
+        path.write_text(" ---\nid: T-942\nstatus: todo\n---\nbody\n")
+        self.assertIsNone(
+            bc.read_frontmatter(path),
+            "an indented '---' on line 1 must not be recognized as the "
+            "opening frontmatter fence")
+
 
 class YamlComposeSurfaceForms(unittest.TestCase):
     """Review round 3, design change (#11): check 1 is re-based on
@@ -651,6 +667,103 @@ class ComposeAliasDoubleReporting(unittest.TestCase):
               'b:', '  worktree: p', '  worktree: q']
         findings = bc.find_duplicate_keys(fm, 1, Path("x.md"))
         self.assertEqual(len(findings), 2, [str(f) for f in findings])
+
+
+class EighthDuplicateKeyBlindSpotHunt(unittest.TestCase):
+    """T-032 re-review, 2026-09-27: a DELIBERATE hunt for an eighth
+    duplicate-key surface form check 1 might still be blind to, distinct
+    from the link-integrity and pr:-gating blind spots (those are check 2
+    and check 5, not check 1). Each form gets its own fixture and its own
+    recorded result -- "none found" only counts if it was actually tried,
+    per this task's acceptance criteria. Six forms, chosen to cover the
+    surfaces round 1-4 have NOT already exercised (quoted keys,
+    hyphenated keys, flow mappings and mapping-node aliases already have
+    coverage above, in YamlComposeSurfaceForms and
+    ComposeAliasDoubleReporting)."""
+
+    def test_1_tabs_vs_spaces_indentation_is_a_reported_parse_error_not_silent(self):
+        """YAML forbids tabs in block indentation outright. compose()
+        raises, find_duplicate_keys returns [] by design (its own
+        docstring: a document that isn't valid YAML has no meaningful
+        duplicate-key finding), but parse_frontmatter_dict's
+        yaml.safe_load() raises on the SAME input -- so the board sees a
+        loud parse-error finding, never a silent clean. Not a blind spot;
+        confirmed empirically rather than assumed from the docstring."""
+        fm = ["checkpoint:", "  worktree: a", "\tworktree: none"]
+        self.assertEqual(bc.find_duplicate_keys(fm, 2, Path("x.md")), [])
+        data, err = bc.parse_frontmatter_dict(fm, Path("x.md"))
+        self.assertIsNone(data)
+        self.assertIsNotNone(err, "a tab-indented duplicate must surface "
+                                   "SOME finding, not parse silently to a "
+                                   "board-check: clean")
+
+    def test_2_quoted_vs_bare_key_across_the_SAME_pair_already_covered(self):
+        """Sanity re-confirmation alongside the other five forms in this
+        hunt (full coverage already lives in YamlComposeSurfaceForms)."""
+        fm = ["status: todo", '"status": done']
+        findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
+        self.assertTrue(any(f.key == "status" for f in findings))
+
+    def test_3_alias_used_AS_a_key_resolves_to_the_same_identity_as_a_literal_key(self):
+        """Sharper than the existing mapping-alias coverage
+        (ComposeAliasDoubleReporting, which aliases a whole MAPPING): here
+        the alias stands in for a bare scalar KEY. `*k` resolves to the
+        string 'status' via its anchor, and yaml.compose() resolves the
+        KEY node's own tag/value through the alias -- confirmed
+        empirically -- so it collides with a literal `status:` key
+        elsewhere in the same mapping exactly as if both had been typed
+        out. Not a blind spot."""
+        fm = ["anchor_val: &k status", "checkpoint:",
+              "  *k : value1", "  status: value2"]
+        findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
+        self.assertTrue(any(f.key == "status" for f in findings),
+                         [str(f) for f in findings])
+
+    def test_4_duplicate_merge_key_marker_is_itself_caught(self):
+        """`<<:` appearing TWICE in one mapping (two merge sources) is a
+        literal duplicate of the `<<` key -- yaml.compose() gives it the
+        merge tag both times, so the (tag, value) identity check flags it
+        exactly like any other duplicate key, with no special-casing
+        needed. Not a blind spot."""
+        fm = ["base: &base", "  worktree: from-anchor",
+              "other: &other", "  worktree: from-other",
+              "checkpoint:", "  <<: *base", "  <<: *other"]
+        findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
+        self.assertTrue(any(f.key == "<<" for f in findings),
+                         [str(f) for f in findings])
+
+    def test_5_flow_mapping_duplicate_already_covered(self):
+        """Sanity re-confirmation (full coverage in
+        YamlComposeSurfaceForms)."""
+        fm = ["checkpoint: {worktree: a, worktree: b}"]
+        findings = bc.find_duplicate_keys(fm, 2, Path("x.md"))
+        self.assertTrue(any(f.key == "worktree" for f in findings))
+
+    def test_6_comment_adjacent_keys_cannot_confuse_compose(self):
+        """A key-shaped SUBSTRING inside a comment (`# status: done (old)`)
+        or a full-line comment that looks like a key must not be treated
+        as YAML content at all -- comments are stripped before compose()
+        ever sees the text, by construction of the YAML grammar. Two
+        shapes tried: a trailing comment on the real key's own line, and
+        a comment-only line preceding it. Not a blind spot."""
+        fm_trailing = ["status: todo  # status: done (old, ignore)", "owner: someone"]
+        self.assertEqual(bc.find_duplicate_keys(fm_trailing, 2, Path("x.md")), [])
+        data, err = bc.parse_frontmatter_dict(fm_trailing, Path("x.md"))
+        self.assertEqual(data, {"status": "todo", "owner": "someone"})
+
+        fm_comment_line = ["# status: done", "status: todo"]
+        self.assertEqual(bc.find_duplicate_keys(fm_comment_line, 2, Path("x.md")), [])
+        data2, err2 = bc.parse_frontmatter_dict(fm_comment_line, Path("x.md"))
+        self.assertEqual(data2, {"status": "todo"})
+
+    def test_result_recorded_none_found(self):
+        """Explicit record, per this task's acceptance criteria: all six
+        forms above were tried against find_duplicate_keys / the compose()
+        design, and NONE produced a silent miss. Tabs-vs-spaces is the one
+        form that changes behaviour at all, and it changes it to a LOUD
+        parse-error finding, not a clean board -- so it does not count as
+        an eighth blind spot either. Result: none found, having looked."""
+        self.assertTrue(True)
 
 
 class CompactSequences(TempDirCase):
@@ -1301,6 +1414,227 @@ class PrPresence(TempDirCase):
         self.assertIn("sentinel", pr_findings[0].message)
 
 
+class PrPresenceWidenedToInProgress(TempDirCase):
+    """T-032, live incident found 2026-08-27 during T-201's review round,
+    reproducible from git rather than reconstructed: at commit 422fbeb,
+    T-201 carried `status: in_progress` with an EMPTY top-level `pr:`
+    while `checkpoint.pr` held a real, open PR URL. check_pr_present's
+    status gate returned early on anything but in_review/done, so the one
+    status where a PR can be open and unannounced was the one status
+    never examined -- board-check reported clean throughout, in the same
+    session that wrote it. Widened so ANY status is checked once
+    checkpoint.pr already holds a real value; a task with NEITHER key
+    must stay silent at every status (the ordinary case, and the
+    false-positive guard that decides whether this survives contact with
+    the board)."""
+
+    def test_red_in_progress_with_checkpoint_pr_and_empty_top_level(self):
+        b = make_board(self.root)
+        b.add_task("T-980", textwrap.dedent("""\
+            id: T-980
+            status: in_progress
+            owner: fullstack-developer
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            checkpoint:
+              stage: review
+              pr: https://github.com/erfeamor/cv-bff-node/pull/5
+            """), status="in_progress")
+        b.write_board()
+        findings = b.check()
+        pr_findings = [f for f in findings if f.key == "pr"]
+        self.assertTrue(pr_findings, [str(f) for f in findings])
+        self.assertIn("rule 6", pr_findings[0].message)
+        self.assertIn("in_progress", pr_findings[0].message)
+
+    def test_green_in_progress_no_pr_key_no_checkpoint_stays_silent(self):
+        b = make_board(self.root)
+        b.add_task("T-981", textwrap.dedent("""\
+            id: T-981
+            status: in_progress
+            owner: fullstack-developer
+            risk: normal
+            security_review: false
+            depends_on: []
+            """), status="in_progress")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.key == "pr" for f in findings), [str(f) for f in findings])
+
+    def test_green_in_progress_empty_pr_no_checkpoint_pr_stays_silent(self):
+        """The ordinary in-flight task: claimed, branch open, no PR yet.
+        Must not be swept up by the widening."""
+        b = make_board(self.root)
+        b.add_task("T-982", textwrap.dedent("""\
+            id: T-982
+            status: in_progress
+            owner: fullstack-developer
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            checkpoint:
+              stage: implementing
+            """), status="in_progress")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.key == "pr" for f in findings), [str(f) for f in findings])
+
+    def test_green_blocked_no_pr_no_checkpoint_pr_stays_silent(self):
+        b = make_board(self.root)
+        b.add_task("T-983", textwrap.dedent("""\
+            id: T-983
+            status: blocked
+            owner: fullstack-developer
+            risk: normal
+            security_review: false
+            depends_on: []
+            """), status="blocked")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.key == "pr" for f in findings), [str(f) for f in findings])
+
+
+class PrPresenceRound1Findings(TempDirCase):
+    """T-032 review round 1 (`/code-review high`), 2026-09-27: real
+    defects found by probing edges of the widened check 5."""
+
+    def test_red_done_pr_none_sentinel_but_real_checkpoint_pr(self):
+        """Finding #5: `pr: none` on a `done` task is the T-010 exemption
+        ONLY when checkpoint.pr is genuinely absent. Here it isn't --
+        checkpoint.pr holds a real PR URL, so the sentinel contradicts
+        the task's own checkpoint rather than legitimately declaring
+        that no PR ever existed."""
+        b = make_board(self.root)
+        b.add_task("T-984", textwrap.dedent("""\
+            id: T-984
+            status: done
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: none
+            checkpoint:
+              stage: done
+              pr: https://example.invalid/pr/9
+            """), status="done")
+        b.write_board()
+        findings = b.check()
+        self.assertTrue(any(f.key == "pr" for f in findings),
+                         [str(f) for f in findings])
+
+    def test_green_checkpoint_pr_sentinel_is_not_a_real_pr_at_any_status(self):
+        """Finding #6: checkpoint.pr can itself hold a sentinel
+        ("none"/"n/a"/"-"). That is NOT a real PR either -- silence at
+        every status, reusing the top-level sentinel set. Previously any
+        truthy cp_pr_text (including the literal string "none") counted
+        as "real", which would wrongly widen the rule-6 check onto a
+        task that never actually had an open PR."""
+        for status, task_id in (("todo", "T-985"), ("in_progress", "T-986"),
+                                 ("blocked", "T-987")):
+            with self.subTest(status=status):
+                b = make_board(self.root)
+                b.add_task(task_id, textwrap.dedent(f"""\
+                    id: {task_id}
+                    status: {status}
+                    owner: someone
+                    risk: normal
+                    security_review: false
+                    depends_on: []
+                    checkpoint:
+                      pr: none
+                    """), status=status)
+                b.write_board()
+                findings = b.check()
+                self.assertFalse(any(f.key == "pr" for f in findings),
+                                  [str(f) for f in findings])
+
+    def test_red_rule6_fires_even_when_top_level_pr_agrees_with_checkpoint(self):
+        """Finding #7: the rule-6 violation is `status: in_progress` + a
+        REAL checkpoint.pr, whatever top-level pr: holds. Previously this
+        only fired inside the `pr_text == "" or is_sentinel` branch, so a
+        top-level pr: filled in to AGREE with checkpoint.pr -- without
+        status ever moving to in_review -- stayed silent."""
+        b = make_board(self.root)
+        b.add_task("T-988", textwrap.dedent("""\
+            id: T-988
+            status: in_progress
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr: https://example.invalid/pr/11
+            checkpoint:
+              pr: https://example.invalid/pr/11
+            """), status="in_progress")
+        b.write_board()
+        findings = b.check()
+        pr_findings = [f for f in findings if f.key == "pr"]
+        self.assertTrue(pr_findings, [str(f) for f in findings])
+        self.assertIn("rule 6", pr_findings[0].message)
+
+    def test_green_blocked_with_real_checkpoint_pr_stays_silent(self):
+        """Finding #7's other half: a blocked task's stale checkpoint.pr
+        does not get "should be in_review" advice, which does not fit
+        that shape -- skipped rather than reworded, per the reviewer's
+        own explicit second option."""
+        b = make_board(self.root)
+        b.add_task("T-989", textwrap.dedent("""\
+            id: T-989
+            status: blocked
+            owner: someone
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            checkpoint:
+              pr: https://example.invalid/pr/12
+            """), status="blocked")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.key == "pr" for f in findings),
+                          [str(f) for f in findings])
+
+
+class PrPresence422fbebRegression(unittest.TestCase):
+    """The exact historical incident, recovered from git rather than
+    reinvented (per this board's standing practice and T-031's own
+    precedent): T-201 at commit 422fbeb, `git show
+    422fbeb:.claude/tasks/T-201-bff-cv-aggregate.md`."""
+
+    def _git_show_frontmatter(self, ref: str, path: str):
+        text = subprocess.run(
+            ["git", "show", f"{ref}:{path}"],
+            cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+        ).stdout
+        raw_lines = text.split("\n")
+        end = next(i for i in range(1, len(raw_lines)) if raw_lines[i].rstrip() == "---")
+        return raw_lines[1:end], 2
+
+    def test_the_422fbeb_tree_fires_as_a_rule_6_violation(self):
+        fm_lines, first_line = self._git_show_frontmatter(
+            "422fbeb", ".claude/tasks/T-201-bff-cv-aggregate.md")
+        data, err = bc.parse_frontmatter_dict(fm_lines, Path("T-201-fixture.md"))
+        self.assertIsNone(err)
+        self.assertEqual(data.get("status"), "in_progress")
+        findings = bc.check_pr_present(data, fm_lines, first_line, Path("T-201-fixture.md"))
+        self.assertTrue(findings, "422fbeb's T-201 shape must fire a pr: finding")
+        self.assertIn("rule 6", findings[0].message)
+
+    def test_the_current_live_t201_is_silent(self):
+        matches = sorted(LIVE_TASKS_DIR.glob("T-201-*.md"))
+        self.assertTrue(matches, "T-201's file was renamed or removed?")
+        path = matches[0]
+        fm = bc.read_frontmatter(path)
+        self.assertIsNotNone(fm)
+        fm_lines, first_line, _ = fm
+        data, err = bc.parse_frontmatter_dict(fm_lines, path)
+        self.assertIsNone(err)
+        findings = bc.check_pr_present(data, fm_lines, first_line, path)
+        self.assertEqual(findings, [], [str(f) for f in findings])
+
 
 # --------------------------------------------------------------------------
 # Check 6 — depends_on resolves
@@ -1477,8 +1811,754 @@ class ControlledVocabularies(TempDirCase):
 
 
 # --------------------------------------------------------------------------
+# Check 8 — link integrity: resolution (primary) and ID/target agreement
+# (secondary). T-032, added 2026-08-24 on the human's instruction after the
+# TASKS.md/HISTORY.md split invented five dead filenames and one live
+# cross-reference (T-201 -> the also-invented T-204 filename), all missed
+# by check 2 (which matches board rows to files by ID, never by href or
+# title) and all missed by every check that existed before this one.
+# --------------------------------------------------------------------------
+
+class LinkIntegrity(TempDirCase):
+    def _write_task(self, task_id: str, body: str = "body.\n") -> None:
+        fm = textwrap.dedent(f"""\
+            id: {task_id}
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """)
+        (self.root / f"{task_id}-x.md").write_text(f"---\n{fm}---\n{body}")
+
+    def _write_board(self, task_ids) -> None:
+        rows = [board_line(t, "Task", "todo") for t in task_ids]
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n")
+
+    def _append(self, filename: str, text: str) -> None:
+        path = self.root / filename
+        path.write_text(path.read_text() + text if path.is_file() else text)
+
+    def test_red_dead_link_target_missing(self):
+        """Primary check. Reproduces the 2026-08-24 shape directly: a row
+        links [T-015] to a filename that was invented and never existed."""
+        self._write_task("T-015")
+        self._write_board(["T-015"])
+        self._append("TASKS.md", "\n[T-015](T-015-bff-container-registry.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+        self.assertIn("T-015-bff-container-registry.md", dead[0].message)
+        self.assertEqual(dead[0].file.name, "TASKS.md")
+
+    def test_red_id_target_agreement_distinct_from_dead_link(self):
+        """Secondary check -- a DIFFERENT defect from a dead link: the
+        target resolves fine (T-014's real file exists), but the visible
+        [T-015] disagrees with what it actually points at."""
+        self._write_task("T-014")
+        self._write_task("T-015")
+        self._write_board(["T-014", "T-015"])
+        self._append("TASKS.md", "\n[T-015](T-014-x.md)\n")
+        findings = bc.run(self.root)
+        mismatch = [f for f in findings if f.key == "link-id"]
+        self.assertTrue(mismatch, [str(f) for f in findings])
+        self.assertIn("T-015", mismatch[0].message)
+        self.assertIn("T-014", mismatch[0].message)
+        # The target resolves -- this must NOT also be reported as dead.
+        self.assertFalse(any(f.key == "link" for f in findings))
+
+    def test_guard_code_span_and_fence_skip_broken_links(self):
+        """The mandatory rule, learned by prototyping against the live
+        board 2026-08-24: the SAME broken link, quoted inside an inline
+        code span and inside a fenced block to document the incident,
+        must not itself trip the validator -- two false positives were
+        found this way before the rule was added, and T-031 calls one
+        confirmed false positive fatal to adoption."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", (
+            "\nInline: `[T-971](T-971-invented.md)` is broken, quoted "
+            "to document it.\n"
+            "\n```\n[T-971](T-971-invented.md)\n```\n"
+        ))
+        findings = bc.run(self.root)
+        self.assertFalse(any(f.key in ("link", "link-id") for f in findings),
+                          [str(f) for f in findings])
+
+    def test_guard_correct_link_is_silent(self):
+        self._write_task("T-972")
+        self._write_board(["T-972"])
+        self._append("TASKS.md", "\n[T-972](T-972-x.md)\n")
+        findings = bc.run(self.root)
+        self.assertFalse(any(f.key in ("link", "link-id") for f in findings),
+                          [str(f) for f in findings])
+
+    def test_guard_anchors_and_external_urls_never_flagged(self):
+        self._write_task("T-974")
+        self._write_board(["T-974"])
+        self._append("TASKS.md", (
+            "\nSee [details](#some-heading) and "
+            "[the PR](https://github.com/erfeamor/x/pull/1) and "
+            "[the Jenkins host](http://jenkins.example.invalid/job/1).\n"
+        ))
+        findings = bc.run(self.root)
+        self.assertFalse(any(f.key in ("link", "link-id") for f in findings),
+                          [str(f) for f in findings])
+
+    def test_scan_covers_tasks_history_readme_and_task_files(self):
+        """Every one of the four surfaces the task file names: TASKS.md,
+        HISTORY.md, README.md, and the task files themselves (T-201's own
+        cross-reference to the invented T-204 filename was a task-file
+        defect, not a TASKS.md one)."""
+        self._write_task("T-973", body="See [T-973](T-973-typo.md) here.\n")
+        self._write_board(["T-973"])
+        self._append("TASKS.md", "\n[T-973](T-973-typo.md)\n")
+        self._append("HISTORY.md", "[T-973](T-973-typo.md)\n")
+        self._append("README.md", "[T-973](T-973-typo.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        hit_files = {f.file.name for f in dead}
+        self.assertEqual(hit_files, {"T-973-x.md", "TASKS.md", "HISTORY.md", "README.md"},
+                          [str(f) for f in findings])
+
+
+class LinkIntegrityRound1Findings(TempDirCase):
+    """T-032 review round 1 (`/code-review high`), 2026-09-27: real
+    defects found by probing edges of check 8, several of them false
+    positives (T-031's fatal-to-adoption class) or false negatives on
+    "cheap" link forms this board already writes."""
+
+    def _write_task(self, task_id: str, body: str = "body.\n") -> None:
+        fm = textwrap.dedent(f"""\
+            id: {task_id}
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """)
+        (self.root / f"{task_id}-x.md").write_text(f"---\n{fm}---\n{body}")
+
+    def _write_board(self, task_ids) -> None:
+        rows = [board_line(t, "Task", "todo") for t in task_ids]
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n")
+
+    def _append(self, filename: str, text: str) -> None:
+        path = self.root / filename
+        path.write_text(path.read_text() + text if path.is_file() else text)
+
+    def _link_findings(self, findings):
+        return [f for f in findings if f.key in ("link", "link-id")]
+
+    # -- #1: CommonMark fence rules (char/length/indent match) ----------
+
+    def test_red_mismatched_fence_char_does_not_close(self):
+        """A stray ``` inside a still-open ~~~ fence is content, not a
+        closer -- the two characters don't match. The naive
+        any-3-backticks-or-tildes toggle closed on it anyway, so the
+        quoted dead link on the next line got scanned as real content."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", (
+            "\n~~~\nsome content\n```\n[T-971](T-971-invented.md)\n~~~\n"))
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_shorter_closing_run_does_not_close(self):
+        """A closing fence must be AT LEAST AS LONG as the opener. A
+        4-backtick open followed by a 3-backtick line must NOT close --
+        the naive toggle (any run >= 3) closed on it anyway."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", (
+            "\n````\ncontent\n```\n[T-971](T-971-invented.md)\n````\n"))
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_backtick_fence_info_string_with_a_backtick_is_not_a_fence(self):
+        """A backtick fence's info string cannot contain a backtick per
+        CommonMark -- so this whole line is an inline code span
+        (` ```code``` `) followed by plain text, not a fence-open. The
+        naive check treated it as a fence-open and swallowed everything
+        after it (including the real link on the SAME line) as fence
+        content, never scanning it at all."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\n```code``` then [T-971](T-971-invented.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, "the dead link on the same line as the "
+                               f"invalid fence-open must still be found: "
+                               f"{[str(f) for f in findings]}")
+
+    # -- #2: inline code spans wrapping across lines ---------------------
+
+    def test_red_multiline_code_span_not_recognized(self):
+        """A single backtick opened on one line and closed on the next
+        is one code span spanning the whole paragraph in CommonMark. The
+        old per-line-only stripping never saw the closing backtick, so
+        nothing on line 1 got stripped and the bracketed pseudo-link
+        inside the still-open span was scanned as real."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\nSee `[T-971](T-971-invented.md)\nstill open` and more.\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_multiline_code_span_carry_hides_the_START_of_the_next_line(self):
+        """Sharper than the fixture above: the pseudo-link sits at the
+        VERY START of line 2, before line 2's own closing backtick.
+        Dropping the carried-over 'still open' state (rather than merely
+        never detecting it) would let line 2 start scanning as ordinary
+        text and see this link before reaching the close -- confirmed by
+        mutation testing to be the one shape the fixture above does not
+        actually exercise (line 1 alone already hides its own tail
+        regardless of what carries over)."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\nSee `some text\n[T-971](T-971-invented.md)` still open.\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_guard_multiline_span_resets_at_a_blank_line(self):
+        """A blank line ends the paragraph (and any still-open span with
+        it) -- an unclosed backtick must not swallow an unrelated
+        paragraph's real, resolvable link."""
+        self._write_task("T-972")
+        self._write_board(["T-972"])
+        self._append("TASKS.md",
+                      "\nAn unclosed span starts here `oops\n\n[T-972](T-972-x.md)\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    # -- #3: blockquote fences, indented code, HTML comments, \[ --------
+
+    def test_red_fence_inside_blockquote_is_skipped(self):
+        """T-023:81-86's live shape: a fenced block whose every line
+        carries a `> ` blockquote prefix. `^\\s*` never matches a line
+        starting with `>`, so the naive check never recognized this as a
+        fence at all and scanned the quoted broken link inside it."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", (
+            "\n> ```\n> [T-971](T-971-invented.md)\n> ```\n"))
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_tilde_fence_inside_blockquote_is_skipped(self):
+        """Same shape with a TILDE fence rather than backticks. Mutation
+        testing found the backtick version above alone is not a clean
+        isolation of blockquote-prefix stripping: a ```-fenced blockquote
+        happens to ALSO get hidden by the multi-line code-span carry
+        (the un-stripped `> ` + ``` tokenizes as an inline span that
+        coincidentally spans the same range), so a mutant that dropped
+        blockquote handling entirely still passed it. Tildes are not
+        code-span delimiters, so this fixture isolates the blockquote
+        fence path on its own."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", (
+            "\n> ~~~\n> [T-971](T-971-invented.md)\n> ~~~\n"))
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_four_space_indented_code_block_is_skipped(self):
+        """T-011:41-47's live shape (a YAML block-scalar table, heavily
+        indented): a 4+-space-indented line is a CommonMark indented
+        code block and carries no inline markdown. Confirmed empirically
+        against the whole live board first that no real link anywhere
+        sits on a >=4-space-indented line, so this cannot regress
+        anything real."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\nSome paragraph.\n\n    [T-971](T-971-invented.md)\n\nMore text.\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_html_comment_is_skipped(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\n<!-- broken example: [T-971](T-971-invented.md) -->\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_escaped_opening_bracket_is_not_a_link(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\nNot a link: \\[T-971](T-971-invented.md)\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    # -- #4: ID mismatch only on an EXACT task-id link text --------------
+
+    def test_red_descriptive_text_mentioning_another_id_stays_silent(self):
+        """Link text that merely MENTIONS a different task id in prose
+        ("follow-up to T-031") is not claiming to BE that task's link --
+        only an EXACT `[T-nnn]` text is a mismatch candidate."""
+        self._write_task("T-014")
+        self._write_board(["T-014"])
+        self._append("TASKS.md", "\n[follow-up to T-031](T-014-x.md)\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_green_numeric_id_compare_allows_unpadded_form(self):
+        """`T-32` and `T-032` name the same task -- compare numerically,
+        not as strings."""
+        self._write_task("T-032")
+        self._write_board(["T-032"])
+        self._append("TASKS.md", "\n[T-32](T-032-x.md)\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_exact_id_text_still_catches_a_real_mismatch(self):
+        """The narrowing to exact-id text must not swallow the real
+        defect this check exists to catch."""
+        self._write_task("T-014")
+        self._write_task("T-015")
+        self._write_board(["T-014", "T-015"])
+        self._append("TASKS.md", "\n[T-015](T-014-x.md)\n")
+        findings = bc.run(self.root)
+        mismatch = [f for f in findings if f.key == "link-id"]
+        self.assertTrue(mismatch, [str(f) for f in findings])
+
+    # -- #8: cheap link forms --------------------------------------------
+
+    def test_red_anchor_stripped_but_file_part_still_checked(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\n[details](T-971-invented.md#some-section)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+    def test_green_anchor_on_a_real_target_stays_silent(self):
+        self._write_task("T-972")
+        self._write_board(["T-972"])
+        self._append("TASKS.md", "\n[details](T-972-x.md#some-section)\n")
+        findings = bc.run(self.root)
+        self.assertEqual(self._link_findings(findings), [],
+                          [str(f) for f in findings])
+
+    def test_red_dot_slash_prefix_checked(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", "\n[details](./T-971-invented.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+    def test_red_dotdot_tasks_prefix_checked(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", "\n[details](../tasks/T-971-invented.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+    def test_red_trailing_title_checked(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      '\n[details](T-971-invented.md "some title")\n')
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+    def test_red_angle_bracket_destination_checked(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", "\n[details](<T-971-invented.md>)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+
+class LinkIntegrityRound2ParserRebuild(TempDirCase):
+    """T-032 round 2 review, 2026-09-27: check 8 rebuilt on markdown_it's
+    CommonMark token stream. Confirms two capabilities that were
+    documented LIMITATIONS under the regex version and are now free
+    consequences of using a real parser -- not asserted from the docs,
+    verified against actual behaviour."""
+
+    def _write_task(self, task_id: str, body: str = "body.\n") -> None:
+        fm = textwrap.dedent(f"""\
+            id: {task_id}
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """)
+        (self.root / f"{task_id}-x.md").write_text(f"---\n{fm}---\n{body}")
+
+    def _write_board(self, task_ids) -> None:
+        rows = [board_line(t, "Task", "todo") for t in task_ids]
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n")
+
+    def _append(self, filename: str, text: str) -> None:
+        path = self.root / filename
+        path.write_text(path.read_text() + text if path.is_file() else text)
+
+    def test_reference_style_link_dead_target_now_caught(self):
+        """`[x][ref]` + a `[ref]: dest` definition elsewhere in the file
+        -- out of scope under the regex version, resolved by markdown_it
+        automatically."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\nSee [the details][ref] for more.\n\n"
+                      "[ref]: T-971-invented.md\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+    def test_reference_style_link_correct_target_stays_silent(self):
+        self._write_task("T-972")
+        self._write_board(["T-972"])
+        self._append("TASKS.md",
+                      "\nSee [T-972][ref] for more.\n\n"
+                      "[ref]: T-972-x.md\n")
+        findings = bc.run(self.root)
+        self.assertFalse(any(f.key in ("link", "link-id") for f in findings),
+                          [str(f) for f in findings])
+
+    def test_line_number_is_the_1_indexed_file_line_not_0_indexed(self):
+        """markdown_it's block.map is a 0-indexed [start, end) line range;
+        mutation testing found nothing in the existing suite pinned the
+        `+ 1` conversion to a real file line number down -- every other
+        test only checks WHICH finding fired, never the exact line."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", "\n\n\n[T-971](T-971-invented.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link" and f.file.name == "TASKS.md"]
+        self.assertTrue(dead, [str(f) for f in findings])
+        # TASKS.md is TABLE_HEADER (1) + TABLE_SEP (2) + 1 row (3), then
+        # three blank lines (4, 5, 6), then the link's own paragraph (7).
+        self.assertEqual(dead[0].line, 7, [str(f) for f in findings])
+
+    def test_link_text_split_across_a_line_break_is_not_an_exact_id(self):
+        """`[T-\\n015](...)` -- one continuous inline token to a real
+        parser (still recognized as a link at all, unlike the regex
+        version), but a softbreak RENDERS as a space, so the visible
+        text is `T- 015`, not `T-015`. Round 3 review, item 8: updated
+        from round 2's assertion that this was an exact-id mismatch --
+        it renders with a space in it and is therefore not exactly a
+        task id, so the id-exactness check (round 1, finding #4) must
+        stay silent here, the same as any other non-exact link text."""
+        self._write_task("T-014")
+        self._write_task("T-015")
+        self._write_board(["T-014", "T-015"])
+        self._append("TASKS.md", "\n[T-\n015](T-014-x.md)\n")
+        findings = bc.run(self.root)
+        self.assertFalse(any(f.key in ("link", "link-id") for f in findings),
+                          [str(f) for f in findings])
+
+    def test_raw_html_tags_inside_link_text_are_not_part_of_the_id(self):
+        """Round 3, item 8's other half: only `text` and `code_inline`
+        content counts towards the link text, not raw HTML tags. `[<b>
+        T-032</b>]` must reduce to exactly `T-032`, not `<b>T-032</b>`
+        -- confirmed by pointing it at a DIFFERENT target (T-014) so the
+        mismatch still fires: if raw HTML tags were wrongly included,
+        the text would no longer be an EXACT id and this would go
+        silent instead."""
+        self._write_task("T-014")
+        self._write_task("T-032")
+        self._write_board(["T-014", "T-032"])
+        self._append("TASKS.md", "\n[<b>T-032</b>](T-014-x.md)\n")
+        findings = bc.run(self.root)
+        mismatch = [f for f in findings if f.key == "link-id"]
+        self.assertTrue(mismatch, [str(f) for f in findings])
+
+
+class LinkIntegrityRound3Findings(TempDirCase):
+    """T-032 round 3 review (the cap), 2026-09-28: 10 more real defects
+    in check 8's markdown_it-based rebuild, found by a fresh review pass
+    at the round's own review cap. The human approved one bounded fix
+    round past the cap, verified by targeted probes rather than a 4th
+    review round -- every fix below has a RED-first fixture for that
+    reason."""
+
+    def _write_task(self, task_id: str, body: str = "body.\n",
+                     filename: str = None) -> None:
+        fm = textwrap.dedent(f"""\
+            id: {task_id}
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """)
+        name = filename or f"{task_id}-x.md"
+        (self.root / name).write_text(f"---\n{fm}---\n{body}")
+
+    def _write_board(self, task_ids) -> None:
+        rows = [board_line(t, "Task", "todo") for t in task_ids]
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n")
+
+    def _append(self, filename: str, text: str) -> None:
+        path = self.root / filename
+        path.write_text(path.read_text() + text if path.is_file() else text)
+
+    # -- #1: GFM table enabled, per-row line numbers ---------------------
+
+    def test_red_table_row_link_reports_its_own_line_not_the_table_start(self):
+        """TASKS.md's real shape: no blank line between rows. Without
+        the table rule enabled, markdown_it folds the whole table into
+        ONE paragraph and every link in it reports the table's first
+        line."""
+        self._write_task("T-971")
+        self._write_task("T-972")
+        rows = [
+            board_line("T-971", "Task", "todo"),
+            "| [T-972](T-972-invented.md) | Task | repo | todo |  |  |  |",
+        ]
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link" and f.file.name == "TASKS.md"]
+        self.assertTrue(dead, [str(f) for f in findings])
+        # header(1) sep(2) row1(3) row2(4) -- the dead link is on row 2.
+        self.assertEqual(dead[0].line, 4, [str(f) for f in findings])
+
+    # -- #2: line number accounts for softbreaks before the link --------
+
+    def test_red_line_number_accounts_for_softbreaks_in_a_paragraph(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\nfirst line of the paragraph\n"
+                      "second line, still no link\n"
+                      "[T-971](T-971-invented.md) is on the third line\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link" and f.file.name == "TASKS.md"]
+        self.assertTrue(dead, [str(f) for f in findings])
+        # header(1) sep(2) row(3) blank(4) para-line-1(5) line-2(6) line-3(7)
+        self.assertEqual(dead[0].line, 7, [str(f) for f in findings])
+
+    def test_red_line_offset_inside_an_earlier_multiline_link_still_counts(self):
+        """A softbreak INSIDE one link's own text (`[T-\\n014]`) must
+        still advance the shared line offset for whatever comes AFTER
+        it in the same paragraph -- confirmed by a second, later link
+        whose correct line depends on both softbreaks being counted,
+        not just the one between the two links."""
+        self._write_task("T-014")
+        self._write_task("T-971")
+        self._write_board(["T-014", "T-971"])
+        self._append("TASKS.md",
+                      "\n[T-\n014](T-014-x.md) then more text\n"
+                      "and [T-971](T-971-invented.md) here\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link" and f.file.name == "TASKS.md"]
+        self.assertTrue(dead, [str(f) for f in findings])
+        # header(1) sep(2) row-T014(3) row-T971(4) blank(5) para-line1(6)
+        # line2(7) line3(8) -- T-971's dead link is on line 3 of the
+        # paragraph, 2 softbreaks deep (one inside T-014's own link).
+        self.assertEqual(dead[0].line, 8, [str(f) for f in findings])
+
+    def test_red_line_number_accounts_for_softbreaks_in_a_later_table_row(self):
+        """The table plugin gives each ROW its own inline token (and so
+        its own .map) -- confirms the softbreak-offset logic added for
+        the plain-paragraph case above does not double-count inside a
+        table row, where there is normally no softbreak at all."""
+        self._write_task("T-971")
+        self._write_task("T-972")
+        self._write_task("T-973")
+        rows = [
+            board_line("T-971", "Task", "todo"),
+            board_line("T-972", "Task", "todo"),
+            "| [T-973](T-973-invented.md) | Task | repo | todo |  |  |  |",
+        ]
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link" and f.file.name == "TASKS.md"]
+        self.assertTrue(dead, [str(f) for f in findings])
+        self.assertEqual(dead[0].line, 5, [str(f) for f in findings])
+
+    # -- #3: percent-decode the href before matching ----------------------
+
+    def test_red_percent_encoded_accented_filename_resolved(self):
+        self._write_task("T-040", filename="T-040-migración.md")
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP,
+                       "| [T-040](T-040-migraci%C3%B3n.md) | Task | repo | todo |  |  |  |"]) + "\n")
+        findings = bc.run(self.root)
+        self.assertFalse(any(f.key in ("link", "link-id") for f in findings),
+                          [str(f) for f in findings])
+
+    def test_red_angle_bracket_literal_space_resolved(self):
+        """CommonMark allows a literal space inside `<...>` destinations
+        -- markdown_it itself percent-encodes it to %20 in `href`, so
+        this needs the SAME unquote as an already-encoded source. The
+        filename keeps the board's own `T-nnn-slug.md` shape (a hyphen
+        right after the id) -- run()'s own task-file glob requires it;
+        the space lives later, in the slug."""
+        self._write_task("T-012", filename="T-012-old file.md")
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP,
+                       "| [T-012](<T-012-old file.md>) | Task | repo | todo |  |  |  |"]) + "\n")
+        findings = bc.run(self.root)
+        self.assertFalse(any(f.key in ("link", "link-id") for f in findings),
+                          [str(f) for f in findings])
+
+    # -- #4/#5: never parse frontmatter as markdown -----------------------
+
+    def test_red_frontmatter_block_scalar_quoted_broken_link_is_silent(self):
+        fm = textwrap.dedent("""\
+            id: T-971
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            checkpoint:
+              note: |
+                Documenting a past incident: [T-971](T-971-invented.md) was broken.
+            """)
+        (self.root / "T-971-x.md").write_text(f"---\n{fm}---\nbody.\n")
+        self._write_board(["T-971"])
+        findings = bc.run(self.root)
+        self.assertFalse(
+            any(f.key in ("link", "link-id") and f.file.name == "T-971-x.md"
+                for f in findings),
+            [str(f) for f in findings])
+
+    def test_red_unbalanced_fence_in_frontmatter_does_not_hide_body_dead_link(self):
+        """An unterminated ``` inside a YAML block scalar, if the whole
+        file (frontmatter + body) were handed to the parser as one
+        document, would open a fence that never closes -- swallowing
+        the REAL body content after it, including a genuinely dead
+        link, as fence-interior code. Masking frontmatter before
+        parsing prevents this in the opposite direction from the test
+        above."""
+        # A LOW-indent block scalar (2 spaces, <=3 -- CommonMark's own
+        # fence-recognition threshold) so the ``` genuinely opens a real
+        # fence to the parser, confirmed empirically: a version of this
+        # fixture nested one level deeper (4-space indent, this board's
+        # more common checkpoint.* shape) instead triggers a SETEXT
+        # HEADING against the closing `---`, which never opens a fence
+        # at all -- a reminder that "looks unbalanced" and "IS a fence
+        # to CommonMark" are not the same question, confirmed rather
+        # than assumed for this fixture specifically.
+        fm = textwrap.dedent("""\
+            id: T-971
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            note: |
+              ```
+              unbalanced fence opened here, never closed within frontmatter
+            """)
+        body = "\n[T-971](T-971-invented.md) in the body.\n"
+        (self.root / "T-971-x.md").write_text(f"---\n{fm}---\n{body}")
+        self._write_board(["T-971"])
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link" and f.file.name == "T-971-x.md"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+    # -- #6: image links -------------------------------------------------
+
+    def test_red_image_link_to_missing_target_reported(self):
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", "\n![T-013](T-013-old.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+
+    # -- #7: an HTML block swallowing a link is flagged, not silent ------
+
+    def test_red_html_block_swallowing_a_link_is_flagged(self):
+        """T-023's `<summary>`-with-no-blank-line shape: CommonMark's
+        HTML-block rule keeps consuming lines until a blank one, so a
+        link on the line right after an open tag (no blank line) is
+        swallowed as raw HTML and never becomes a link_open token at
+        all -- silently unvalidated unless this check says so."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md",
+                      "\n<details>\n<summary>Old links</summary>\n"
+                      "[T-971](T-971-invented.md)\n</details>\n")
+        findings = bc.run(self.root)
+        warned = [f for f in findings if f.key == "link-html"]
+        self.assertTrue(warned, [str(f) for f in findings])
+
+    def test_green_html_block_without_a_task_link_stays_silent(self):
+        self._write_task("T-972")
+        self._write_board(["T-972"])
+        self._append("TASKS.md", "\n<details>\n<summary>Nothing here</summary>\n"
+                                  "just prose\n</details>\n")
+        findings = bc.run(self.root)
+        self.assertFalse(any(f.key == "link-html" for f in findings),
+                          [str(f) for f in findings])
+
+
+# --------------------------------------------------------------------------
 # End-to-end / CLI
 # --------------------------------------------------------------------------
+
+class MissingDependencyPaths(unittest.TestCase):
+    """Round 3 review, item 9, 2026-09-28: the markdown_it import must
+    catch ImportError, not just the narrower ModuleNotFoundError -- and
+    this is confirmed by actually simulating the missing-dependency path
+    (a faked `__import__` raising a bare ImportError), not by reading
+    the except clause and assuming it's broad enough."""
+
+    def _run_with_blocked_import(self, blocked_name: str):
+        wrapper = (
+            "import builtins, runpy, sys\n"
+            "_real_import = builtins.__import__\n"
+            "def _fake_import(name, *a, **kw):\n"
+            f"    if name == {blocked_name!r} or name.startswith({blocked_name!r} + '.'):\n"
+            "        raise ImportError('simulated missing dependency: ' + name)\n"
+            "    return _real_import(name, *a, **kw)\n"
+            "builtins.__import__ = _fake_import\n"
+            f"runpy.run_path({str(SCRIPT)!r}, run_name='__main__')\n"
+        )
+        return subprocess.run(
+            [sys.executable, "-c", wrapper, "--tasks-dir", str(LIVE_TASKS_DIR)],
+            capture_output=True, text=True)
+
+    def test_missing_markdown_it_exits_with_install_hint(self):
+        r = self._run_with_blocked_import("markdown_it")
+        self.assertNotEqual(r.returncode, 0, f"stdout={r.stdout!r} stderr={r.stderr!r}")
+        combined = r.stdout + r.stderr
+        self.assertIn("markdown-it-py is required", combined, combined)
+        self.assertIn("pip install markdown-it-py", combined, combined)
+        self.assertNotIn("Traceback", combined, combined)
+
 
 class CommandLine(unittest.TestCase):
     def run_cli(self, *args):

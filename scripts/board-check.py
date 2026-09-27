@@ -9,7 +9,7 @@ board's own history records failing repeatedly, including on the same day the
 failure was written down (see .claude/tasks/T-031-board-frontmatter-validator.md
 for the twelve recorded incidents this tool exists to catch).
 
-Seven checks, each mapped to a real incident:
+Eight checks, each mapped to a real incident:
   1. Duplicate keys within a frontmatter mapping (T-152, T-202, T-104/T-151).
   2. Board row <-> file agreement: one row per file, status matches (T-002,
      T-019, three recurrences).
@@ -17,9 +17,33 @@ Seven checks, each mapped to a real incident:
      owner present).
   4. checkpoint.worktree cleared on closed (done) tasks (T-101, T-102).
   5. pr: present on in_review/done, consistent with checkpoint.pr (T-011,
-     T-009, T-019).
+     T-009, T-019). Widened 2026-09-27 (T-032) to any status once
+     checkpoint.pr already holds a real value -- the T-201/422fbeb
+     incident: an open PR sat unannounced at status: in_progress, the one
+     status the original status-gate never examined.
   6. depends_on resolves to a real task file.
   7. Controlled vocabularies: status, security_review, risk.
+  8. Link integrity (T-032, added 2026-08-24 on the human's instruction,
+     after the TASKS.md/HISTORY.md split invented five dead filenames and
+     one live cross-reference that this tool reported clean throughout):
+     every `[T-xxx](T-nnn-slug.md)` link in TASKS.md, HISTORY.md, README.md
+     and every task file resolves to a file that exists (primary), and the
+     visible id agrees with the id the target actually names (secondary --
+     a different defect from a dead link). Offline and deterministic on
+     purpose: no external URLs, no anchors as a navigation destination, no
+     title-equality check (titles are deliberately shortened/annotated on
+     board rows and left in place by the strike-don't-delete convention --
+     see the task file for why a title check was ruled out).
+
+     Round 2 review, 2026-09-27: rebuilt on markdown_it's CommonMark token
+     stream rather than a hand-rolled approximation of it (fences, code
+     spans, blockquotes, indented code, HTML comments and backslash-
+     escapes are excluded by the PARSER now, not by regexes trying to
+     re-derive CommonMark's own grammar one surface form at a time -- see
+     the ruling below and the check-8 section for why). Reference-style
+     links (`[x][ref]` + a `[ref]: dest` definition) are resolved by the
+     parser at no extra cost, so they are IN scope now, not a documented
+     limitation.
 
 Ruling (binding, from H1 — see the task file's checkpoint.h1_rulings):
   - Check 1 never delegates to yaml.safe_load() for KEY EXTRACTION.
@@ -43,6 +67,17 @@ Ruling (binding, from H1 — see the task file's checkpoint.h1_rulings):
     and acceptance-checkbox state is never enforced (2026-08-20 sweep ruled it
     convention).
   - Does not parse the body. Prose drift is what sweeps are for.
+  - Check 8 never hand-rolls CommonMark. Round 1 review (2026-09-27) found
+    8 (really ~15) real defects in a regex/state-machine approximation of
+    fences, code spans, blockquotes, indented code, HTML comments and
+    escapes -- the identical failure shape check 1's own ruling above
+    already lived through and rejected for YAML. Round 2 (same day)
+    replaced it with markdown_it's real CommonMark token stream: only
+    `link_open` tokens inside `inline` content count, so everything the
+    regex version had to re-derive by hand is instead excluded by
+    construction. markdown-it-py is now a hard requirement, PyYAML-style
+    (see the import below) -- there is exactly ONE implementation of
+    check 8, matching check 1's own precedent.
 
 Usage:
     scripts/board-check.py                  # check the live board, exit 0/1
@@ -61,6 +96,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import urllib.parse
 from pathlib import Path
 
 # YAML is used two ways: yaml.safe_load() for checks 2-7 (collapses
@@ -87,6 +123,27 @@ try:
     import yaml
 except ModuleNotFoundError:
     sys.exit("board-check: PyYAML is required (pip install pyyaml).")
+
+# markdown_it is check 8's real CommonMark parser (round 2 review,
+# 2026-09-27) -- same hard-requirement shape as PyYAML above and the same
+# reasoning: a prior regex/state-machine version hand-rolled fences, code
+# spans, blockquotes, indented code, HTML comments and escapes one surface
+# form at a time (round 1 review, same day, found 8 real defects in it,
+# several false positives), which is exactly the failure PyYAML's own
+# ruling above already rejected for check 1. No optional fallback.
+try:
+    from markdown_it import MarkdownIt
+except ImportError:
+    # ImportError, not the narrower ModuleNotFoundError (round 3 review,
+    # item 9): a partially-broken install (a C-extension mismatch, a
+    # corrupted wheel) raises the base ImportError, not always its
+    # module-not-found subclass, and this message must cover that path
+    # too rather than let it fall through to a raw traceback. Confirmed
+    # by actually simulating the missing-dependency path (a faked
+    # `__import__` raising a bare ImportError), not assumed.
+    sys.exit("board-check: markdown-it-py is required "
+              "(pip install markdown-it-py, or the python3-markdown-it "
+              "package on Debian/Ubuntu).")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TASKS_DIR = REPO_ROOT / ".claude" / "tasks"
@@ -391,19 +448,68 @@ def check_worktree_cleared(data: dict, fm_lines, first_line, path: Path) -> list
 
 
 def check_pr_present(data: dict, fm_lines, first_line, path: Path) -> list[Finding]:
+    """pr: present on in_review/done, consistent with checkpoint.pr.
+
+    Widened 2026-09-27 (T-032), live incident at commit 422fbeb (T-201):
+    status was `in_progress`, top-level `pr:` was empty, and
+    `checkpoint.pr` already held a real, open PR URL. The ORIGINAL gate
+    below returned early on anything but in_review/done, so the one
+    status where a PR can be open and unannounced -- in_progress, before
+    anyone updates status: in_review per board rule 6 -- was the one
+    status never examined. board-check reported clean throughout,
+    including in the same session that wrote it.
+
+    Round 1 review, 2026-09-27, three more findings on that widening:
+      #6 checkpoint.pr can ITSELF hold a sentinel ("none"/"n/a"/"-") --
+         that is not a real PR either, and must stay silent at every
+         status, reusing the same sentinel set as the top-level field.
+         `cp_pr_is_real` below is the fix: it is what every other branch
+         gates on now, not bare truthiness of cp_pr_text.
+      #5 `pr: none` (the T-010 sentinel) on a `done` task is legitimate
+         ONLY when checkpoint.pr is genuinely absent/sentinel too. A
+         real checkpoint.pr contradicts the "no PR ever existed"
+         declaration and must be reported.
+      #7 the rule-6 violation is `status` not in (in_review, done) + a
+         REAL checkpoint.pr, full stop -- regardless of what top-level
+         pr: holds. The original widening only looked inside the
+         "pr_text empty/sentinel" branch, so a top-level pr: that had
+         been filled in to AGREE with checkpoint.pr (without status ever
+         moving) stayed silent. `blocked` is deliberately skipped rather
+         than given "should be in_review" advice, which does not fit a
+         blocked task's shape (the reviewer's own second option)."""
     findings = []
     status = data.get("status")
-    if status not in ("in_review", "done"):
-        return findings
     pr = data.get("pr")
     pr_text = str(pr).strip() if pr is not None else ""
     is_sentinel = pr_text.lower() in _PR_NONE_SENTINELS and pr_text != ""
     checkpoint = data.get("checkpoint")
     cp_pr = checkpoint.get("pr") if isinstance(checkpoint, dict) else None
     cp_pr_text = str(cp_pr).strip() if cp_pr else ""
+    cp_pr_is_real = bool(cp_pr_text) and cp_pr_text.lower() not in _PR_NONE_SENTINELS
 
+    if status not in ("in_review", "done"):
+        if not cp_pr_is_real or status == "blocked":
+            return findings
+        message = (f"status is {status!r} but checkpoint.pr already "
+                   f"holds {cp_pr_text!r} — board rule 6 requires "
+                   f"status: in_review (and pr: set) the moment a PR is "
+                   f"open; {status!r} is the status this check's "
+                   f"original gate never examined (T-201, commit "
+                   f"422fbeb).")
+        findings.append(Finding(
+            path, line_of(fm_lines, first_line, "pr"), "pr", message))
+        return findings
+
+    # status is in_review or done from here.
     if pr_text == "" or is_sentinel:
         if status == "done" and is_sentinel:
+            if cp_pr_is_real:
+                findings.append(Finding(
+                    path, line_of(fm_lines, first_line, "pr"), "pr",
+                    f"pr: uses the {pr_text!r} sentinel (declaring no PR "
+                    f"ever existed) but checkpoint.pr holds a real PR: "
+                    f"{cp_pr_text!r} — the sentinel is only valid when "
+                    f"no PR ever existed, and this task has one."))
             return findings  # explicit, recognized "no PR exists" sentinel
         if is_sentinel:
             # A sentinel value is NOT empty (pr_text is truthy, e.g.
@@ -418,13 +524,13 @@ def check_pr_present(data: dict, fm_lines, first_line, path: Path) -> list[Findi
             hint = (f" (checkpoint.pr holds {cp_pr_text!r} — board rule 6 "
                      f"says the top-level key is what the board and "
                      f"driver read)"
-                     if cp_pr_text else "")
+                     if cp_pr_is_real else "")
             message = f"status is {status!r} but top-level pr: is empty{hint}."
         findings.append(Finding(
             path, line_of(fm_lines, first_line, "pr"), "pr", message))
         return findings
 
-    if cp_pr_text and cp_pr_text != pr_text:
+    if cp_pr_is_real and cp_pr_text != pr_text:
         findings.append(Finding(
             path, nested_line_of(fm_lines, first_line, "checkpoint", "pr"),
             "checkpoint.pr",
@@ -614,6 +720,213 @@ def check_board_agreement(tasks_dir: Path, board_path: Path, task_files: dict) -
 
 
 # --------------------------------------------------------------------------
+# Check 8 — link integrity. Primary: every `[x](T-nnn-slug.md)` link's
+# target resolves to a real file. Secondary: an EXACT `[T-xxx]` link text
+# whose numeric id disagrees with the id its target actually names (a
+# different defect from a dead link -- the target resolves fine, but names
+# the wrong task). Both offline and deterministic: no network, no anchors
+# as a navigation destination, no title-equality check (see the module
+# docstring and T-032's task file for why those are out of scope).
+#
+# Round 2 review, 2026-09-27: rebuilt on markdown_it's real CommonMark
+# parser rather than a hand-rolled approximation of it. The round-1
+# version tried to re-derive, in regexes and a line-based state machine,
+# exactly the set of rules a CommonMark parser already enforces: fence
+# open/close matching, inline code spans (including ones spanning a line
+# break), blockquote nesting, indented code blocks, HTML comments, and
+# backslash escapes -- and round 1's review still found 8 (really ~15)
+# real defects in that approximation, several of them false positives.
+# That is the identical shape check 1's OWN history already lived through
+# (see the module-docstring ruling): a hand-rolled scanner needing round
+# after round of surface-form-specific fixes while staying blind to
+# others. The fix is the same one check 1 already took: delegate to a
+# real parser. Walking `md.parse(text)`'s token stream, only `link_open`
+# tokens inside an `inline` token's `.children` are links at all --
+# everything the regex version had to positively exclude (fences, spans,
+# blockquotes, indented code, HTML, escapes) is structurally absent from
+# that stream in the first place, not filtered out by us.
+#
+# Line numbers come from the enclosing block token's `.map` (its 0-indexed
+# [start, end) line range) rather than the exact line within it, per this
+# round's instructions. This is coarser than the old per-line regex scan
+# for one real case on this board: TASKS.md's lifecycle tables have no
+# blank line between rows, so CommonMark (with no GFM table extension
+# available in this environment -- confirmed, no mdit_py_plugins package
+# installed) folds an entire table into ONE paragraph token, and every
+# link in it reports the table's first line rather than its own row.
+# Traded deliberately for parser-grade correctness on the things that
+# were actually wrong; see the task file's round-2 section for the
+# `TASKS.md`-table check confirming this doesn't create a NEW false
+# positive/negative, only a less-specific line number.
+#
+# Reference-style links (`[x][ref]` + a `[ref]: dest` definition
+# elsewhere in the same file) are resolved by markdown_it automatically,
+# so they are IN SCOPE now -- confirmed empirically, not assumed. Link
+# text split across a line break within one paragraph is also handled
+# (it's one continuous inline token to the parser). Neither is a
+# documented limitation any more.
+# --------------------------------------------------------------------------
+
+_MD = MarkdownIt("commonmark").enable("table")
+
+# Bare filename only (no further `/`) after stripping the two prefixes this
+# board actually uses; the anchor, if any, is discarded (captured OUTSIDE
+# group 1) rather than validated -- board rule per T-032: anchors churn and
+# are harmless, not a navigation destination this check owns. markdown_it
+# has already stripped any `<angle brackets>` and split off a `"title"`
+# into its own token attribute before this ever runs, so neither is dealt
+# with here any more (round-1's regex version had to do both by hand).
+_TASK_TARGET_RE = re.compile(r'^(?:\./|\.\./tasks/)?(T-\d+[^/#]*\.md)(?:#\S*)?$')
+_EXACT_TASK_ID_RE = re.compile(r'^T-0*(\d+)$')
+# An html_block whose raw content contains what looks like a markdown link
+# or an HTML href pointing at a task file (round-3 finding #7) -- raw HTML
+# is opaque to the parser's own link tokens, so this is the one place check
+# 8 still has to look at TEXT rather than the token stream.
+_HTML_BLOCK_SUSPECT_RE = re.compile(r'\]\(T-|href=["\']T-')
+
+
+def _normalize_link_destination(href: str):
+    """A link/image token's `href`/`src` attribute -> the bare
+    `T-nnn-slug.md` filename it targets, or None if it isn't shaped like
+    a task-file link at all (an anchor-only link, an external URL, a
+    path elsewhere in the repo). Percent-decoded first (round-3 finding
+    #3): markdown_it does not decode `%XX` escapes itself, and it
+    percent-encodes even a LITERAL space inside `<angle brackets>` on
+    its own, so a real accented or space-bearing filename never matches
+    without this."""
+    href = urllib.parse.unquote(href.strip())
+    m = _TASK_TARGET_RE.match(href)
+    return m.group(1) if m else None
+
+
+def _mask_frontmatter(path: Path, text: str) -> str:
+    """Blank the frontmatter block (both `---` fences and everything
+    between) before handing `text` to the markdown parser, keeping the
+    LINE COUNT identical so every line number after it still lines up.
+    Reuses read_frontmatter's own fence bounds rather than re-deriving
+    them. Two round-3 findings, opposite directions, both fixed by never
+    parsing frontmatter as markdown at all: a broken link deliberately
+    quoted inside a YAML block scalar must stay silent (finding #4 --
+    it isn't body prose), and an unbalanced fence marker inside
+    frontmatter prose must not bleed into the body and hide a real dead
+    link there (finding #5 -- confirmed empirically that a LOW-indent
+    block scalar genuinely opens a real CommonMark fence that never
+    closes, swallowing everything after it to end of file)."""
+    fm = read_frontmatter(path)
+    if fm is None:
+        return text
+    _, _, end = fm  # 0-based index of the closing '---' line
+    lines = text.split("\n")
+    for idx in range(0, min(end, len(lines) - 1) + 1):
+        lines[idx] = ""
+    return "\n".join(lines)
+
+
+def _iter_markdown_links(path: Path):
+    """Yields (line_no, visible_text, target) for every task-file-shaped
+    markdown link OR image in `path`, found by walking markdown_it's own
+    CommonMark token stream (see the section comment above for why)."""
+    text = _mask_frontmatter(path, path.read_text())
+    for block in _MD.parse(text):
+        if block.type != "inline" or not block.map:
+            continue
+        base_line = block.map[0] + 1  # 0-indexed block-start line -> file line
+        children = block.children or []
+        offset = 0  # softbreaks/hardbreaks seen so far in THIS block (finding #2)
+        i = 0
+        while i < len(children):
+            child = children[i]
+            if child.type in ("softbreak", "hardbreak"):
+                offset += 1
+                i += 1
+                continue
+            if child.type == "image":
+                # A self-contained token, not an open/close pair
+                # (round-3 finding #6) -- its own .content is the alt
+                # text, its `src` the destination.
+                target = _normalize_link_destination(child.attrs.get("src", ""))
+                if target is not None:
+                    yield base_line + offset, child.content, target
+                i += 1
+                continue
+            if child.type != "link_open":
+                i += 1
+                continue
+            link_line = base_line + offset
+            target = _normalize_link_destination(child.attrs.get("href", ""))
+            j = i + 1
+            text_parts = []
+            while j < len(children) and children[j].type != "link_close":
+                ctype = children[j].type
+                if ctype in ("text", "code_inline"):
+                    text_parts.append(children[j].content)
+                elif ctype in ("softbreak", "hardbreak"):
+                    # Renders as a space (round-3 finding #8) -- and
+                    # still advances the shared line-offset for
+                    # whatever comes after this link in the same block.
+                    text_parts.append(" ")
+                    offset += 1
+                # else (raw HTML, etc.): contributes nothing to the
+                # visible text, per finding #8.
+                j += 1
+            if target is not None:
+                yield link_line, "".join(text_parts), target
+            i = j + 1
+
+
+def _iter_html_block_warnings(path: Path):
+    """Yields line_no for every html_block whose raw content contains
+    what looks like a task-file link or href (round-3 finding #7): raw
+    HTML is opaque to the parser's OWN link tokens, so a link inside one
+    (e.g. a `<summary>` with no blank line before the next paragraph,
+    which CommonMark's HTML-block rule keeps consuming) is silently
+    never checked at all unless this says so."""
+    text = _mask_frontmatter(path, path.read_text())
+    for block in _MD.parse(text):
+        if block.type == "html_block" and _HTML_BLOCK_SUSPECT_RE.search(block.content):
+            yield block.map[0] + 1
+
+
+def check_link_integrity(tasks_dir: Path, scan_files: list[Path],
+                          task_paths: list[Path]) -> list[Finding]:
+    existing = {p.name for p in task_paths}
+    findings: list[Finding] = []
+    for path in scan_files:
+        if not path.is_file():
+            continue
+        for line_no in _iter_html_block_warnings(path):
+            findings.append(Finding(
+                path, line_no, "link-html",
+                "an HTML block here contains what looks like a task-file "
+                "link or href -- raw HTML is opaque to this check; use "
+                "markdown link syntax if it needs to be validated."))
+        for line_no, text, target in _iter_markdown_links(path):
+            if target not in existing:
+                findings.append(Finding(
+                    path, line_no, "link",
+                    f"link target {target!r} does not resolve to any file "
+                    f"under {tasks_dir.name}/ (dead link)."))
+                continue
+            # ID/target agreement only applies when the link TEXT is
+            # EXACTLY a task id (round-1 finding #4) -- descriptive prose
+            # that merely mentions another task ("follow-up to T-031")
+            # is not claiming to BE that task's link. Compared
+            # numerically, not as strings, so T-32 and T-032 agree. The
+            # target always starts with T-\d+ (guaranteed by
+            # _TASK_TARGET_RE above), so target_id_m always matches.
+            target_id_m = _EXACT_TASK_ID_RE.match(re.match(r'T-\d+', target).group(0))
+            text_id_m = _EXACT_TASK_ID_RE.match(text.strip())
+            if text_id_m and int(text_id_m.group(1)) != int(target_id_m.group(1)):
+                findings.append(Finding(
+                    path, line_no, "link-id",
+                    f"link text names {text.strip()!r} but its target "
+                    f"{target!r} names T-{target_id_m.group(1)} — the "
+                    f"link resolves, but the visible id and the target "
+                    f"disagree."))
+    return findings
+
+
+# --------------------------------------------------------------------------
 # Driver
 # --------------------------------------------------------------------------
 
@@ -686,6 +999,10 @@ def run(tasks_dir: Path) -> list[Finding]:
 
     findings.extend(check_board_agreement(tasks_dir, tasks_dir / "TASKS.md", task_files))
 
+    scan_files = [tasks_dir / "TASKS.md", tasks_dir / "HISTORY.md",
+                  tasks_dir / "README.md", *task_paths]
+    findings.extend(check_link_integrity(tasks_dir, scan_files, task_paths))
+
     return findings
 
 
@@ -695,7 +1012,8 @@ def main(argv=None) -> int:
         description="Read-only validator for .claude/tasks/ — duplicate "
                      "frontmatter keys, board/file agreement, status/owner "
                      "coherence, worktree close-out, pr: presence, "
-                     "depends_on resolution, and controlled vocabularies.",
+                     "depends_on resolution, controlled vocabularies, and "
+                     "link integrity.",
     )
     ap.add_argument("--tasks-dir", default=str(TASKS_DIR),
                      help=f"board directory to check (default: {TASKS_DIR})")
