@@ -11,6 +11,8 @@ risk: normal
 security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /security-review path, and this diff introduces registry credentials into CI
 ---
 
+> **Board review 2026-09-28**: **one session, one H1** for T-112 + T-203, with [T-005](T-005-ci-secret-blast-radius.md)'s remainder decided at the same gate as their credential model's input. After H1 the two implementations run in parallel (different repos); their cv-infra IAM changes share one apply.
+
 ## Sequencing and a shared decision (added 2026-09-25, board review)
 
 - **This is not CI-host-only work.** Its IAM principal (ECR push plus `ssm:SendCommand` on one instance) lives in **cv-infra**, so it needs a cv-infra apply. That puts it in the **strictly serial cv-infra chain**, not in a CI-host session. Run it **after [T-014](T-014-deploy-bff-to-aws.md)**: T-014 replaces the app host this task rolls, and T-014 is already the head of that chain.

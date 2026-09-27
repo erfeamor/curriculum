@@ -22,6 +22,8 @@ checkpoint:
   part_3_status: not-started
 ---
 
+> **Board review 2026-09-28**: **part 2 now goes FIRST in the cv-infra chain**, before [T-008](T-008-drone-host-backup-and-snapshot.md). Seven applies follow, and four of them replace instances, all against state that lives on one laptop. Migrating state is safest when no other change is pending, and every later apply then gets locking and versioning. **Part 3's rotation decision also settles [T-021](T-021-mysql-password-rotation-persistent-datadir.md):** if `db_password` is not rotated, T-021 stays deferred, with "before anyone rotates `db_password`" as its trigger.
+
 ## Why this exists
 
 Found while reviewing how T-002's secrets reach AWS. **`cv-infra/terraform.tfstate` stores every secret in plaintext**, including the ones declared `SecureString` — `SecureString` describes how *AWS* stores a parameter, not how *Terraform* records it. Verified in the live state file:

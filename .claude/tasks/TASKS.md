@@ -4,27 +4,41 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-28 (T-032 and T-036 closed: board-check gains link integrity; QA stacks serve frontends per slot)
+## Now / Next / Later — refreshed 2026-09-28 (full board review: the lane is re-planned as five sessions)
 
-The order to claim in. It is **advice, refreshed at every board-sync** — `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
+The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
-**Now — no AWS, parallel-safe (different repos)**
-- **Nothing product-side is ready without AWS.** The next claimable work is the cv-infra chain below, starting with T-008. [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review) waits until **2026-10-12**.
-- **Human, ~1 hour:** the last $20 credit activity (Bedrock playground). Under A its credit carries over. Tracked in [T-012](T-012-aws-endgame-decision.md).
+**Sizing** (board review 2026-09-28): each session is planned at **≤ ~100M tokens**, under the 120M soft stop, with headroom for compaction. Normal-risk code tasks measured **~8M tokens / ~45 turns each** on 2026-09-27/28. The infra figures are **extrapolated, not measured**, so sessions 2–3 are the likeliest to stop at a checkpoint and resume.
 
-**Then — cv-infra, strictly one apply at a time** (one root module, local state; a merged-but-unapplied change rides the next apply)
-1. [T-008](T-008-drone-host-backup-and-snapshot.md) — Drone state to SSM, a proven restore, then the old snapshot goes.
-2. [T-007](T-007-ecs-agent-cleanup.md) — CI host to plain AL2023. **Read its 2026-09-25 correction:** it needs `-replace` (because of `ignore_changes = [ami]`) and an explicit `root_block_device`. The plain AMI defaults to 8 GB against ~17 GiB in use.
-3. [T-034](T-034-release-ci-host-idle-eip.md) — release the idle EIP, **plus the Drone doorbell wiring** (owned here since 2026-09-25). Settle [T-033](T-033-ci-host-tls.md)'s TLS decision at its H1: they share a DNS name and a hosted zone.
-4. **[T-014](T-014-deploy-bff-to-aws.md)** — its own session. It carries the production Flyway pin, decides [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at its H2, and **measures memory**: any resize is a cost decision under A.
-5. [T-035](T-035-app-host-to-graviton.md) — the app host to `t4g.micro`, as its own apply right after T-014.
-6. [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) — CI deploy stages. **One shared credential-model decision**, with [T-005](T-005-ci-secret-blast-radius.md) as input. Both need a cv-infra IAM apply, which is why they sit in this chain.
-- After T-014: [T-403](T-403-public-vanilla-deploy.md) and [T-404](T-404-public-react-point-at-deployed-bff.md) → [T-015](T-015-docs-reflect-deployed-bff.md) → **[T-501](T-501-e2e-cv-milestone.md)**.
-- **By 2026-12-15 (human):** upgrade the standalone account to the Paid plan — never via an Organization or Control Tower (forfeits the credits). Then the docs state it (T-012's last AC).
-- **Standing invariant:** no new migration in cv-database until T-014 moves production to Flyway 13.7.0.
+**Session 1 — state first, then backup** (~60M)
+- [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) (cv-domain-service, test-only, **no AWS**): claimable now, in parallel with everything below.
+- [T-004](T-004-terraform-state-hardening.md) part 2: Terraform state to S3 **before any other apply**. Four instance replacements follow. Its part-3 rotation decision also settles [T-021](T-021-mysql-password-rotation-persistent-datadir.md).
+- → [T-008](T-008-drone-host-backup-and-snapshot.md): Drone state to SSM, a proven restore, then the old snapshot goes.
 
-**Later**
-- T-004 part 2, T-005, T-021 (before anyone rotates `db_password`), T-109.
+**Session 2 — the CI host, in one host-up window** (~85M; strictly one cv-infra apply at a time)
+- [T-007](T-007-ecs-agent-cleanup.md): CI host to plain AL2023, with `-replace` and an explicit `root_block_device` (read its 2026-09-25 correction). **It now also carries [T-005](T-005-ci-secret-blast-radius.md)'s CI-host `metadata_options`**, verified in the same window.
+- → [T-034](T-034-release-ci-host-idle-eip.md) + [T-033](T-033-ci-host-tls.md): **one H1**. Release the idle EIP, wire Drone to the doorbell, give the reaper a post-start grace and a Drone busy check, and decide TLS. They share a DNS name and a hosted zone.
+
+**Session 3 — [T-014](T-014-deploy-bff-to-aws.md) alone** (~80–100M)
+- Deploy the BFF. It carries the production Flyway pin, decides [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at its H2, and **measures memory** (any resize is a cost decision under A). **It lifts the migration freeze.**
+
+**Session 4 — after T-014** (~85M)
+- [T-035](T-035-app-host-to-graviton.md): app host to `t4g.micro`, as its own apply.
+- In parallel, three different repos: [T-113](T-113-optimistic-locking-lost-update.md) (`@Version`/409, now that migrations are allowed; contract PR first), [T-403](T-403-public-vanilla-deploy.md) (vanilla deploy), [T-404](T-404-public-react-point-at-deployed-bff.md) (Vercel `BFF_URL`).
+- [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), if the date has passed **2026-10-12**.
+
+**Session 5 — CI deploy stages, then the milestone** (~80M)
+- [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-005](T-005-ci-secret-blast-radius.md)'s remainder: **one H1** for the credential model, with T-005 as its input. Then two implementations in parallel, sharing one cv-infra apply.
+- → **[T-501](T-501-e2e-cv-milestone.md)**, whose PR **also carries [T-015](T-015-docs-reflect-deployed-bff.md)** (same files, same live verification).
+
+**Human**
+- The last $20 credit activity (Bedrock playground), any time before **2027-01-12**. Under A its credit carries over.
+- **By 2026-12-15:** upgrade the standalone account to the Paid plan, **never** via an Organization or Control Tower (that forfeits the credits). Tracked in [T-012](T-012-aws-endgame-decision.md).
+
+**Standing invariant:** no new migration in cv-database until T-014 moves production to Flyway 13.7.0.
+
+**Later / conditional**
+- [T-021](T-021-mysql-password-rotation-persistent-datadir.md): only if T-004 decides to rotate `db_password`, or before anyone does.
 
 **Done 2026-09-27/28:** T-032, T-036, T-302, T-115, T-027, T-029 (plus T-409, T-401, T-108, T-402, T-301, T-114 earlier in the same session). Drone needs the CI host started **right after a reaper tick**: see T-034's 2026-09-27 finding.
 
@@ -114,7 +128,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state — **part 1 (0600) done; start at part 2**, the remote backend | cv-infra | todo | | — | |
-| [T-005](T-005-ci-secret-blast-radius.md) | Limit CI secret blast radius: block IMDS from containers | cv-infra | todo | | T-002 | |
+| [T-005](T-005-ci-secret-blast-radius.md) | Limit CI secret blast radius: block IMDS from containers | cv-infra | todo | | T-002, T-007 | |
 | [T-007](T-007-ecs-agent-cleanup.md) | CI host: plain AL2023 AMI, **measured** root — drops the ecs-agent (**widened 2026-09-24; premise corrected 2026-09-25**: needs `-replace` and an explicit root size) | cv-infra | todo | | T-002, **T-008** | |
 | [T-008](T-008-drone-host-backup-and-snapshot.md) | Drone state to SSM + a real CI-host backup, then retire the T-002 snapshot — **trim step 1** (−$0.69/mo) | cv-infra | todo | | T-002 | |
 | [T-012](T-012-aws-endgame-decision.md) | **Paid-vs-teardown — DECIDED 2026-09-24: A, go Paid with the stack trimmed**; upgrade by 2026-12-15 | cv-project (meta) | in_progress | tech-product-owner | — | |
@@ -193,7 +207,7 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 | 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | done | fullstack-developer | T-013 | [#4](https://github.com/erfeamor/cv-bff-node/pull/4) |
 | 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** (H1 done — start at implementation) | cv-infra | todo | | T-013, T-202, **T-201**, **T-156** | |
 | 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014, **T-408** | |
-| 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed | cv-project (meta) | todo | | T-014, T-403 | |
+| 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed | cv-project (meta) | todo | | T-014, T-403, T-404 | |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
 | — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call (adopts T-201's shared guard) | cv-bff-node | done | fullstack-developer | T-202 ✔, **T-201 ✔** | [#8](https://github.com/erfeamor/cv-bff-node/pull/8) |
 | — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF | cv-public-react | todo | | T-014 | |

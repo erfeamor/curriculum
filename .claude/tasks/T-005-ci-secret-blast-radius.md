@@ -6,10 +6,12 @@ status: todo
 owner:
 branch: feat/ci-secret-blast-radius
 pr:
-depends_on: [T-002]
+depends_on: [T-002, T-007]   # T-007 added 2026-09-28: the CI host's metadata_options now land in T-007's replacement
 risk: high
 security_review: true
 ---
+
+> **Board review 2026-09-28**: **split across two sessions.** The **CI-host** `metadata_options` and their verification moved into [T-007](T-007-ecs-agent-cleanup.md)'s replacement apply. What remains here: the **app host's** `metadata_options` (first check whether any container there relies on the instance role), the parameter-path split, and the Jenkins digest pin. The remainder runs with [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md), whose shared credential decision takes this task as its input, **not after them**. The lane used to park it in "Later", after the decision it feeds.
 
 ## Why this exists
 
@@ -64,7 +66,7 @@ Separating Drone and Jenkins onto different hosts — that is the only *complete
 
 ## Acceptance criteria
 
-- [ ] `metadata_options` with `http_tokens = "required"` and `http_put_response_hop_limit = 1` on **both** `aws_instance.drone` and `aws_instance.domain_service`.
+- [ ] `metadata_options` with `http_tokens = "required"` and `http_put_response_hop_limit = 1` on **both** `aws_instance.drone` and `aws_instance.domain_service`. *(2026-09-28: the `drone` half is delivered and verified in T-007; this criterion closes when the `domain_service` half lands here.)*
 - [ ] Verified: a container on the CI host **cannot** retrieve instance credentials (`curl` to `169.254.169.254` from inside a container times out or is refused), while the host-side `param()` path still works.
 - [ ] Verified: SSM Session Manager still connects, and `null_resource.jenkins_provision`'s SSM path still runs. **This is the lock-yourself-out check — do it before trusting the change.**
 - [ ] Drone and Jenkins pipelines both still go green after the change.

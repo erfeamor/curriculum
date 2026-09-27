@@ -11,6 +11,8 @@ risk: normal
 security_review: false
 ---
 
+> **Board review 2026-09-28**: was missing from the lane. It is now scheduled **right after [T-014](T-014-deploy-bff-to-aws.md)** (session 4), when the migration freeze lifts. Its contract PR (the 409 shape) can be drafted earlier.
+
 ## Goal
 
 Close **failure mode 2** of [T-108](T-108-untransacted-update-read-modify-write.md), which T-108 declined in writing at H1 (2026-09-26): two concurrent `PUT`s to the same experience, education or project row both return `200`, and the second silently overwrites the first. No client learns the other's write was lost.

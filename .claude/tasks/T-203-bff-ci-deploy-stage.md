@@ -11,6 +11,8 @@ risk: normal
 security_review: true
 ---
 
+> **Board review 2026-09-28**: **one session, one H1** for T-112 + T-203, with [T-005](T-005-ci-secret-blast-radius.md)'s remainder decided at the same gate as their credential model's input. After H1 the two implementations run in parallel (different repos); their cv-infra IAM changes share one apply.
+
 ## Shared decision (added 2026-09-25, board review)
 
 Decide the credential model **together with [T-112](T-112-domain-service-ci-ecr-deploy.md)** (the Jenkins twin), with [T-005](T-005-ci-secret-blast-radius.md) as the input. See T-112's note. Both need an IAM principal in **cv-infra**, so both run in the serial cv-infra chain after T-014.
