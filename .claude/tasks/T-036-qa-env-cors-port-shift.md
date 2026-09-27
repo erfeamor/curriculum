@@ -32,3 +32,7 @@ Found by `quality-assurance` during [T-401](T-401-public-cv-sections.md)'s stage
 ## Provenance
 
 Filed by the driver on 2026-09-26, from T-401's QA report. The human approved filing it at T-401's H2.
+
+## Added 2026-09-27 — the admin app needs its own auth toggle in a QA stack
+
+Found by QA in T-301's stage 4. Against an isolated stack with `AUTH_ENABLED=false`, the admin app still shows the Cognito sign-in screen when launched with only `VITE_DOMAIN_SERVICE_URL=…`. The cause is `src/auth/cognitoConfig.ts`, which gates on a separate client-side `VITE_AUTH_ENABLED` that defaults to `true` without a `.env`. `VITE_AUTH_ENABLED=false` is needed alongside it. Fold this into the same QA-recipe/adapter §6 guidance as the CORS port fix: how to launch each frontend against slot `s`, with the env vars it needs.
