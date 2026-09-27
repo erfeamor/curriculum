@@ -2,14 +2,45 @@
 id: T-115
 title: "The domain service accepts a section whose `endDate` is earlier than its `startDate`"
 repo: cv-domain-service
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: fix/section-period-validation
-pr:
-depends_on: []
+pr: https://github.com/erfeamor/cv-domain-service/pull/13
+depends_on: [T-027]   # contract line lands in T-027's PR (board rule 4)
 risk: normal
 security_review: false
+checkpoint:
+  stage: done   # merged c1213e8 (squash of cv-domain-service#13), 2026-09-27 — H2 accepted by the human after #99; branch already on master cf508e4, Jenkins PR-13 #1 green
+  repo: cv-domain-service
+  branch: fix/section-period-validation
+  worktree: none   # removed after merge
+  commit: c1213e8
+  pr: https://github.com/erfeamor/cv-domain-service/pull/13
+  developer: backend-developer
+  reviewers: [code-review, quality-assurance]
+  risk: normal
+  security_review: false
+  review_round: 1   # /code-review: 1 finding (vacuous body test) fixed in dbd0e06; QA coverage: no blocking gaps
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: 0
+  updated: 2026-09-27T11:40:00+02:00
+  budget:
+    turns: 55   # budget baseline reset by the human: --since 2026-09-27T09:19:56.000Z
+    total_tokens: 6385214
+    subagent_tokens: 0
+    spawns: 2   # quality-assurance (shared plan) + developer
+    status: ok
+    checked: 2026-09-27T11:40:00+02:00
 ---
+
+## H1 — accepted by the human, 2026-09-27
+
+- **Contract first:** rule 4 in `docs/api-contract.md` gains the cross-field line, in the same meta PR as [T-027](T-027-contract-ordering-note-sql-vs-jpql.md). T-115 may implement in parallel but **merges only after that PR**.
+- **Rule:** checked **only when both dates are non-null** (`endDate ≥ startDate`, equal allowed). One-sided project dates keep today's behavior.
+- **Shape:** no class-level constraint exists in the repo yet; one reusable constraint over the three entities is preferred to three ad hoc checks.
+- **Test plan:** QA's 10 cases (POST+PUT inverted → 400 for all three, fail-first; equal, null `endDate`, no-date project accepted; validator unit test; malformed date unaffected).
 
 ## The gap
 

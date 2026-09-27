@@ -2,14 +2,44 @@
 id: T-302
 title: "cv-admin-react section/skills stores: rare load-vs-write interleavings leave a wrong list, notice or error on screen until reload"
 repo: cv-admin-react
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: fix/admin-store-read-races
-pr:
+pr: https://github.com/erfeamor/cv-admin-react/pull/14
 depends_on: [T-301]
 risk: normal
 security_review: false
+checkpoint:
+  stage: done   # merged 11fcc04 (squash of cv-admin-react#14), 2026-09-27 — H2 accepted; Drone push+PR green; live browser QA all pass
+  repo: cv-admin-react
+  branch: fix/admin-store-read-races
+  worktree: none   # removed after merge
+  commit: 11fcc04
+  pr: https://github.com/erfeamor/cv-admin-react/pull/14
+  developer: fullstack-developer
+  reviewers: [code-review, frontend-architect]
+  risk: normal
+  security_review: false
+  review_round: 3   # r1: 3 blockers (/code-review; architect clean); r2: regression (empty list A→B→A); r3: clean
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: 1
+  updated: 2026-09-27T11:40:00+02:00
+  budget:
+    turns: 55   # budget baseline reset by the human: --since 2026-09-27T09:19:56.000Z
+    total_tokens: 6385214
+    subagent_tokens: 0
+    spawns: 2   # quality-assurance (shared plan) + developer
+    status: ok
+    checked: 2026-09-27T11:40:00+02:00
 ---
+
+## H1 — accepted by the human, 2026-09-27
+
+- **Writes during a load:** forms and write buttons are disabled while `loading`. The store **also rejects** a write that arrives mid-load, with a distinct error (not a silent no-op), so a UI bug surfaces.
+- **Notices split per list:** `skillsStore` gets `catalogNotice` + `assignmentsNotice`; each is cleared **only** by a successful re-read of its own list. `sectionStore` keeps one notice with the same rule. Writes that do not re-read never clear a notice.
+- **Test plan:** QA's 9 cases (4 fail-first scenarios, UI-disabled check, 3 regressions, exploratory race probe). The runner is **Jest**, not Vitest.
 
 ## The gap
 
