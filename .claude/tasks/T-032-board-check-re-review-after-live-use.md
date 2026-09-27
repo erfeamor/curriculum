@@ -158,11 +158,13 @@ Worth noting what did catch it: a review agent reading the frontmatter, not the 
 - [x] **Links inside inline code spans and fenced blocks are skipped**, with a fixture proving it — this file quotes broken links on purpose to document them, and a prototype produced **two false positives here** before this rule was added. T-031 calls one confirmed false positive fatal to adoption.
 - [x] **The new check does not fire on the current board** — the five real dead links and the one in T-201 were repaired on 2026-08-24, so the expected result is zero. Anything it finds is live drift: fix it in the same PR (T-031 H1 ruling 2) and record it as a second data point for the verdict. *(Confirmed zero on the current board — no live drift to fix in this branch. See Re-review section for a SECOND incident the check independently confirmed against git history: 4 more dead links, 2026-09-25, `9767706`.)*
 - [x] **No title-equality check was added**, and the reason is recorded. Board rows deliberately shorten and annotate titles, and strike-don't-delete leaves superseded ones in place — a title check would fire on correct content, and a validator that cries wolf gets switched off. *(Recorded in `check_link_integrity`'s own section comment in `scripts/board-check.py` and reaffirmed in the Re-review section below.)*
-- [x] A written verdict: **converged**, **needs another round**, or **the approach is wrong**. The third is a real option and must not be excluded by sunk cost. *(Converged — see Re-review section.)*
+- [x] A written verdict: **converged**, **needs another round**, or **the approach is wrong**. The third is a real option and must not be excluded by sunk cost. *(~~Converged~~ superseded same day by round-1 review: **needs another round**, scoped to check 8 specifically — checks 1-7 and check 5 stand as converged. See the Re-review section's §8.)*
 
 ## Re-review — 2026-09-27
 
-**Phase A (build).** `a2bdb9c` adds check 8 (link integrity: resolution + ID/target agreement, both offline, code-span/fence-aware) and widens check 5 (`pr:` presence) to any status once `checkpoint.pr` already holds a real value. Every RED-FIRST case named in the binding test plan (dead link, ID/target mismatch, scan coverage across all four surfaces, the `422fbeb`/T-201 regression, the `in_progress` widening) was confirmed failing before the corresponding check existed. `python3 scripts/board-check.py` on this branch's board produces **zero link findings** — the five dead links + T-204 cross-reference from 2026-08-24 stay fixed; there is no live drift in this repo state, so nothing needed fixing in the same PR. 125 tests green at the end of phase A.
+**Phase A (build).** `163c13c` (sha as of the 2026-09-27 rebase onto `e472948`; originally committed as `a2bdb9c` before the coordinator's rebase moved this branch — noted once here, not re-derived below) adds check 8 (link integrity: resolution + ID/target agreement, both offline, code-span/fence-aware) and widens check 5 (`pr:` presence) to any status once `checkpoint.pr` already holds a real value. Every RED-FIRST case named in the binding test plan (dead link, ID/target mismatch, scan coverage across all four surfaces, the `422fbeb`/T-201 regression, the `in_progress` widening) was confirmed failing before the corresponding check existed. `python3 scripts/board-check.py` on this branch's board produces **zero link findings** — the five dead links + T-204 cross-reference from 2026-08-24 stay fixed; there is no live drift in this repo state, so nothing needed fixing in the same PR.
+
+**Test count, precisely (per-commit, full `python3 -m unittest discover -s scripts -p 'test_*.py'` totals — the earlier draft cited a single flat "125" that went stale the moment later commits landed; corrected here with the actual progression):** rebase base `e472948` — 130 (78 board-check + 51 qa-env-override + 1 hook, the qa-env count itself having grown since this branch's original base via unrelated work merged to master). `163c13c` (phase A) — **143**. `4855d85` (mutation-gap fix, was `8391b09`) — **144**. `ab2d390` (eighth-hunt, was `9e60b50`) — **151**. `0719e31` (this write-up, was `2275c2b`) — **151** (docs-only, no test change). After round 1's fixes below — **174**.
 
 **Phase B (re-review).**
 
@@ -181,9 +183,7 @@ Script: `/tmp/.../scratchpad/mutate.py` (scratchpad only, not shipped) — rever
 | m07 | check 3: invert the `elif` owner-required branch | KILLED |
 | m08 | check 4: `status != "done"` → `== "done"` | KILLED |
 | m09 | check 4: invert the worktree-sentinel test | KILLED |
-| m10 | check 5: revert the widened status gate | KILLED |
 | m11 | check 5: `pr_text == "" or is_sentinel` → `and` | KILLED |
-| m12 | check 5: remove the `done`+sentinel early return | KILLED |
 | m13 | check 5: invert the `checkpoint.pr` disagreement test | KILLED |
 | m14 | check 6: invert `dep_id not in known_ids` | KILLED |
 | m15 | check 7: invert `status not in STATUS_VALUES` | KILLED |
@@ -191,12 +191,38 @@ Script: `/tmp/.../scratchpad/mutate.py` (scratchpad only, not shipped) — rever
 | m17 | check 2: invert the board/file status-agreement test | KILLED |
 | m18 | check 2: invert the malformed-row column-count test | KILLED |
 | m19 | check 8: invert the dead-link existence test | KILLED |
-| m20 | check 8: invert the ID/target-agreement test | KILLED |
-| m21 | check 8: disable the fence toggle | KILLED |
-| m22 | check 8: disable the code-span strip | KILLED |
+| m20 | check 8: invert the ID/target-agreement compare | KILLED |
 | m23 | `run()`: id-collision `len(paths) > 1` → `>= 1` | KILLED |
 
-**23 mutations, 22 killed on the first pass, 1 survivor (m04).** m04 was not a functional defect — `.rstrip()` genuinely ships in the code — it was a coverage gap: nothing exercised an indented **opening** fence, the mirror image of round 3's real closing-fence bug. Closed with a direct `read_frontmatter()` regression test (commit `8391b09`, test-only, no `board-check.py` change). Re-ran after the fix: **23/23 killed, 0 survivors.**
+**Original pass (2026-09-27, before round-1 review): 23 mutations, 22 killed, 1 survivor (m04).** m04 was not a functional defect — `.rstrip()` genuinely ships in the code — it was a coverage gap: nothing exercised an indented **opening** fence, the mirror image of round 3's real closing-fence bug. Closed with a direct `read_frontmatter()` regression test (commit `4855d85`, was `8391b09` before the rebase; test-only, no `board-check.py` change). Re-ran after the fix: 23/23 killed, 0 survivors — **the number this task's earlier draft called converged on.**
+
+**Re-run after round-1 review's 8 fixes (below), adding mutants for every NEW guard those fixes introduced:**
+
+| # | Mutation | Result |
+|---|---|---|
+| m10b | check 5: remove the `blocked`-status skip from the widened gate | KILLED |
+| m10c | check 5: stop excluding a `checkpoint.pr` sentinel from "real" | KILLED |
+| m10d | check 5: invert the `done`+`pr:none`+real-`checkpoint.pr` check | KILLED |
+| m20b | check 8: revert link-text exactness (back to `re.search` anywhere) | KILLED |
+| m21 | check 8: fence CLOSE ignores the character (`~~~` closed by ` ``` `) | KILLED |
+| m21b | check 8: fence CLOSE ignores the minimum-length rule | KILLED |
+| m21c | check 8: backtick-fence info-string-contains-a-backtick rule removed | KILLED |
+| m21d | check 8: blockquote-prefix stripping removed | KILLED* |
+| m21e | check 8: 4-space indented-code-block threshold disabled | KILLED |
+| m21f | check 8: HTML-comment blanking removed | KILLED |
+| m21g | check 8: escaped-`\[` lookbehind removed | KILLED |
+| m21h | check 8: multi-line code-span carry state dropped | KILLED* |
+| m21i | check 8: trailing-`#anchor` support removed | KILLED |
+| m21j | check 8: `./` / `../tasks/` prefix support removed | KILLED |
+| m21k | check 8: trailing `"title"` stripping removed | KILLED |
+| m21l | check 8: `<angle-bracket>` destination stripping removed | KILLED |
+
+**35 mutations total, 35 killed, 0 survivors — but two (marked *) survived on the FIRST attempt** against the fixture each was originally written to test, for a genuinely interesting reason recorded here rather than quietly re-run away:
+
+- **m21d** (blockquote stripping) survived against a fixture using a ` ``` `-fenced blockquote specifically because the multi-line code-span carry feature (added in the SAME round) coincidentally hides the same content a different way: with blockquote-stripping removed, `"> ```"` tokenizes as blockquote text plus a 3-backtick run, which the span-carry logic reads as an *inline code span opener* that doesn't close until the matching `"> ```"` at the end — accidentally spanning the exact same range the real fence would have. A second fixture using `~~~` (not a code-span delimiter, so immune to that accident) kills it cleanly. **This is an equivalent-mutant trap, not a false "pass": the fix is real and independently necessary** (a `~~~`-fenced blockquote has no such rescue), but it is a genuine reminder that two correct mechanisms overlapping can hide a mutation survivor, and a mutation table is only as good as the fixture set behind it.
+- **m21h** (multi-line span carry) survived against a fixture where the pseudo-link sat at the very END of an unclosed span (`` `[T-971](...)\nstill open` and more ``) — line 1 alone already excludes everything after its own opening backtick regardless of what carries over, so dropping the carry changed nothing OBSERVABLE for that specific shape. Moving the pseudo-link to the START of line 2 instead (`` `some text\n[T-971](...)` still open `` — kept open across the line break with the risky text on the far side) makes the carry state load-bearing and the mutation cleanly killed.
+
+Both are recorded as the honest first-attempt result, not smoothed over, because the SAME shape — a mutation appearing to survive only to reveal the fixture, not the code, was insufficiently targeted — is exactly the signal this task exists to take seriously rather than rationalize away.
 
 ### 2. In-the-wild findings, classified (item 14)
 
@@ -250,9 +276,42 @@ Filtered to this task's own checks (`key` in `link`, `link-id`, `pr`): **1 findi
 
 (4 of the 10 snapshots also show `risk`/`security_review`-missing findings on T-201 from **check 7**, pre-dating this task — these are an artifact of replaying *today's* `UNREFINED_EXEMPT` set, which no longer includes T-201, against board state from *before* T-201's 2026-08-27 refinement, when the contemporaneous script legitimately exempted it (`git show 7618ec0:scripts/board-check.py` confirms `T-201` was in that version's set). Not a tool defect, not in this task's scope, and not counted in the rate above — flagged here only so the number isn't misread.)
 
-### 7. Verdict — **converged**
+### 7. Round 1 review — `/code-review high`, 2026-09-27, 8 real findings (fixed in `a2a42ae`)
 
-Reasoning: round 3's mutation pass found 11 real survivors; this re-run of the same method against a larger surface (7 pre-existing checks plus the 2 new/widened ones, 23 targeted mutations) found exactly **1**, and it was a test-coverage gap, not a functional defect. The tool has run against 35 days and 37 commits of real, unscripted board editing and produced **zero confirmed false positives** — the failure mode T-031 calls fatal to adoption never happened. The two blind spots that *were* found live (link integrity, `pr:` status-gating) each mapped cleanly onto exactly this project's existing structure — one narrow check, one incident, fixtures reproducing the real commit — with no architectural strain, and a *second*, independent real-world dead-link incident (`9767706`) confirms the new check's value against data it was never tuned to. The eighth-blind-spot hunt (six deliberately chosen forms) found nothing, and the one form that behaves differently (tabs) fails loudly rather than silently. The adoption signal is positive: the hook is registered, actually used, and every real incident found was fixed forward, never silenced. Weighed against "the approach is wrong" deliberately, not by default: nothing here suggests the incident-per-check structure is straining — the opposite, it kept absorbing new incidents (T-032 itself is the third round of that) without needing to change shape. **Converged** is the answer this evidence supports, not the one sunk cost would prefer.
+**This is the pattern the task was filed on, recurring inside the task's own new code.** T-031 shipped after three rounds and 34 findings that never fell in rate. Section 1-6 above declared this session's evidence clean — and a single further review round found 8 more real, functional defects (several genuine false positives, T-031's fatal-to-adoption class) that neither the mutation re-run, the eighth-hunt, nor the false-positive sweep surfaced. Every RED-FIRST case below was confirmed failing against the pre-fix code (`163c13c`/`4855d85`/`ab2d390`) before `a2a42ae` fixed it.
+
+| # | Finding | Check | Class | RED-first fixture |
+|---|---|---|---|---|
+| 1 | Fence close ignored the character and minimum length (`~~~` closed by a stray ` ``` `; a 4-backtick open closed by 3) | 8 | false positive | `test_red_mismatched_fence_char_does_not_close`, `test_red_shorter_closing_run_does_not_close` |
+| — | A backtick fence whose info string itself contains a backtick is inline content, not a fence-open (swallowed a same-line real link) | 8 | false negative | `test_red_backtick_fence_info_string_with_a_backtick_is_not_a_fence` |
+| 2 | Inline code spans didn't carry across a line break within one paragraph | 8 | false positive | `test_red_multiline_code_span_not_recognized` |
+| 3 | Fences inside blockquotes (T-023:81-86, live), 4+-space indented code (T-011:41-47, live), HTML comments, and an escaped `\[` were all scanned as ordinary text | 8 | false positive | `test_red_fence_inside_blockquote_is_skipped`, `test_red_four_space_indented_code_block_is_skipped`, `test_red_html_comment_is_skipped`, `test_red_escaped_opening_bracket_is_not_a_link` |
+| 4 | ID/target agreement fired on ANY `T-nnn` substring in descriptive text ("follow-up to T-031"), not only an exact `[T-nnn]` link text; and compared as strings, not numbers | 8 | false positive | `test_red_descriptive_text_mentioning_another_id_stays_silent`, `test_green_numeric_id_compare_allows_unpadded_form` |
+| 5 | `done` + `pr: none` (the T-010 sentinel) + a REAL `checkpoint.pr` went unreported — the sentinel's exemption didn't check whether checkpoint.pr contradicted it | 5 | false negative | `test_red_done_pr_none_sentinel_but_real_checkpoint_pr` |
+| 6 | `checkpoint.pr` holding its OWN sentinel (`none`) counted as "real", wrongly widening the rule-6 check onto a task with no actual PR | 5 | false positive | `test_green_checkpoint_pr_sentinel_is_not_a_real_pr_at_any_status` |
+| 7 | The rule-6 finding only fired inside the "top-level `pr:` empty/sentinel" branch, so a top-level `pr:` filled in to AGREE with `checkpoint.pr` (status never moved) stayed silent; `blocked` needed its own carve-out | 5 | false negative | `test_red_rule6_fires_even_when_top_level_pr_agrees_with_checkpoint`, `test_green_blocked_with_real_checkpoint_pr_stays_silent` |
+| 8 | Cheap link forms (`./`, `../tasks/` prefixes; trailing `#anchor`, `"title"`, `<...>`) were not recognized as links AT ALL, so a broken one under any of them was silently invisible | 8 | false negative | `test_red_anchor_stripped_but_file_part_still_checked`, `test_red_dot_slash_prefix_checked`, `test_red_dotdot_tasks_prefix_checked`, `test_red_trailing_title_checked`, `test_red_angle_bracket_destination_checked` |
+
+**Also fixed as part of `a2a42ae`, per item 10:** `check_link_integrity` now takes `task_paths` from `run()` instead of re-globbing `tasks_dir`; the unreachable `target_id_m ... else None` branch (dead since `target` is guaranteed to start `T-\d+` by construction) is gone; `test_live_board_has_zero_link_findings` is removed from the unit suite (the A1 `python3 scripts/board-check.py` run against the live board already covers it, per `CommandLine.test_live_board_exits_zero`).
+
+**Full accounting: not every numbered item above is one bug — several bundle multiple distinct sub-cases** (item 3 is four independent skip-rules; item 8 is five independent cheap forms), so the true defect count this round is closer to 15-16 than 8, depending how finely one slices it. Recorded precisely because rounding it down to "8" would understate exactly the pattern this section exists to take seriously.
+
+### 8. Verdict
+
+~~**Converged.** Reasoning: round 3's mutation pass found 11 real survivors; this re-run of the same method against a larger surface (7 pre-existing checks plus the 2 new/widened ones, 23 targeted mutations) found exactly **1**, and it was a test-coverage gap, not a functional defect. The tool has run against 35 days and 37 commits of real, unscripted board editing and produced **zero confirmed false positives** — the failure mode T-031 calls fatal to adoption never happened. The two blind spots that *were* found live (link integrity, `pr:` status-gating) each mapped cleanly onto exactly this project's existing structure — one narrow check, one incident, fixtures reproducing the real commit — with no architectural strain, and a *second*, independent real-world dead-link incident (`9767706`) confirms the new check's value against data it was never tuned to. The eighth-blind-spot hunt (six deliberately chosen forms) found nothing, and the one form that behaves differently (tabs) fails loudly rather than silently. The adoption signal is positive: the hook is registered, actually used, and every real incident found was fixed forward, never silenced. Weighed against "the approach is wrong" deliberately, not by default: nothing here suggests the incident-per-check structure is straining — the opposite, it kept absorbing new incidents (T-032 itself is the third round of that) without needing to change shape. **Converged** is the answer this evidence supports, not the one sunk cost would prefer.~~
+
+**Superseded 2026-09-27, same day, after round 1 review (section 7 above). Re-evaluated honestly rather than anchored on the paragraph just struck through — it was wrong, and the reason it was wrong is itself the finding.**
+
+**The mutation re-run and the eighth-hunt were real and their results stand** — 35/35 mutants now dead, six duplicate-key surface forms genuinely tried with none found. But neither technique, nor the false-positive sweep, nor the driver-invocation sample, was capable of finding what one further `/code-review high` pass found in a single sitting: 8 (really 15-16) distinct defects in code that had just been written, several of them the exact false-positive class T-031 calls fatal to adoption. **The finding rate did not fall. It is the identical shape T-031 itself lived through** — round 2 of that task found 11 findings after round 1's 6, and the character of the findings changed rather than their count trending to zero.
+
+**Splitting the verdict by check, because the evidence itself splits that way:**
+
+- **Checks 1-7 (the original seven, T-031's) and check 5's widening: converged.** These have absorbed 35 days and dozens of real commits of live use, a mutation pass with zero remaining survivors, and this round's own review, with **zero confirmed false positives** anywhere in that record. Check 5's three round-1 findings were narrow edge cases of an already-bounded state space (status × three sentinel-shaped fields) — the kind of gap a careful second pass closes for good, not a sign of an open-ended surface.
+- **Check 8 (link integrity): does NOT converge, and the reason is structural, not a shortage of effort.** Every round-1 finding in check 8 is check 8 hand-rolling a piece of CommonMark's grammar in regexes and a line-based state machine — fences, code spans, blockquotes, indented code, HTML comments, escapes, destination syntax — one surface form at a time. **This project has already lived through this exact failure mode and already ruled on it**: check 1's own docstring records that a hand-rolled YAML duplicate-key scanner needed "five rounds of surface-form-specific bug fixes" and was *still* blind to quoted keys, hyphenated keys and flow mappings even once fixed, and the ruling was to stop patching it and delegate to `yaml.compose()` — a real parser — instead. Check 8 is now on its own first round of exactly that pattern, and `markdown_it` (markdown-it-py) is confirmed **installed on this machine** (`python3 -c "import markdown_it"` succeeds), the direct CommonMark-parser analogue of what PyYAML already is for check 1. Continuing to patch check 8's regex approximation round after round is the same mistake check 1 already made and unmade.
+
+**Verdict: needs another round — scoped specifically to check 8, not the whole tool.** Not "converged": check 8 just doubled its own defect count in the single round after this task called it clean, and declaring victory a second time on the same evidence-gathering methods that missed it once would be the sunk-cost failure this task's acceptance criteria explicitly forbid. Not "the approach is wrong" for the tool as a whole either: checks 1-7 and check 5 have a real, multi-week, false-positive-free track record that "the approach is wrong" would have to explain away, and it can't. **The honest reading is narrower and more useful than either extreme: the incident-per-check architecture is sound and has converged everywhere it has been given time to; check 8 specifically was built the way check 1 was built before check 1's own review history rejected that strategy, and the next round should replace check 8's regex/state-machine approximation with a real CommonMark parse (`markdown_it`) rather than write a ninth round of surface-form patches.** That replacement is scoped as follow-up, not performed here — this round's instructions asked for the 8 findings fixed, not an architecture change, and doing the larger rewrite unasked would be its own overreach.
+
+## Definition of done
 
 PR open from `chore/board-check-re-review` with the verdict recorded on this task, or — if nothing is found — this task closed with the evidence that nothing was found. **Note there is no CI in this repo**; A1 and QA carry the whole weight.
 
