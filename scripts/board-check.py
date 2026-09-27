@@ -96,6 +96,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import urllib.parse
 from pathlib import Path
 
 # YAML is used two ways: yaml.safe_load() for checks 2-7 (collapses
@@ -132,7 +133,14 @@ except ModuleNotFoundError:
 # ruling above already rejected for check 1. No optional fallback.
 try:
     from markdown_it import MarkdownIt
-except ModuleNotFoundError:
+except ImportError:
+    # ImportError, not the narrower ModuleNotFoundError (round 3 review,
+    # item 9): a partially-broken install (a C-extension mismatch, a
+    # corrupted wheel) raises the base ImportError, not always its
+    # module-not-found subclass, and this message must cover that path
+    # too rather than let it fall through to a raw traceback. Confirmed
+    # by actually simulating the missing-dependency path (a faked
+    # `__import__` raising a bare ImportError), not assumed.
     sys.exit("board-check: markdown-it-py is required "
               "(pip install markdown-it-py, or the python3-markdown-it "
               "package on Debian/Ubuntu).")
@@ -759,7 +767,7 @@ def check_board_agreement(tasks_dir: Path, board_path: Path, task_files: dict) -
 # documented limitation any more.
 # --------------------------------------------------------------------------
 
-_MD = MarkdownIt("commonmark")
+_MD = MarkdownIt("commonmark").enable("table")
 
 # Bare filename only (no further `/`) after stripping the two prefixes this
 # board actually uses; the anchor, if any, is discarded (captured OUTSIDE
@@ -770,40 +778,113 @@ _MD = MarkdownIt("commonmark")
 # with here any more (round-1's regex version had to do both by hand).
 _TASK_TARGET_RE = re.compile(r'^(?:\./|\.\./tasks/)?(T-\d+[^/#]*\.md)(?:#\S*)?$')
 _EXACT_TASK_ID_RE = re.compile(r'^T-0*(\d+)$')
+# An html_block whose raw content contains what looks like a markdown link
+# or an HTML href pointing at a task file (round-3 finding #7) -- raw HTML
+# is opaque to the parser's own link tokens, so this is the one place check
+# 8 still has to look at TEXT rather than the token stream.
+_HTML_BLOCK_SUSPECT_RE = re.compile(r'\]\(T-|href=["\']T-')
 
 
 def _normalize_link_destination(href: str):
-    """A link token's `href` attribute -> the bare `T-nnn-slug.md`
-    filename it targets, or None if it isn't shaped like a task-file
-    link at all (an anchor-only link, an external URL, a path elsewhere
-    in the repo)."""
-    m = _TASK_TARGET_RE.match(href.strip())
+    """A link/image token's `href`/`src` attribute -> the bare
+    `T-nnn-slug.md` filename it targets, or None if it isn't shaped like
+    a task-file link at all (an anchor-only link, an external URL, a
+    path elsewhere in the repo). Percent-decoded first (round-3 finding
+    #3): markdown_it does not decode `%XX` escapes itself, and it
+    percent-encodes even a LITERAL space inside `<angle brackets>` on
+    its own, so a real accented or space-bearing filename never matches
+    without this."""
+    href = urllib.parse.unquote(href.strip())
+    m = _TASK_TARGET_RE.match(href)
     return m.group(1) if m else None
+
+
+def _mask_frontmatter(path: Path, text: str) -> str:
+    """Blank the frontmatter block (both `---` fences and everything
+    between) before handing `text` to the markdown parser, keeping the
+    LINE COUNT identical so every line number after it still lines up.
+    Reuses read_frontmatter's own fence bounds rather than re-deriving
+    them. Two round-3 findings, opposite directions, both fixed by never
+    parsing frontmatter as markdown at all: a broken link deliberately
+    quoted inside a YAML block scalar must stay silent (finding #4 --
+    it isn't body prose), and an unbalanced fence marker inside
+    frontmatter prose must not bleed into the body and hide a real dead
+    link there (finding #5 -- confirmed empirically that a LOW-indent
+    block scalar genuinely opens a real CommonMark fence that never
+    closes, swallowing everything after it to end of file)."""
+    fm = read_frontmatter(path)
+    if fm is None:
+        return text
+    _, _, end = fm  # 0-based index of the closing '---' line
+    lines = text.split("\n")
+    for idx in range(0, min(end, len(lines) - 1) + 1):
+        lines[idx] = ""
+    return "\n".join(lines)
 
 
 def _iter_markdown_links(path: Path):
     """Yields (line_no, visible_text, target) for every task-file-shaped
-    markdown link in `path`, found by walking markdown_it's own
+    markdown link OR image in `path`, found by walking markdown_it's own
     CommonMark token stream (see the section comment above for why)."""
-    for block in _MD.parse(path.read_text()):
+    text = _mask_frontmatter(path, path.read_text())
+    for block in _MD.parse(text):
         if block.type != "inline" or not block.map:
             continue
-        line_no = block.map[0] + 1  # 0-indexed block-start line -> file line
+        base_line = block.map[0] + 1  # 0-indexed block-start line -> file line
         children = block.children or []
+        offset = 0  # softbreaks/hardbreaks seen so far in THIS block (finding #2)
         i = 0
         while i < len(children):
-            if children[i].type != "link_open":
+            child = children[i]
+            if child.type in ("softbreak", "hardbreak"):
+                offset += 1
                 i += 1
                 continue
-            target = _normalize_link_destination(children[i].attrs.get("href", ""))
+            if child.type == "image":
+                # A self-contained token, not an open/close pair
+                # (round-3 finding #6) -- its own .content is the alt
+                # text, its `src` the destination.
+                target = _normalize_link_destination(child.attrs.get("src", ""))
+                if target is not None:
+                    yield base_line + offset, child.content, target
+                i += 1
+                continue
+            if child.type != "link_open":
+                i += 1
+                continue
+            link_line = base_line + offset
+            target = _normalize_link_destination(child.attrs.get("href", ""))
             j = i + 1
             text_parts = []
             while j < len(children) and children[j].type != "link_close":
-                text_parts.append(children[j].content)
+                ctype = children[j].type
+                if ctype in ("text", "code_inline"):
+                    text_parts.append(children[j].content)
+                elif ctype in ("softbreak", "hardbreak"):
+                    # Renders as a space (round-3 finding #8) -- and
+                    # still advances the shared line-offset for
+                    # whatever comes after this link in the same block.
+                    text_parts.append(" ")
+                    offset += 1
+                # else (raw HTML, etc.): contributes nothing to the
+                # visible text, per finding #8.
                 j += 1
             if target is not None:
-                yield line_no, "".join(text_parts), target
+                yield link_line, "".join(text_parts), target
             i = j + 1
+
+
+def _iter_html_block_warnings(path: Path):
+    """Yields line_no for every html_block whose raw content contains
+    what looks like a task-file link or href (round-3 finding #7): raw
+    HTML is opaque to the parser's OWN link tokens, so a link inside one
+    (e.g. a `<summary>` with no blank line before the next paragraph,
+    which CommonMark's HTML-block rule keeps consuming) is silently
+    never checked at all unless this says so."""
+    text = _mask_frontmatter(path, path.read_text())
+    for block in _MD.parse(text):
+        if block.type == "html_block" and _HTML_BLOCK_SUSPECT_RE.search(block.content):
+            yield block.map[0] + 1
 
 
 def check_link_integrity(tasks_dir: Path, scan_files: list[Path],
@@ -813,6 +894,12 @@ def check_link_integrity(tasks_dir: Path, scan_files: list[Path],
     for path in scan_files:
         if not path.is_file():
             continue
+        for line_no in _iter_html_block_warnings(path):
+            findings.append(Finding(
+                path, line_no, "link-html",
+                "an HTML block here contains what looks like a task-file "
+                "link or href -- raw HTML is opaque to this check; use "
+                "markdown link syntax if it needs to be validated."))
         for line_no, text, target in _iter_markdown_links(path):
             if target not in existing:
                 findings.append(Finding(
