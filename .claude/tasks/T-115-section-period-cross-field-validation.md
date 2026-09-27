@@ -2,7 +2,7 @@
 id: T-115
 title: "The domain service accepts a section whose `endDate` is earlier than its `startDate`"
 repo: cv-domain-service
-status: in_review
+status: done
 owner: tech-product-owner
 branch: fix/section-period-validation
 pr: https://github.com/erfeamor/cv-domain-service/pull/13
@@ -10,11 +10,11 @@ depends_on: [T-027]   # contract line lands in T-027's PR (board rule 4)
 risk: normal
 security_review: false
 checkpoint:
-  stage: H2   # CI green (Jenkins PR-13 #1); exploratory QA on MySQL 8.4 slot 1: all pass, torn down. Merge blocked on curriculum#99 (contract line)
+  stage: done   # merged c1213e8 (squash of cv-domain-service#13), 2026-09-27 — H2 accepted by the human after #99; branch already on master cf508e4, Jenkins PR-13 #1 green
   repo: cv-domain-service
   branch: fix/section-period-validation
-  worktree: /home/erfeamor/work/cvdl-worktrees/T-115
-  commit: dbd0e06
+  worktree: none   # removed after merge
+  commit: c1213e8
   pr: https://github.com/erfeamor/cv-domain-service/pull/13
   developer: backend-developer
   reviewers: [code-review, quality-assurance]

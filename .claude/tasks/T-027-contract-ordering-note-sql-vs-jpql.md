@@ -2,7 +2,7 @@
 id: T-027
 title: "Contract: the ordering note prescribes SQL syntax for a JPQL context"
 repo: cv-project (meta)
-status: in_progress
+status: done
 owner: tech-product-owner
 branch: docs/contract-ordering-jpql-note
 pr: https://github.com/erfeamor/curriculum/pull/99
@@ -10,10 +10,11 @@ depends_on: []
 risk: trivial
 security_review: false   # docs-only; touches no adapter §5 security path
 checkpoint:
-  stage: H2   # PR #99 open, /code-review clean with stated scope; awaiting human merge
+  stage: done   # merged ee7a91d (squash of curriculum#99), 2026-09-27 — H2 accepted by the human
   repo: cv-project (meta)
   branch: docs/contract-ordering-jpql-note
-  worktree: none   # meta repo branch
+  worktree: none   # removed after merge
+  commit: ee7a91d
   pr: https://github.com/erfeamor/curriculum/pull/99
   developer: tech-product-owner   # docs-only contract prose, trivial
   reviewers: [code-review]
