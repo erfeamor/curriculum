@@ -2,21 +2,22 @@
 id: T-029
 title: "/code-review silently reviews the wrong thing when given no explicit target"
 repo: cv-project (meta)
-status: in_progress
+status: done
 owner: tech-product-owner
 branch: fix/code-review-on-worktrees
-pr:
+pr: none   # adapter is gitignored; the change is local and recorded here
 depends_on: []
 risk: normal
 security_review: false   # tooling/process change in the meta repo; no adapter §5 security path
 checkpoint:
-  stage: H2   # local adapter §7 edit; /code-review low on the saved diff: no findings (scope stated); driver checked reviewer table + adapter consistency inline; specialist lens waiver to be decided at H2
+  stage: done   # accepted at H2 2026-09-27 — local adapter §7 edit (gitignored, no PR); lens (infrastructure-engineer) round 2 clean
   repo: cv-project (meta)
   branch: fix/code-review-on-worktrees
-  worktree: none   # local adapter edit + board record
+  worktree: none   # removed after merge
+  commit: local adapter edit (no commit — gitignored)
   pr:
   developer: tech-product-owner
-  reviewers: [code-review]
+  reviewers: [code-review, infrastructure-engineer]   # lens run on the human's H2 request
   risk: normal
   security_review: false
   review_round: 1
@@ -49,6 +50,15 @@ Adapter §7 (local, gitignored) gains the explicit-target invocation that this b
 > **So this is a usage defect, not a tool defect** — and the harm is unchanged: an empty result is **indistinguishable from a clean review**, and the driver reported it as "did not run" only because the 5-second duration was implausible. Anyone less suspicious records a clean review that never happened.
 
 > **Re-read 2026-09-25.** Two claims below are stale. *"Every dev-loop task runs on a worktree outside the meta repo"* is the premise the correction above already disproved. *"T-104 is next"*: T-104 merged long ago. **What survives is the deliverable:** document the working invocation in the adapter, and make "no findings" distinguishable from "reviewed nothing". Since 2026-09-24 the driver has run the general pass inline and recorded what it examined, which is a practice, not a fix. Note the adapter is **gitignored**, so the fix is a local edit plus a board record (see the watch-out).
+
+## Resolution — 2026-09-27
+
+Adapter §7 now carries the block **"Invoking `/code-review` so it reviews the change, not the board"**:
+- The explicit pre-PR target form, with the rule that the general pass stays at stage 2.
+- A saved-diff form for uncommitted or gitignored targets.
+- **Every review's stated scope is checked against git**: the sha must equal the branch head, and the file set must match `git diff --name-only`. A scope that is missing or doesn't match is recorded as "did not run".
+
+The infrastructure-engineer lens found two blockers in round 1: presence-only scope, and no gitignored form. Both were fixed and confirmed in round 2. Its one known limit: the saved-diff check (path plus line count) is weaker than the git check, which is accepted for local adapter edits.
 
 ## Goal
 

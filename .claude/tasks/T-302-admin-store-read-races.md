@@ -2,7 +2,7 @@
 id: T-302
 title: "cv-admin-react section/skills stores: rare load-vs-write interleavings leave a wrong list, notice or error on screen until reload"
 repo: cv-admin-react
-status: in_review
+status: done
 owner: tech-product-owner
 branch: fix/admin-store-read-races
 pr: https://github.com/erfeamor/cv-admin-react/pull/14
@@ -10,11 +10,11 @@ depends_on: [T-301]
 risk: normal
 security_review: false
 checkpoint:
-  stage: qa   # review converged at round 3 (db1b584, no findings); Drone push+PR builds green; exploratory QA running on slot 0
+  stage: done   # merged 11fcc04 (squash of cv-admin-react#14), 2026-09-27 — H2 accepted; Drone push+PR green; live browser QA all pass
   repo: cv-admin-react
   branch: fix/admin-store-read-races
-  worktree: /home/erfeamor/work/cvdl-worktrees/T-302
-  commit: db1b584
+  worktree: none   # removed after merge
+  commit: 11fcc04
   pr: https://github.com/erfeamor/cv-admin-react/pull/14
   developer: fullstack-developer
   reviewers: [code-review, frontend-architect]

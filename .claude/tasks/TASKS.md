@@ -4,14 +4,12 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-27 (T-301 and T-114 merged: the admin UI edits the whole CV)
+## Now / Next / Later — refreshed 2026-09-27 (T-302, T-115, T-027, T-029 closed: admin store races, server-side period check, contract JPQL note, review-scope rule)
 
 The order to claim in. It is **advice, refreshed at every board-sync** — `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Now — no AWS, parallel-safe (different repos)**
-- [T-302](T-302-admin-store-read-races.md) (cv-admin-react) — T-301's display-only races; simplify by disabling forms during a load. Drone needs the host started **right after a reaper tick** (see T-034's 2026-09-27 finding).
-- [T-115](T-115-section-period-cross-field-validation.md) (cv-domain-service) — server-side check that `endDate` is not before `startDate`; check the contract first.
-- Cheap meta work: [T-036](T-036-qa-env-cors-port-shift.md) (QA tooling: CORS for port-shifted previews), [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) (trivial contract prose), [T-029](T-029-code-review-cannot-see-worktrees.md) (a local adapter note), [T-032](T-032-board-check-re-review-after-live-use.md) (its link check would have caught the 4 dead links fixed 2026-09-25).
+- Cheap meta work: [T-032](T-032-board-check-re-review-after-live-use.md) (its link check would have caught the 4 dead links fixed 2026-09-25) and [T-036](T-036-qa-env-cors-port-shift.md) (QA tooling: CORS for port-shifted previews; **re-check its premise first**, see its 2026-09-27 observation).
 - **Human, ~1 hour:** the last $20 credit activity (Bedrock playground). Under A its credit carries over. Tracked in [T-012](T-012-aws-endgame-decision.md).
 
 **Then — cv-infra, strictly one apply at a time** (one root module, local state; a merged-but-unapplied change rides the next apply)
@@ -27,6 +25,8 @@ The order to claim in. It is **advice, refreshed at every board-sync** — `depe
 
 **Later**
 - T-004 part 2, T-005, T-021 (before anyone rotates `db_password`), T-109.
+
+**Done 2026-09-27:** T-302, T-115, T-027, T-029 (plus T-409, T-401, T-108, T-402, T-301, T-114 earlier in the same session). Drone needs the CI host started **right after a reaper tick**: see T-034's 2026-09-27 finding.
 
 **Done in the CI-host session (2026-09-24/25):** T-155, T-153, T-156, T-111. Both Jenkins pipelines are bounded and proven, and T-019's last AC is settled.
 
@@ -83,12 +83,10 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 |----|-------|------|--------|-------|------------|----|
 | [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** (every ordered collection but experience) | cv-domain-service | todo | | T-105 | |
 | [T-113](T-113-optimistic-locking-lost-update.md) | Two concurrent PUTs silently lose one write — no `@Version`, no 409 (T-108's declined half) | cv-domain-service | todo | | T-108, T-014 | |
-| [T-115](T-115-section-period-cross-field-validation.md) | The domain service accepts `endDate` earlier than `startDate` on a section | cv-domain-service | done | tech-product-owner | T-027 | [cv-domain-service#13](https://github.com/erfeamor/cv-domain-service/pull/13) |
-| [T-302](T-302-admin-store-read-races.md) | Admin section/skills stores: rare load-vs-write interleavings show a wrong list, notice or error until reload | cv-admin-react | in_review | tech-product-owner | T-301 | [cv-admin-react#14](https://github.com/erfeamor/cv-admin-react/pull/14) |
 | [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔ | |
 
 <details>
-<summary>Defects, hygiene & hardening — 12 done</summary>
+<summary>Defects, hygiene & hardening — 14 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -104,6 +102,8 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-406](T-406-public-react-bff-path-missing-prefix.md) | Public site (React): call the BFF at `/bff/api/v1`, not `/api/v1` | cv-public-react | done | fullstack-developer | — | [#5](https://github.com/erfeamor/cv-public-react/pull/5) |
 | [T-108](T-108-untransacted-update-read-modify-write.md) | **PUT is an untransacted read-modify-write** — a concurrent DELETE re-INSERTs the row under a new id | cv-domain-service | done | tech-product-owner | — | [#11](https://github.com/erfeamor/cv-domain-service/pull/11) |
 | [T-114](T-114-test-profile-open-in-view.md) | The test profile runs **open-in-view ON**, production OFF — it hid T-108's real failure mode once | cv-domain-service | done | tech-product-owner | — | [#12](https://github.com/erfeamor/cv-domain-service/pull/12) |
+| [T-115](T-115-section-period-cross-field-validation.md) | The domain service accepts `endDate` earlier than `startDate` on a section | cv-domain-service | done | tech-product-owner | T-027 | [cv-domain-service#13](https://github.com/erfeamor/cv-domain-service/pull/13) |
+| [T-302](T-302-admin-store-read-races.md) | Admin section/skills stores: rare load-vs-write interleavings show a wrong list, notice or error until reload | cv-admin-react | done | tech-product-owner | T-301 | [cv-admin-react#14](https://github.com/erfeamor/cv-admin-react/pull/14) |
 
 </details>
 
@@ -120,8 +120,6 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-012](T-012-aws-endgame-decision.md) | **Paid-vs-teardown — DECIDED 2026-09-24: A, go Paid with the stack trimmed**; upgrade by 2026-12-15 | cv-project (meta) | in_progress | tech-product-owner | — | |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution (cross-repo: split at stage 0 if implemented) | cv-infra + cv-domain-service | todo | | T-022 | |
-| [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) | Contract: the ordering note prescribes SQL syntax for a JPQL context | cv-project (meta) | done | tech-product-owner | — | [curriculum#99](https://github.com/erfeamor/curriculum/pull/99) |
-| [T-029](T-029-code-review-cannot-see-worktrees.md) | `/code-review` **silently reviews the wrong thing** without an explicit target | cv-project (meta) | in_progress | tech-product-owner | — | |
 | [T-032](T-032-board-check-re-review-after-live-use.md) | Re-review `board-check.py` after live use, plus two blind spots: **link integrity** and **status-gated `pr:`** | cv-project (meta) | todo | | T-031 ✔ | |
 | [T-033](T-033-ci-host-tls.md) | CI host serves Jenkins login and Drone OAuth over plain HTTP on a scanned public IP — decide TLS or record the accepted risk | cv-infra | todo | | — | |
 | [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3); **also wires Drone to the doorbell** | cv-infra | todo | | T-007 | |
@@ -129,7 +127,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-036](T-036-qa-env-cors-port-shift.md) | `qa-env-override.py` shifts the BFF port but not its CORS allowlist — a port-shifted frontend preview is CORS-blocked | cv-project (meta) | todo | | — | |
 
 <details>
-<summary>Infra & ops — 24 done</summary>
+<summary>Infra & ops — 26 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -157,6 +155,8 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-153](T-153-jenkins-deploy-stage-dead-gate-and-rds.md) | cv-database Jenkinsfile hygiene: dead `main` Deploy gate + RDS comment, no timeout, no MySQL health wait, docs never name 8.4 (**absorbs T-154, T-017**) | cv-database | done | tech-product-owner | T-152 ✔ | [#5](https://github.com/erfeamor/cv-database/pull/5) |
 | [T-155](T-155-flyway-version-supports-mysql-84.md) | Flyway 10 → 13.7.0 — **decided**; the dev-stack pin (`docker-compose.dev.yml`) moved, and QA covered a Flyway-10 volume and a fresh one | cv-project (meta) | done | tech-product-owner | — | [#91](https://github.com/erfeamor/curriculum/pull/91) |
 | [T-156](T-156-flyway-13-cv-database-pins.md) | Flyway 10 → 13.7.0 in cv-database: the Jenkins gate and `migrate.sh` (split from T-155) | cv-database | done | tech-product-owner | T-155 ✔, T-153 ✔ | [#6](https://github.com/erfeamor/cv-database/pull/6) |
+| [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) | Contract: the ordering note prescribes SQL syntax for a JPQL context | cv-project (meta) | done | tech-product-owner | — | [curriculum#99](https://github.com/erfeamor/curriculum/pull/99) |
+| [T-029](T-029-code-review-cannot-see-worktrees.md) | `/code-review` **silently reviews the wrong thing** without an explicit target | cv-project (meta) | done | tech-product-owner | — | local adapter edit (gitignored) |
 
 </details>
 

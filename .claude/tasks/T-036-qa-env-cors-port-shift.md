@@ -36,3 +36,7 @@ Filed by the driver on 2026-09-26, from T-401's QA report. The human approved fi
 ## Added 2026-09-27 — the admin app needs its own auth toggle in a QA stack
 
 Found by QA in T-301's stage 4. Against an isolated stack with `AUTH_ENABLED=false`, the admin app still shows the Cognito sign-in screen when launched with only `VITE_DOMAIN_SERVICE_URL=…`. The cause is `src/auth/cognitoConfig.ts`, which gates on a separate client-side `VITE_AUTH_ENABLED` that defaults to `true` without a `.env`. `VITE_AUTH_ENABLED=false` is needed alongside it. Fold this into the same QA-recipe/adapter §6 guidance as the CORS port fix: how to launch each frontend against slot `s`, with the env vars it needs.
+
+## Observation — 2026-09-27, from T-302's exploratory QA
+
+On slot 0, the admin UI on `:5173` reached the port-shifted domain service on `:8090` with **no CORS workaround**. The base `CORS_ALLOWED_ORIGINS` in `docker-compose.dev.yml` lists `http://localhost:5173` statically, and the slot override does not shift the *frontend* port. **Re-check this task's premise at its H1:** the gap may only apply when the frontend itself runs on a shifted port. This comes from one QA run and is not yet a correction.
