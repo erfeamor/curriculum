@@ -124,7 +124,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-033](T-033-ci-host-tls.md) | CI host serves Jenkins login and Drone OAuth over plain HTTP on a scanned public IP — decide TLS or record the accepted risk | cv-infra | todo | | — | |
 | [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3); **also wires Drone to the doorbell** | cv-infra | todo | | T-007 | |
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
-| [T-036](T-036-qa-env-cors-port-shift.md) | `qa-env-override.py` shifts the BFF port but not its CORS allowlist — a port-shifted frontend preview is CORS-blocked | cv-project (meta) | in_progress | tech-product-owner | — | |
+| [T-036](T-036-qa-env-cors-port-shift.md) | `qa-env-override.py` shifts the BFF port but not its CORS allowlist — a port-shifted frontend preview is CORS-blocked | cv-project (meta) | done | tech-product-owner | — | [#101](https://github.com/erfeamor/curriculum/pull/101) |
 
 <details>
 <summary>Infra & ops — 26 done</summary>

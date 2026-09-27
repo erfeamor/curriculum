@@ -2,24 +2,25 @@
 id: T-036
 title: "`qa-env-override.py` shifts the BFF's host port but not its CORS allowlist, so a port-shifted frontend preview is CORS-blocked"
 repo: cv-project (meta)
-status: in_progress
+status: done
 owner: tech-product-owner
 branch: fix/qa-env-cors-origins
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/101
 depends_on: []
 risk: normal
 security_review: false   # a dev/QA-only compose override; production CORS lives in cv-infra and is untouched
 checkpoint:
-  stage: 1   # H1 accepted 2026-09-27 (see the H1 note below); infrastructure-engineer implementing
+  stage: done   # merged e472948 (squash of curriculum#101), 2026-09-27 — H2 accepted; live QA slot 1 all pass (GET+OPTIONS, recipe verbatim)
   repo: cv-project (meta)
   branch: fix/qa-env-cors-origins
-  worktree: /home/erfeamor/work/cvdl-worktrees/T-036
-  pr:
+  worktree: none   # removed after merge
+  commit: e472948
+  pr: https://github.com/erfeamor/curriculum/pull/101
   developer: infrastructure-engineer
   reviewers: [code-review, quality-assurance]
   risk: normal
   security_review: false
-  review_round: 0
+  review_round: 3   # r1: 6 findings, r2: 3, r3: clean
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -71,3 +72,15 @@ Found by QA in T-301's stage 4. Against an isolated stack with `AUTH_ENABLED=fal
 ## Observation — 2026-09-27, from T-302's exploratory QA
 
 On slot 0, the admin UI on `:5173` reached the port-shifted domain service on `:8090` with **no CORS workaround**. The base `CORS_ALLOWED_ORIGINS` in `docker-compose.dev.yml` lists `http://localhost:5173` statically, and the slot override does not shift the *frontend* port. **Re-check this task's premise at its H1:** the gap may only apply when the frontend itself runs on a shifted port. This comes from one QA run and is not yet a correction.
+
+## Resolution — 2026-09-27
+
+Merged e472948. For each service, the generator adds the frontend-port origins from the base compose, shifted by `(s+1)*10`: at slot 1, BFF gets `4173,4193` and domain-service gets `5173,4173,5193,4193`. Host-env passthroughs and unparseable origins are reported on stderr.
+
+**Adapter §6** (local and gitignored, so it is recorded here) now carries the per-slot frontend launch recipe:
+- `--strictPort` on every Vite command.
+- Admin: `VITE_DOMAIN_SERVICE_URL` and `VITE_AUTH_ENABLED=false`.
+- Vanilla: `VITE_BFF_URL`, plus a rebuild before `preview`.
+- public-react: an explicit `BFF_URL`.
+
+QA ran the recipe verbatim on slot 1, and every step worked first time.
