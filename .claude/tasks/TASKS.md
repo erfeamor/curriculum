@@ -4,13 +4,13 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-27 (T-402 merged; both public sites render the full CV locally)
+## Now / Next / Later — refreshed 2026-09-27 (T-301 and T-114 merged: the admin UI edits the whole CV)
 
 The order to claim in. It is **advice, refreshed at every board-sync** — `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Now — no AWS, parallel-safe (different repos)**
-- [T-301](T-301-admin-cv-sections-crud.md) (cv-admin-react) — T-108 landed first, as intended. **Its CI works, but a push does not wake the host.** Drone smoke check, 2026-09-26: a no-op push built green (Drone #32), and the webhook delivered 200 to the still-attached EIP. **At stage 3, make sure the CI host is running before pushing:** start it by hand, or push a wired Jenkins repo first. "No checks reported" means the host was down, not that CI passed. T-034 removes this step, and T-301 does not wait for it.
-- [T-114](T-114-test-profile-open-in-view.md) (cv-domain-service) — small, and it removes a test-mode trap that already hid one real defect.
+- [T-302](T-302-admin-store-read-races.md) (cv-admin-react) — T-301's display-only races; simplify by disabling forms during a load. Drone needs the host started **right after a reaper tick** (see T-034's 2026-09-27 finding).
+- [T-115](T-115-section-period-cross-field-validation.md) (cv-domain-service) — server-side check that `endDate` is not before `startDate`; check the contract first.
 - Cheap meta work: [T-036](T-036-qa-env-cors-port-shift.md) (QA tooling: CORS for port-shifted previews), [T-027](T-027-contract-ordering-note-sql-vs-jpql.md) (trivial contract prose), [T-029](T-029-code-review-cannot-see-worktrees.md) (a local adapter note), [T-032](T-032-board-check-re-review-after-live-use.md) (its link check would have caught the 4 dead links fixed 2026-09-25).
 - **Human, ~1 hour:** the last $20 credit activity (Bedrock playground). Under A its credit carries over. Tracked in [T-012](T-012-aws-endgame-decision.md).
 
@@ -36,11 +36,10 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | todo | | T-101…T-104 | |
 | [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | todo | | T-101…T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-403, T-404 (T-408, T-409 via T-401, T-402) | |
 
 <details>
-<summary>M2 — 14 done</summary>
+<summary>M2 — 15 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -58,6 +57,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 | [T-401](T-401-public-cv-sections.md) | Public site: render full CV | cv-public-vanilla | done | tech-product-owner | T-201 ✔, **T-408** | [#4](https://github.com/erfeamor/cv-public-vanilla/pull/4) |
 | [T-409](T-409-public-react-adapter-validates-required-and-enum.md) | Public site (React): the adapter validates required fields, the `proficiency` enum, and absent-vs-null `endDate` | cv-public-react | done | tech-product-owner | T-407 | [#7](https://github.com/erfeamor/cv-public-react/pull/7) |
 | [T-402](T-402-public-react-cv-sections.md) | Public site (React): render full CV sections | cv-public-react | done | tech-product-owner | T-201 ✔, T-405 ✔, T-409 ✔ | [#8](https://github.com/erfeamor/cv-public-react/pull/8) |
+| [T-301](T-301-admin-cv-sections-crud.md) | Admin UI: CRUD for the four sections | cv-admin-react | done | tech-product-owner | T-101…T-104 | [#13](https://github.com/erfeamor/cv-admin-react/pull/13) |
 
 </details>
 
@@ -83,11 +83,12 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 |----|-------|------|--------|-------|------------|----|
 | [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** (every ordered collection but experience) | cv-domain-service | todo | | T-105 | |
 | [T-113](T-113-optimistic-locking-lost-update.md) | Two concurrent PUTs silently lose one write — no `@Version`, no 409 (T-108's declined half) | cv-domain-service | todo | | T-108, T-014 | |
-| [T-114](T-114-test-profile-open-in-view.md) | The test profile runs **open-in-view ON**, production OFF — it hid T-108's real failure mode once | cv-domain-service | todo | | — | |
+| [T-115](T-115-section-period-cross-field-validation.md) | The domain service accepts `endDate` earlier than `startDate` on a section | cv-domain-service | todo | | — | |
+| [T-302](T-302-admin-store-read-races.md) | Admin section/skills stores: rare load-vs-write interleavings show a wrong list, notice or error until reload | cv-admin-react | todo | | T-301 | |
 | [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔ | |
 
 <details>
-<summary>Defects, hygiene & hardening — 11 done</summary>
+<summary>Defects, hygiene & hardening — 12 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -102,6 +103,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-210](T-210-bff-domain-types-null-not-absent.md) | BFF: `Domain*` interfaces say `null`, not absent | cv-bff-node | done | fullstack-developer | T-209 ✔ | [#10](https://github.com/erfeamor/cv-bff-node/pull/10) |
 | [T-406](T-406-public-react-bff-path-missing-prefix.md) | Public site (React): call the BFF at `/bff/api/v1`, not `/api/v1` | cv-public-react | done | fullstack-developer | — | [#5](https://github.com/erfeamor/cv-public-react/pull/5) |
 | [T-108](T-108-untransacted-update-read-modify-write.md) | **PUT is an untransacted read-modify-write** — a concurrent DELETE re-INSERTs the row under a new id | cv-domain-service | done | tech-product-owner | — | [#11](https://github.com/erfeamor/cv-domain-service/pull/11) |
+| [T-114](T-114-test-profile-open-in-view.md) | The test profile runs **open-in-view ON**, production OFF — it hid T-108's real failure mode once | cv-domain-service | done | tech-product-owner | — | [#12](https://github.com/erfeamor/cv-domain-service/pull/12) |
 
 </details>
 

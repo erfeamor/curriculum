@@ -62,3 +62,17 @@ Also: **settle [T-033](T-033-ci-host-tls.md)'s TLS decision at this task's H1**.
 
 - **Developer:** `infrastructure-engineer`. **Reviewers:** `/code-review` + `/security-review` (network exposure, CI config).
 - ⚖ Only worth doing because T-012 chose **A**; under B or C this saving would not outlive the stack.
+
+## Finding 2026-09-27 — the reaper has no post-start grace, and cannot see Drone
+
+Observed during [T-301](T-301-admin-cv-sections-crud.md)'s stage 3:
+- **~00:45Z:** the driver started the CI host by hand (the lane's T-301 workaround).
+- **00:49:04Z:** the push reached Drone, and builds #33/#34 were queued.
+- **00:49:15Z:** the reaper logged `cpu quiet: peak 7.5% over 20 min across 1 datapoints`.
+- **00:49:18Z:** it stopped the host. The builds sat at `pending` with the host down.
+
+Two gaps:
+1. **No grace after a start.** A single post-boot CloudWatch datapoint (low boot CPU) counts as "20 idle minutes". The same stop happened at 00:34 after T-114's Jenkins build, where it was correct.
+2. **Drone activity is invisible.** The reaper checks the Jenkins executor and CPU, and has no view of Drone's queue or running builds. A Jenkins doorbell start is covered by the busy executor; a Drone build is covered only by CPU.
+
+**Add to this task's scope** (it already owns wiring Drone to the doorbell): a minimum uptime after any start (e.g. ≥ 20 min of datapoints before "idle" can be true), and a Drone busy check (the Drone API's running/pending builds) beside the Jenkins one. The cold-start AC for `cv-admin-react` cannot pass reliably without both.
