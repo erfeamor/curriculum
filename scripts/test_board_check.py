@@ -558,6 +558,22 @@ class FrontmatterFenceTruncation(TempDirCase):
                           f"body content after the real fence was parsed as "
                           f"frontmatter: {[str(f) for f in findings]}")
 
+    def test_opening_fence_also_requires_column_zero(self):
+        """T-032 mutation round, 2026-09-27: mutating the OPENING fence's
+        `.rstrip()` to `.strip()` (the exact class of bug fixed above for
+        the CLOSING fence) survived every existing test. An indented first
+        line is not a real frontmatter fence -- `.strip()` would eat the
+        leading whitespace and wrongly accept it as one, the same failure
+        mode as the closing-fence bug, just on the other side of the
+        block. This test closes that gap directly against
+        read_frontmatter() rather than round-tripping through board.check()."""
+        path = self.root / "T-942-x.md"
+        path.write_text(" ---\nid: T-942\nstatus: todo\n---\nbody\n")
+        self.assertIsNone(
+            bc.read_frontmatter(path),
+            "an indented '---' on line 1 must not be recognized as the "
+            "opening frontmatter fence")
+
 
 class YamlComposeSurfaceForms(unittest.TestCase):
     """Review round 3, design change (#11): check 1 is re-based on
