@@ -9,7 +9,7 @@ board's own history records failing repeatedly, including on the same day the
 failure was written down (see .claude/tasks/T-031-board-frontmatter-validator.md
 for the twelve recorded incidents this tool exists to catch).
 
-Seven checks, each mapped to a real incident:
+Eight checks, each mapped to a real incident:
   1. Duplicate keys within a frontmatter mapping (T-152, T-202, T-104/T-151).
   2. Board row <-> file agreement: one row per file, status matches (T-002,
      T-019, three recurrences).
@@ -17,9 +17,25 @@ Seven checks, each mapped to a real incident:
      owner present).
   4. checkpoint.worktree cleared on closed (done) tasks (T-101, T-102).
   5. pr: present on in_review/done, consistent with checkpoint.pr (T-011,
-     T-009, T-019).
+     T-009, T-019). Widened 2026-09-27 (T-032) to any status once
+     checkpoint.pr already holds a real value -- the T-201/422fbeb
+     incident: an open PR sat unannounced at status: in_progress, the one
+     status the original status-gate never examined.
   6. depends_on resolves to a real task file.
   7. Controlled vocabularies: status, security_review, risk.
+  8. Link integrity (T-032, added 2026-08-24 on the human's instruction,
+     after the TASKS.md/HISTORY.md split invented five dead filenames and
+     one live cross-reference that this tool reported clean throughout):
+     every `[T-xxx](T-nnn-slug.md)` link in TASKS.md, HISTORY.md, README.md
+     and every task file resolves to a file that exists (primary), and the
+     visible id agrees with the id the target actually names (secondary --
+     a different defect from a dead link). Inline code spans and fenced
+     blocks are skipped: this board quotes broken links on purpose to
+     document past incidents. Offline and deterministic on purpose: no
+     external URLs, no anchors, no title-equality check (titles are
+     deliberately shortened/annotated on board rows and left in place by
+     the strike-don't-delete convention -- see the task file for why a
+     title check was ruled out).
 
 Ruling (binding, from H1 — see the task file's checkpoint.h1_rulings):
   - Check 1 never delegates to yaml.safe_load() for KEY EXTRACTION.
@@ -391,16 +407,32 @@ def check_worktree_cleared(data: dict, fm_lines, first_line, path: Path) -> list
 
 
 def check_pr_present(data: dict, fm_lines, first_line, path: Path) -> list[Finding]:
+    """pr: present on in_review/done, consistent with checkpoint.pr.
+
+    Widened 2026-09-27 (T-032), live incident at commit 422fbeb (T-201):
+    status was `in_progress`, top-level `pr:` was empty, and
+    `checkpoint.pr` already held a real, open PR URL. The ORIGINAL gate
+    below returned early on anything but in_review/done, so the one
+    status where a PR can be open and unannounced -- in_progress, before
+    anyone updates status: in_review per board rule 6 -- was the one
+    status never examined. board-check reported clean throughout,
+    including in the same session that wrote it.
+
+    The gate now only short-circuits when checkpoint.pr is ALSO absent
+    (the ordinary case: most in_progress/todo/blocked tasks have no PR at
+    all, and must stay silent -- the false-positive guard T-031 calls
+    fatal to adoption if it fires there)."""
     findings = []
     status = data.get("status")
-    if status not in ("in_review", "done"):
-        return findings
     pr = data.get("pr")
     pr_text = str(pr).strip() if pr is not None else ""
     is_sentinel = pr_text.lower() in _PR_NONE_SENTINELS and pr_text != ""
     checkpoint = data.get("checkpoint")
     cp_pr = checkpoint.get("pr") if isinstance(checkpoint, dict) else None
     cp_pr_text = str(cp_pr).strip() if cp_pr else ""
+
+    if status not in ("in_review", "done") and not cp_pr_text:
+        return findings
 
     if pr_text == "" or is_sentinel:
         if status == "done" and is_sentinel:
@@ -414,6 +446,18 @@ def check_pr_present(data: dict, fm_lines, first_line, path: Path) -> list[Findi
                        f"{pr_text!r} — that sentinel is only valid on a "
                        f"`done` task; {status!r} means a PR is "
                        f"definitionally open.")
+        elif status not in ("in_review", "done"):
+            # cp_pr_text is truthy here (the gate above would have
+            # returned otherwise): status hasn't been moved to in_review
+            # even though a real PR already exists in checkpoint.pr --
+            # board rule 6 says that combination IS the defect, not a
+            # milder version of the in_review/done case below.
+            message = (f"status is {status!r} but checkpoint.pr already "
+                       f"holds {cp_pr_text!r} while top-level pr: is "
+                       f"empty — board rule 6 requires status: in_review "
+                       f"(and pr: set) the moment a PR is open; "
+                       f"{status!r} is the status this check's original "
+                       f"gate never examined (T-201, commit 422fbeb).")
         else:
             hint = (f" (checkpoint.pr holds {cp_pr_text!r} — board rule 6 "
                      f"says the top-level key is what the board and "
@@ -614,6 +658,77 @@ def check_board_agreement(tasks_dir: Path, board_path: Path, task_files: dict) -
 
 
 # --------------------------------------------------------------------------
+# Check 8 — link integrity. Primary: every `[T-xxx](T-nnn-slug.md)` link's
+# target resolves to a real file. Secondary: the visible id and the id the
+# target actually names agree (a different defect from a dead link -- the
+# target resolves fine, but names the wrong task). Both offline and
+# deterministic: no network, no anchors, no title-equality check (see the
+# module docstring and T-032's task file for why those are out of scope).
+#
+# MANDATORY: inline code spans and fenced blocks are skipped. Learned by
+# prototyping against the live board 2026-08-24 -- a throwaway version of
+# this check produced two false positives, both inside backticks in this
+# board's own incident write-ups, which quote broken links on purpose to
+# document them (the strike-don't-delete convention). T-031 calls one
+# confirmed false positive fatal to adoption.
+# --------------------------------------------------------------------------
+
+_LINK_RE = re.compile(r'\[([^\]]*)\]\((T-\d+[^)]*\.md)\)')
+# A run of one or more backticks, non-greedy content, the SAME run again --
+# this handles both a plain `code span` and the doubled-backtick form this
+# board uses to quote a span whose own content contains a single backtick
+# (`` `like this` ``), because \1 requires the closing run to match the
+# opening run's exact length, not just "some backticks".
+_CODE_SPAN_RE = re.compile(r'(`+)(.*?)\1')
+# Leading whitespace allowed -- a fence inside an indented list item is
+# still a fence.
+_FENCE_RE = re.compile(r'^\s*(`{3,}|~{3,})')
+
+
+def _iter_markdown_links(path: Path):
+    """Yields (line_no, visible_text, target) for every `[x](T-nnn....md)`
+    link in `path`, skipping fenced code blocks entirely and inline code
+    spans within a scanned line."""
+    lines = path.read_text().split("\n")
+    in_fence = False
+    for i, raw in enumerate(lines, start=1):
+        if _FENCE_RE.match(raw):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        stripped = _CODE_SPAN_RE.sub("", raw)
+        for m in _LINK_RE.finditer(stripped):
+            yield i, m.group(1), m.group(2)
+
+
+def check_link_integrity(tasks_dir: Path, scan_files: list[Path]) -> list[Finding]:
+    existing = {p.name for p in tasks_dir.glob("T-*.md")
+                if re.match(r'^T-\d+-.+\.md$', p.name)}
+    findings: list[Finding] = []
+    for path in scan_files:
+        if not path.is_file():
+            continue
+        for line_no, text, target in _iter_markdown_links(path):
+            target_id_m = re.match(r'(T-\d+)', target)
+            target_id = target_id_m.group(1) if target_id_m else None
+            if target not in existing:
+                findings.append(Finding(
+                    path, line_no, "link",
+                    f"link target {target!r} does not resolve to any file "
+                    f"under {tasks_dir.name}/ (dead link)."))
+                continue
+            text_id_m = re.search(r'T-\d+', text)
+            if text_id_m and target_id and text_id_m.group(0) != target_id:
+                findings.append(Finding(
+                    path, line_no, "link-id",
+                    f"link text names {text_id_m.group(0)} but its target "
+                    f"{target!r} names {target_id} — the link resolves, "
+                    f"but the visible id and the target disagree."))
+    return findings
+
+
+# --------------------------------------------------------------------------
 # Driver
 # --------------------------------------------------------------------------
 
@@ -686,6 +801,10 @@ def run(tasks_dir: Path) -> list[Finding]:
 
     findings.extend(check_board_agreement(tasks_dir, tasks_dir / "TASKS.md", task_files))
 
+    scan_files = [tasks_dir / "TASKS.md", tasks_dir / "HISTORY.md",
+                  tasks_dir / "README.md", *task_paths]
+    findings.extend(check_link_integrity(tasks_dir, scan_files))
+
     return findings
 
 
@@ -695,7 +814,8 @@ def main(argv=None) -> int:
         description="Read-only validator for .claude/tasks/ — duplicate "
                      "frontmatter keys, board/file agreement, status/owner "
                      "coherence, worktree close-out, pr: presence, "
-                     "depends_on resolution, and controlled vocabularies.",
+                     "depends_on resolution, controlled vocabularies, and "
+                     "link integrity.",
     )
     ap.add_argument("--tasks-dir", default=str(TASKS_DIR),
                      help=f"board directory to check (default: {TASKS_DIR})")

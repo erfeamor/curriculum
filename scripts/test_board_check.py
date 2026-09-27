@@ -1301,6 +1301,126 @@ class PrPresence(TempDirCase):
         self.assertIn("sentinel", pr_findings[0].message)
 
 
+class PrPresenceWidenedToInProgress(TempDirCase):
+    """T-032, live incident found 2026-08-27 during T-201's review round,
+    reproducible from git rather than reconstructed: at commit 422fbeb,
+    T-201 carried `status: in_progress` with an EMPTY top-level `pr:`
+    while `checkpoint.pr` held a real, open PR URL. check_pr_present's
+    status gate returned early on anything but in_review/done, so the one
+    status where a PR can be open and unannounced was the one status
+    never examined -- board-check reported clean throughout, in the same
+    session that wrote it. Widened so ANY status is checked once
+    checkpoint.pr already holds a real value; a task with NEITHER key
+    must stay silent at every status (the ordinary case, and the
+    false-positive guard that decides whether this survives contact with
+    the board)."""
+
+    def test_red_in_progress_with_checkpoint_pr_and_empty_top_level(self):
+        b = make_board(self.root)
+        b.add_task("T-980", textwrap.dedent("""\
+            id: T-980
+            status: in_progress
+            owner: fullstack-developer
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            checkpoint:
+              stage: review
+              pr: https://github.com/erfeamor/cv-bff-node/pull/5
+            """), status="in_progress")
+        b.write_board()
+        findings = b.check()
+        pr_findings = [f for f in findings if f.key == "pr"]
+        self.assertTrue(pr_findings, [str(f) for f in findings])
+        self.assertIn("rule 6", pr_findings[0].message)
+        self.assertIn("in_progress", pr_findings[0].message)
+
+    def test_green_in_progress_no_pr_key_no_checkpoint_stays_silent(self):
+        b = make_board(self.root)
+        b.add_task("T-981", textwrap.dedent("""\
+            id: T-981
+            status: in_progress
+            owner: fullstack-developer
+            risk: normal
+            security_review: false
+            depends_on: []
+            """), status="in_progress")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.key == "pr" for f in findings), [str(f) for f in findings])
+
+    def test_green_in_progress_empty_pr_no_checkpoint_pr_stays_silent(self):
+        """The ordinary in-flight task: claimed, branch open, no PR yet.
+        Must not be swept up by the widening."""
+        b = make_board(self.root)
+        b.add_task("T-982", textwrap.dedent("""\
+            id: T-982
+            status: in_progress
+            owner: fullstack-developer
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            checkpoint:
+              stage: implementing
+            """), status="in_progress")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.key == "pr" for f in findings), [str(f) for f in findings])
+
+    def test_green_blocked_no_pr_no_checkpoint_pr_stays_silent(self):
+        b = make_board(self.root)
+        b.add_task("T-983", textwrap.dedent("""\
+            id: T-983
+            status: blocked
+            owner: fullstack-developer
+            risk: normal
+            security_review: false
+            depends_on: []
+            """), status="blocked")
+        b.write_board()
+        findings = b.check()
+        self.assertFalse(any(f.key == "pr" for f in findings), [str(f) for f in findings])
+
+
+class PrPresence422fbebRegression(unittest.TestCase):
+    """The exact historical incident, recovered from git rather than
+    reinvented (per this board's standing practice and T-031's own
+    precedent): T-201 at commit 422fbeb, `git show
+    422fbeb:.claude/tasks/T-201-bff-cv-aggregate.md`."""
+
+    def _git_show_frontmatter(self, ref: str, path: str):
+        text = subprocess.run(
+            ["git", "show", f"{ref}:{path}"],
+            cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+        ).stdout
+        raw_lines = text.split("\n")
+        end = next(i for i in range(1, len(raw_lines)) if raw_lines[i].rstrip() == "---")
+        return raw_lines[1:end], 2
+
+    def test_the_422fbeb_tree_fires_as_a_rule_6_violation(self):
+        fm_lines, first_line = self._git_show_frontmatter(
+            "422fbeb", ".claude/tasks/T-201-bff-cv-aggregate.md")
+        data, err = bc.parse_frontmatter_dict(fm_lines, Path("T-201-fixture.md"))
+        self.assertIsNone(err)
+        self.assertEqual(data.get("status"), "in_progress")
+        findings = bc.check_pr_present(data, fm_lines, first_line, Path("T-201-fixture.md"))
+        self.assertTrue(findings, "422fbeb's T-201 shape must fire a pr: finding")
+        self.assertIn("rule 6", findings[0].message)
+
+    def test_the_current_live_t201_is_silent(self):
+        matches = sorted(LIVE_TASKS_DIR.glob("T-201-*.md"))
+        self.assertTrue(matches, "T-201's file was renamed or removed?")
+        path = matches[0]
+        fm = bc.read_frontmatter(path)
+        self.assertIsNotNone(fm)
+        fm_lines, first_line, _ = fm
+        data, err = bc.parse_frontmatter_dict(fm_lines, path)
+        self.assertIsNone(err)
+        findings = bc.check_pr_present(data, fm_lines, first_line, path)
+        self.assertEqual(findings, [], [str(f) for f in findings])
+
 
 # --------------------------------------------------------------------------
 # Check 6 — depends_on resolves
@@ -1474,6 +1594,129 @@ class ControlledVocabularies(TempDirCase):
         b.write_board()
         findings = b.check()
         self.assertTrue(any(f.key == "risk" for f in findings))
+
+
+# --------------------------------------------------------------------------
+# Check 8 — link integrity: resolution (primary) and ID/target agreement
+# (secondary). T-032, added 2026-08-24 on the human's instruction after the
+# TASKS.md/HISTORY.md split invented five dead filenames and one live
+# cross-reference (T-201 -> the also-invented T-204 filename), all missed
+# by check 2 (which matches board rows to files by ID, never by href or
+# title) and all missed by every check that existed before this one.
+# --------------------------------------------------------------------------
+
+class LinkIntegrity(TempDirCase):
+    def _write_task(self, task_id: str, body: str = "body.\n") -> None:
+        fm = textwrap.dedent(f"""\
+            id: {task_id}
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """)
+        (self.root / f"{task_id}-x.md").write_text(f"---\n{fm}---\n{body}")
+
+    def _write_board(self, task_ids) -> None:
+        rows = [board_line(t, "Task", "todo") for t in task_ids]
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n")
+
+    def _append(self, filename: str, text: str) -> None:
+        path = self.root / filename
+        path.write_text(path.read_text() + text if path.is_file() else text)
+
+    def test_red_dead_link_target_missing(self):
+        """Primary check. Reproduces the 2026-08-24 shape directly: a row
+        links [T-015] to a filename that was invented and never existed."""
+        self._write_task("T-015")
+        self._write_board(["T-015"])
+        self._append("TASKS.md", "\n[T-015](T-015-bff-container-registry.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        self.assertTrue(dead, [str(f) for f in findings])
+        self.assertIn("T-015-bff-container-registry.md", dead[0].message)
+        self.assertEqual(dead[0].file.name, "TASKS.md")
+
+    def test_red_id_target_agreement_distinct_from_dead_link(self):
+        """Secondary check -- a DIFFERENT defect from a dead link: the
+        target resolves fine (T-014's real file exists), but the visible
+        [T-015] disagrees with what it actually points at."""
+        self._write_task("T-014")
+        self._write_task("T-015")
+        self._write_board(["T-014", "T-015"])
+        self._append("TASKS.md", "\n[T-015](T-014-x.md)\n")
+        findings = bc.run(self.root)
+        mismatch = [f for f in findings if f.key == "link-id"]
+        self.assertTrue(mismatch, [str(f) for f in findings])
+        self.assertIn("T-015", mismatch[0].message)
+        self.assertIn("T-014", mismatch[0].message)
+        # The target resolves -- this must NOT also be reported as dead.
+        self.assertFalse(any(f.key == "link" for f in findings))
+
+    def test_guard_code_span_and_fence_skip_broken_links(self):
+        """The mandatory rule, learned by prototyping against the live
+        board 2026-08-24: the SAME broken link, quoted inside an inline
+        code span and inside a fenced block to document the incident,
+        must not itself trip the validator -- two false positives were
+        found this way before the rule was added, and T-031 calls one
+        confirmed false positive fatal to adoption."""
+        self._write_task("T-971")
+        self._write_board(["T-971"])
+        self._append("TASKS.md", (
+            "\nInline: `[T-971](T-971-invented.md)` is broken, quoted "
+            "to document it.\n"
+            "\n```\n[T-971](T-971-invented.md)\n```\n"
+        ))
+        findings = bc.run(self.root)
+        self.assertFalse(any(f.key in ("link", "link-id") for f in findings),
+                          [str(f) for f in findings])
+
+    def test_guard_correct_link_is_silent(self):
+        self._write_task("T-972")
+        self._write_board(["T-972"])
+        self._append("TASKS.md", "\n[T-972](T-972-x.md)\n")
+        findings = bc.run(self.root)
+        self.assertFalse(any(f.key in ("link", "link-id") for f in findings),
+                          [str(f) for f in findings])
+
+    def test_guard_anchors_and_external_urls_never_flagged(self):
+        self._write_task("T-974")
+        self._write_board(["T-974"])
+        self._append("TASKS.md", (
+            "\nSee [details](#some-heading) and "
+            "[the PR](https://github.com/erfeamor/x/pull/1) and "
+            "[the Jenkins host](http://jenkins.example.invalid/job/1).\n"
+        ))
+        findings = bc.run(self.root)
+        self.assertFalse(any(f.key in ("link", "link-id") for f in findings),
+                          [str(f) for f in findings])
+
+    def test_scan_covers_tasks_history_readme_and_task_files(self):
+        """Every one of the four surfaces the task file names: TASKS.md,
+        HISTORY.md, README.md, and the task files themselves (T-201's own
+        cross-reference to the invented T-204 filename was a task-file
+        defect, not a TASKS.md one)."""
+        self._write_task("T-973", body="See [T-973](T-973-typo.md) here.\n")
+        self._write_board(["T-973"])
+        self._append("TASKS.md", "\n[T-973](T-973-typo.md)\n")
+        self._append("HISTORY.md", "[T-973](T-973-typo.md)\n")
+        self._append("README.md", "[T-973](T-973-typo.md)\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link"]
+        hit_files = {f.file.name for f in dead}
+        self.assertEqual(hit_files, {"T-973-x.md", "TASKS.md", "HISTORY.md", "README.md"},
+                          [str(f) for f in findings])
+
+    def test_live_board_has_zero_link_findings(self):
+        """Acceptance criterion: the five dead links and the one T-201
+        cross-reference were all repaired on 2026-08-24, so the expected
+        result on the CURRENT board is zero. Anything this finds is live
+        drift, not a test bug."""
+        findings = bc.run(LIVE_TASKS_DIR)
+        link_findings = [f for f in findings if f.key in ("link", "link-id")]
+        self.assertEqual(link_findings, [], [str(f) for f in link_findings])
 
 
 # --------------------------------------------------------------------------
