@@ -2,7 +2,7 @@
 id: T-008
 title: Retire the T-002 gate snapshot, and give the CI host a real backup
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: chore/drone-host-backup
 pr: https://github.com/erfeamor/cv-infra/pull/23
@@ -10,17 +10,17 @@ depends_on: [T-002]
 risk: normal
 security_review: true
 checkpoint:
-  stage: qa   # review converged r2 (59f3b82); cv-infra#23 open (no CI in cv-infra). NEXT = the LIVE part, deferred by the human to the START of session 2: apply → CI host up after a reaper tick → SSM tunnel → safe cutover (runbook) → real deploy → SQLite rebuild rehearsal (human does GitHub OAuth + copies a fresh Drone token) → delete snap-0d7f5ae272ce0cef5 → H2
+  stage: done   # merged b5110dd (squash of cv-infra#23), 2026-09-28 — H2 accepted; cutover + rebuild rehearsal proven live
   repo: cv-infra
   branch: chore/drone-host-backup
   worktree: none   # main cv-infra checkout (state is remote now, but tfvars is local and gitignored)
-  commit: 59f3b82   # branch head, main cv-infra checkout is ON this branch
+  commit: b5110dd
   pr: https://github.com/erfeamor/cv-infra/pull/23
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true   # creates an IAM access key + SSM secret; touches CI secrets
-  review_round: 2   # r1: /code-review high 10 findings fixed in 700fd15; r2: /security-review 1 Medium
+  review_round: 2   # r1: /code-review high 10 findings; r2: /security-review 1 Medium (app-host Deny); all fixed
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -115,13 +115,39 @@ That is the second time this gap has changed how another task is done ([T-012](T
 
 ## Acceptance criteria
 
-- [ ] `snap-0d7f5ae272ce0cef5` deleted, **after** T-002's post-apply verification passes — or explicitly retained with a recorded reason and an owner.
-- [ ] A decision recorded (in this file and/or `docs/`) on whether Drone's AWS secrets should move to SSM so the SQLite stops being the sole copy of a credential.
-- [ ] If a backup mechanism is adopted: it is in Terraform, not hand-run; it covers `/var/lib/drone`; and it states whether `JENKINS_HOME` is included.
-- [ ] A **restore actually performed once** — mount or copy the artifact back and confirm Drone comes up with `cv-admin-react` still active and its secrets intact. An untested backup is not a backup.
-- [ ] Encryption decision recorded either way, with its cost/downtime implication stated rather than implied.
-- [ ] Any recurring storage cost noted against [T-020](T-020-cost-model-correction.md)'s cost model (was: *"against the Free Tier exception T-002 opened"*; the account is going Paid under T-012), so the running total stays honest.
+- [x] `snap-0d7f5ae272ce0cef5` deleted, **after** T-002's post-apply verification passes — or explicitly retained with a recorded reason and an owner.
+- [x] A decision recorded (in this file and/or `docs/`) on whether Drone's AWS secrets should move to SSM so the SQLite stops being the sole copy of a credential.
+- [x] ~~If a backup mechanism is adopted:~~ **N/A by decision: no ongoing backup; the SQLite is reconstructable (credential in SSM + reseed script) and the rebuild was rehearsed.** If a backup mechanism is adopted: it is in Terraform, not hand-run; it covers `/var/lib/drone`; and it states whether `JENKINS_HOME` is included.
+- [x] A **restore actually performed once** *(as a rebuild, per H1: see the Resolution)* — mount or copy the artifact back and confirm Drone comes up with `cv-admin-react` still active and its secrets intact. An untested backup is not a backup.
+- [x] Encryption decision recorded either way, with its cost/downtime implication stated rather than implied.
+- [x] Any recurring storage cost noted against [T-020](T-020-cost-model-correction.md)'s cost model (was: *"against the Free Tier exception T-002 opened"*; the account is going Paid under T-012), so the running total stays honest.
 
 ## Definition of done
 
 PR open against `master` from `chore/drone-host-backup`, the orphan snapshot resolved, and the durability question answered in writing — even if the answer is a deliberate "accept the risk", provided that is recorded rather than left implicit.
+
+## Resolution — 2026-09-28 (session 2)
+
+Merged b5110dd (cv-infra#23), **run live**, with every step approved by the human.
+
+1. **Apply:** 3 added, 1 changed. The new key `…ISZV7` and two SecureStrings are at `/cv-project/dev/deploy/drone-deploy/*`, and the app-host role now carries a `Deny` on `deploy/*`. The state was backed up first.
+2. **Safe cutover:**
+   - The new key was verified (`sts get-caller-identity` → `user/cv-project-drone-deploy`) **before** Drone was touched.
+   - The secrets were reseeded over an SSM port-forward.
+   - The old out-of-band key `…43OQ` was set **Inactive**, and a real deploy (build #37, restarted from #31) went **green through `deploy`** on the new key alone.
+   - Only then was the old key **deleted**. The user now has exactly 1 key.
+3. **Rebuild rehearsal:**
+   - `database.sqlite` was moved aside to `database.sqlite.rehearsal-2026-09-28` (1.75 MB) on the host, and Drone started empty.
+   - The human did a GitHub OAuth login, activated `cv-admin-react` (GitHub got a **new webhook**, id 687745035) and supplied a fresh token.
+   - The reseed script recreated both secrets from SSM.
+   - Proof: the first real `master` push on the rebuilt Drone, cv-admin-react#15 (docs pointing at the SSM source, merged as 5e99c69), built green as **#3 through `deploy`**.
+   - **The rebuilt DB is kept.** The moved-aside file stays on the host as the fallback until T-007 replaces the host.
+4. **`snap-0d7f5ae272ce0cef5` deleted** (`InvalidSnapshot.NotFound` afterwards).
+5. **Recurring cost:** two standard SSM parameters and an IAM key cost $0. The snapshot's storage is removed. There is no new storage.
+6. **Encryption:** deferred to T-007's replacement, as decided at H1 (an encrypted root with the AWS-managed key, no extra cost).
+
+**Operational notes for T-007 and T-034:**
+- **The reaper was paused** (`aws events disable-rule cv-project-ci-reaper`) for this host-up window, because it has no post-start grace and can't see Drone. It was re-enabled afterwards, with a no-drift `terraform plan`. The same technique will be needed until T-034 fixes the reaper.
+- **`session-manager-plugin` 1.2.835.0** is now installed user-space in `~/.local/bin`. It was taken on HTTPS trust from AWS's S3 distribution; the GPG signing key couldn't be obtained.
+- **Drone's secrets are unencrypted at rest** (`DRONE_DATABASE_SECRET` is unset). Consider setting it when T-007 rebuilds the host.
+- The Drone token was handled only via a 0600 file, never pasted into chat or printed, and it was shredded afterwards.
