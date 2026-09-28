@@ -2,14 +2,41 @@
 id: T-109
 title: "The `id ASC` tiebreaker is asserted by tests that cannot go red — every ordered collection except experience"
 repo: cv-domain-service
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: test/ordering-tiebreak-evidence
 pr:
 depends_on: [T-105]   # PATTERN dependency, not a code one: T-105 introduces the StatementInspector harness (CapturedSql) that is the candidate remedy here, and there is no SQL-capture test anywhere in this repo today. Doing this first means inventing the same harness twice. No file collision — T-105 touches only the experience package.
 risk: normal
 security_review: false   # test-only change in the domain service; no adapter §5 path (no auth, secrets, IAM, CI). A1 re-checks against the real diff.
+checkpoint:
+  stage: 1   # H1 accepted by the human 2026-09-28; developer implementing
+  repo: cv-domain-service
+  branch: test/ordering-tiebreak-evidence
+  worktree: /home/erfeamor/work/cvdl-worktrees/T-109
+  pr:
+  developer: backend-developer
+  reviewers: [code-review, quality-assurance]
+  risk: normal
+  security_review: false
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a
+  updated: 2026-09-28T10:00:00+02:00
+  budget:
+    turns: 8   # --since 2026-09-28T07:50:05.000Z (baseline reset by the human)
+    total_tokens: 2000000
+    subagent_tokens: 0
+    spawns: 2   # quality-assurance (shared plan) + developer
+    status: ok
+    checked: 2026-09-28T10:00:00+02:00
 ---
+
+## H1 — design decided by the human, 2026-09-28
+
+**Shared harness, all four collections.** Promote T-105's `CapturedSql` from `ExperienceRepositoryTest` to **one** shared test utility. For education, project, person_skill and skill, capture the emitted SQL and assert that the `ORDER BY` carries the tiebreaker, and prove each assertion red by removing it. `ExperienceRepositoryTest` moves onto the shared utility. No production query changes. Declaration-only assertions are not a substitute.
 
 ## Why this exists
 

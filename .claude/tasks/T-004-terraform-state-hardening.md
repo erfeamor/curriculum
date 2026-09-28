@@ -2,15 +2,36 @@
 id: T-004
 title: Harden Terraform state — permissions now, remote backend properly
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: chore/tf-state-hardening
 pr:
 depends_on: []
 risk: normal
 security_review: true
 checkpoint:
-  stage: part-1-done
+  stage: 1   # H1 accepted by the human 2026-09-28; developer implementing
+  repo: cv-infra
+  branch: chore/tf-state-hardening
+  worktree: none   # main cv-infra checkout: the local state and tfvars (gitignored) live only there
+  pr:
+  developer: infrastructure-engineer
+  reviewers: [code-review, security-review]
+  risk: normal
+  security_review: true   # state holds every secret; bucket policy + public-access block are the surface
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a
+  updated: 2026-09-28T10:00:00+02:00
+  budget:
+    turns: 8   # --since 2026-09-28T07:50:05.000Z (baseline reset by the human)
+    total_tokens: 2000000
+    subagent_tokens: 0
+    spawns: 2   # quality-assurance (shared plan) + developer
+    status: ok
+    checked: 2026-09-28T10:00:00+02:00
   claim_reset: "2026-08-24, on the human's instruction. This was status:in_progress with owner:infrastructure-engineer after part 1 (the chmod) was done by hand — but there is no branch, no PR and nobody driving it, so under board rule 1 it read as claimed and blocked re-pickup. Reset to todo with the checkpoint KEPT, which is the T-018/T-014 pattern: an unowned task carrying recorded prior work is re-pickable, an owned one is not. NOT a fresh todo — part 1 is genuinely complete and verified; whoever claims this starts at part 2 (the S3 backend), not at the chmod."
   part_1_completed: 2026-08-24
   part_1_note: |
@@ -18,9 +39,18 @@ checkpoint:
     before this task was claimed. The world-readable window is closed. Verified via:
     ls -l /home/erfeamor/work/curriculum/cv-infra/terraform.tfstate*
     -> -rw------- (0600) for both files.
-  part_2_status: not-started
-  part_3_status: not-started
+  part_2_status: claimed 2026-09-28
+  part_3_status: decided at H1 2026-09-28 — accept, no rotation (see the H1 note)
 ---
+
+## H1 — design decided by the human, 2026-09-28
+
+- **Bootstrap:** a separate `cv-infra/bootstrap/` root module with **its own local state** creates the state bucket and the lock table. The main module then migrates onto them, so the state never manages its own bucket.
+- **Bucket:** versioning, **SSE-S3**, an explicit public-access block, a bucket policy denying non-TLS access, and `prevent_destroy`.
+- **Lock:** a **DynamoDB** table, pay-per-request, about $0. Terraform here is 1.9.8, and S3-native `use_lockfile` needs 1.10 or later, so the switch is recorded for whenever Terraform is upgraded. No toolchain upgrade inside a state migration.
+- **Part 3 — ACCEPT, no rotation.** Single-user machine; the files are gitignored and have been 0600 since 2026-08-24. **This keeps [T-021](T-021-mysql-password-rotation-persistent-datadir.md) deferred**, with its trigger unchanged.
+- **Part 1's missed half, found at refinement:** two stale saved plans, `cv-infra/tfplan` (2026-08-26) and `cv-infra/t001.tfplan` (2026-08-13), are **0664**. Saved plans embed the same plaintext secrets as state. Delete them in this task. They are gitignored (`*.tfplan`, `tfplan*`), so nothing reached the repo.
+- The local state files are removed only after `terraform plan` shows no changes against the remote backend. A 0600 backup is kept outside the repo.
 
 > **Board review 2026-09-28**: **part 2 now goes FIRST in the cv-infra chain**, before [T-008](T-008-drone-host-backup-and-snapshot.md). Seven applies follow, and four of them replace instances, all against state that lives on one laptop. Migrating state is safest when no other change is pending, and every later apply then gets locking and versioning. **Part 3's rotation decision also settles [T-021](T-021-mysql-password-rotation-persistent-datadir.md):** if `db_password` is not rotated, T-021 stays deferred, with "before anyone rotates `db_password`" as its trigger.
 
