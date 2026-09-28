@@ -10,7 +10,7 @@ depends_on: [T-002, T-008]   # T-008 added 2026-09-24: the AMI swap REPLACES the
 risk: normal   # raised 2026-09-24 from low: the widened scope replaces the CI host
 security_review: false   # added 2026-08-20 (hygiene): the key was missing entirely while `risk` was set. Value per adapter §5 — the diff touches none of its security paths; A1 forces /security-review anyway if the real diff disagrees, so this is a stage-0 default, not a ruling.
 checkpoint:
-  stage: H1   # design decided by the human 2026-09-29; QA plan pending
+  stage: review   # r1: /code-review high 10 findings (ForceNew encrypted root → -replace BEFORE merge; prune deleting stopped containers; host-network IMDS gap; boot race; runbook plan shape; reaper drift; …) — fixes with the developer; branch chore/remove-ecs-agent @85de043
   repo: cv-infra
   branch: chore/remove-ecs-agent
   worktree: none   # main cv-infra checkout (tfvars is local)
@@ -19,7 +19,7 @@ checkpoint:
   reviewers: [code-review, security-review]
   risk: high   # replaces the CI host (both CI systems), changes IMDS, adds a secret
   security_review: true
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -29,7 +29,7 @@ checkpoint:
     turns: 113   # session 2, --since 2026-09-28T14:38:35.000Z
     total_tokens: 59500000
     subagent_tokens: 0
-    spawns: 1   # quality-assurance (plan)
+    spawns: 2   # quality-assurance (plan) + infrastructure-engineer
     status: ok
     checked: 2026-09-29T09:00:00+02:00
 ---
