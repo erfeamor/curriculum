@@ -9,6 +9,8 @@ pr:
 depends_on: [T-101, T-102, T-103, T-104, T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-403, T-404]
 ---
 
+> **Board review 2026-09-28**: this task's PR **also carries [T-015](T-015-docs-reflect-deployed-bff.md)'s doc corrections** (same files, same live verification). Tick T-015's criteria in the same PR and close both together.
+
 ## Goal
 
 Prove milestone M2 works as a system, not just as green unit tests, then close out the roadmap entry.

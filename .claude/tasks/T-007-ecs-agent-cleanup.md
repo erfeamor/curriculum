@@ -11,6 +11,8 @@ risk: normal   # raised 2026-09-24 from low: the widened scope replaces the CI h
 security_review: false   # added 2026-08-20 (hygiene): the key was missing entirely while `risk` was set. Value per adapter §5 — the diff touches none of its security paths; A1 forces /security-review anyway if the real diff disagrees, so this is a stage-0 default, not a ruling.
 ---
 
+> **Board review 2026-09-28**: **this replacement also carries [T-005](T-005-ci-secret-blast-radius.md)'s CI-host `metadata_options`** (`http_tokens = "required"`, `http_put_response_hop_limit = 1` on `aws_instance.drone`). The new host is born with them, so their verification (container denied credentials, host `param()` and SSM Session Manager still working) runs in the **same host-up window** as the restore check. That saves one apply window and one verification window on the most expensive box. The app-host half stays in T-005.
+
 
 ## ⚠ PREMISE CORRECTED 2026-09-25 (board review) — read before planning; verified against Terraform state and EC2
 
@@ -74,6 +76,8 @@ So: disable and mask the `ecs` unit in the user-data template *and* apply the sa
 - ~~Consider whether the right long-term answer is a plain Amazon Linux 2023 AMI rather than the ECS-optimized one. That is an AMI change, so it forces instance replacement — **out of scope here**, but worth recording an opinion in the PR if the AMI filter turns out to be selecting the ECS variant unintentionally.~~ **Superseded by the 2026-09-24 widening:** the AMI swap is now the scope. The filter was *not* selecting the ECS variant; `ignore_changes` kept the original ECS image (see the correction at the top).
 
 ## Acceptance criteria
+
+- [ ] **(added 2026-09-28, from T-005)** `aws_instance.drone` has `metadata_options` with `http_tokens = "required"` and `http_put_response_hop_limit = 1`. Verified on the new host: a container **cannot** fetch instance credentials, while the host-side `param()` path and SSM Session Manager still work (the lock-yourself-out check, done **before** trusting the change).
 
 > **These are the ORIGINAL ACs, written for the mask-the-unit approach.** Under the widened scope, the AMI swap removes the agent instead. The first four then hold trivially on the new host; record that rather than implementing the mask (the widened ACs above say so too).
 

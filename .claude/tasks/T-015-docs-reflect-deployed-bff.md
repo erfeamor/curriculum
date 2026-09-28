@@ -6,10 +6,12 @@ status: todo
 owner:
 branch: docs/reflect-deployed-bff
 pr:
-depends_on: [T-014, T-403]
+depends_on: [T-014, T-403, T-404]   # T-404 added 2026-09-28: the docs cover both public sites
 risk: trivial
 security_review: false
 ---
+
+> **Board review 2026-09-28**: **delivered in [T-501](T-501-e2e-cv-milestone.md)'s PR**, not its own. T-501 already edits `README.md`/`README.es.md` and runs against the live account, which is exactly what this task's acceptance criteria require. Three separate doc-sync passes over the same files (this task, T-501, T-012's Paid-plan line) collapse into one. Keep this file for its checklist, and close it with T-501's merge.
 
 ## Why this exists
 

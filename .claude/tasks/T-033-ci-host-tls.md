@@ -11,6 +11,8 @@ risk: normal
 security_review: true   # stage-0 default, and it is not a guess: any implementation touches listener/ingress config and the OAuth callback, both adapter §5 paths. A1 re-checks against the real diff.
 ---
 
+> **Board review 2026-09-28**: **decide this task at [T-034](T-034-release-ci-host-idle-eip.md)'s H1, in the same session, as one gate.** Both hinge on the same DNS name and hosted zone. Option (a) (accept and record) remains a complete outcome and costs minutes.
+
 ## Why this exists
 
 **Nobody owned this, and it was handed off once.** [T-002](T-002-jenkins-on-drone-host.md)'s `/security-review` recorded the CI host under continuous untargeted internet scanning and ended its finding with *"carry to T-005 as an argument for scheduling TLS."* [T-005](T-005-ci-secret-blast-radius.md) never picked it up — its scope is IMDS and parameter-path splitting, and TLS appears nowhere in its acceptance criteria. T-002's own § out-of-scope also names it: *"TLS/ACM in front of Jenkins (the SG already anticipates 443 but Drone runs `DRONE_SERVER_PROTO=http` today — a separate task)."*
@@ -46,7 +48,7 @@ And the environment it sits in, measured rather than assumed — from T-002's pr
 | **(c) CloudFront in front of the CI host** | Distribution config; reuses the existing pattern | Same webhook/callback re-point; adds an origin the prefix-list work in [T-025](T-025-verify-requests-come-from-our-cloudfront.md) would then also want to cover |
 | **(d) Self-signed certificate** | Nothing | **Rejected up front:** GitHub will not deliver webhooks to an untrusted certificate, so it trades a confidentiality gap for a broken CI trigger. Recorded so it is not rediscovered as an idea. |
 
-**The cost question is the sharp edge.** Option (b) is the textbook answer and it spends real credits on a demo whose runway is already the subject of a dated decision (T-012, due **2026-11-01**). A reviewer who reaches for "just add TLS" without pricing it against the runway is making T-012's decision by accident. If the answer is (a), this task closes having produced a recorded decision — which is the same outcome T-010 reached on trimming, and it was the right one there.
+**The cost question is the sharp edge.** Option (b) is the textbook answer and it spends real credits on a demo whose runway ~~is already the subject of a dated decision (T-012, due **2026-11-01**). A reviewer who reaches for "just add TLS" without pricing it against the runway is making T-012's decision by accident.~~ **was settled on 2026-09-24: T-012 chose A (go Paid), so the question is now plain recurring cost (~$0.50/month for a hosted zone), not runway** (board review 2026-09-28). If the answer is (a), this task closes having produced a recorded decision — which is the same outcome T-010 reached on trimming, and it was the right one there.
 
 ## Coordination — not dependencies
 

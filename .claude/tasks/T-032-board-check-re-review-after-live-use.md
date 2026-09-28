@@ -2,14 +2,42 @@
 id: T-032
 title: "Re-review board-check.py after a week of real use — synthetic rounds found 34 defects and never converged"
 repo: cv-project (meta)
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: chore/board-check-re-review
 depends_on: [T-031]
 risk: normal
 security_review: false   # read-only tooling in the meta repo; no adapter §5 path. A1 re-checks against the real diff.
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/102
+checkpoint:
+  stage: done   # merged a29e09c (squash of curriculum#102), 2026-09-28 — H2 accepted; split verdict (checks 1-7 converged, check 8 not) → T-038
+  repo: cv-project (meta)
+  branch: chore/board-check-re-review
+  worktree: none   # removed after merge
+  commit: a29e09c
+  pr: https://github.com/erfeamor/curriculum/pull/102
+  developer: infrastructure-engineer
+  reviewers: [code-review, quality-assurance]
+  risk: normal
+  security_review: false
+  review_round: 3   # r1: 10 findings; r2: human-directed markdown_it rebuild; r3 (cap): 10 findings, fixed in one human-approved post-cap round, driver-verified; QA full-history sweep 7 TP / 0 FP
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: none   # read-only tooling; no stack
+  updated: 2026-09-27T15:00:00+02:00
+  budget:
+    turns: 220   # --since 2026-09-27T09:19:56.000Z
+    total_tokens: 36949728
+    subagent_tokens: 0
+    spawns: 2   # quality-assurance (shared plan) + infrastructure-engineer
+    status: ok
+    checked: 2026-09-27T12:30:00+02:00
 ---
+
+## H1 — accepted by the human, 2026-09-27
+
+**One task, two phases.** Phase A builds link integrity (dead target, and ID/target agreement, skipping code spans and fences) and widens check 5. Phase B is the re-review: a mutation re-run, classification of in-the-wild findings, the eighth-key hunt over at least six YAML forms, adoption signals, and a false-positive sweep over 10 snapshots, half of them driver checkpoint writes. It ends in a verdict. QA's 20-case plan is binding. **The T-019 passenger was done by the driver at H1**: see T-019.
 
 ## Goal
 
@@ -402,3 +430,7 @@ PR open from `chore/board-check-re-review` with the verdict recorded on this tas
 **Link-integrity scope added 2026-08-24 on the human's instruction**, after the board split introduced five dead links and four wrong titles that `board-check.py` passed as clean. Worth recording precisely, because the shape matters more than the incident: **the driver introduced the defect, the validator missed it, and a hand-written shell loop caught it** — the same three-part pattern as the T-104/T-151 shadowing that motivated [T-031](T-031-board-frontmatter-validator.md) in the first place, one check-class over.
 
 Filed 2026-08-23 at T-031's H2 gate. The human accepted the merge **and** asked for this, rather than choosing between accepting and blocking — the reasoning being that shipping it starts it catching real drift immediately, while the unconverged finding rate still deserves an answer that only live use can give.
+
+## Follow-up
+
+Check 8's live-use re-review is [T-038](T-038-board-check-link-check-live-use-re-review.md), not before 2026-10-12.

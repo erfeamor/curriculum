@@ -2,14 +2,46 @@
 id: T-036
 title: "`qa-env-override.py` shifts the BFF's host port but not its CORS allowlist, so a port-shifted frontend preview is CORS-blocked"
 repo: cv-project (meta)
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: fix/qa-env-cors-origins
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/101
 depends_on: []
 risk: normal
 security_review: false   # a dev/QA-only compose override; production CORS lives in cv-infra and is untouched
+checkpoint:
+  stage: done   # merged e472948 (squash of curriculum#101), 2026-09-27 — H2 accepted; live QA slot 1 all pass (GET+OPTIONS, recipe verbatim)
+  repo: cv-project (meta)
+  branch: fix/qa-env-cors-origins
+  worktree: none   # removed after merge
+  commit: e472948
+  pr: https://github.com/erfeamor/curriculum/pull/101
+  developer: infrastructure-engineer
+  reviewers: [code-review, quality-assurance]
+  risk: normal
+  security_review: false
+  review_round: 3   # r1: 6 findings, r2: 3, r3: clean
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: 1   # QA live CORS check
+  updated: 2026-09-27T12:30:00+02:00
+  budget:
+    turns: 130   # --since 2026-09-27T09:19:56.000Z (baseline reset by the human)
+    total_tokens: 17000000
+    subagent_tokens: 0
+    spawns: 2   # quality-assurance (shared plan) + infrastructure-engineer
+    status: ok
+    checked: 2026-09-27T12:30:00+02:00
 ---
+
+## H1 — accepted by the human, 2026-09-27
+
+**Premise re-checked: it holds.** The BFF allows only `:4173`. The 2026-09-27 observation below concerned the **domain service's** list (`5173,4173`), a different allowlist.
+
+- **Rule:** for each service whose base compose sets `CORS_ALLOWED_ORIGINS`, the generator **adds** each frontend-port origin it lists, shifted by `(s+1)*10` (admin 5173, vanilla 4173), and keeps the base origins. The ports are derived from the base compose, not a hard-coded table. public-react (4300) fetches server-side and needs no entry.
+- **Adapter §6** gets the per-slot launch recipe, including `VITE_AUTH_ENABLED=false`.
+- **Live QA** includes an OPTIONS preflight. QA's 17-case plan is binding.
 
 ## The gap
 
@@ -40,3 +72,15 @@ Found by QA in T-301's stage 4. Against an isolated stack with `AUTH_ENABLED=fal
 ## Observation — 2026-09-27, from T-302's exploratory QA
 
 On slot 0, the admin UI on `:5173` reached the port-shifted domain service on `:8090` with **no CORS workaround**. The base `CORS_ALLOWED_ORIGINS` in `docker-compose.dev.yml` lists `http://localhost:5173` statically, and the slot override does not shift the *frontend* port. **Re-check this task's premise at its H1:** the gap may only apply when the frontend itself runs on a shifted port. This comes from one QA run and is not yet a correction.
+
+## Resolution — 2026-09-27
+
+Merged e472948. For each service, the generator adds the frontend-port origins from the base compose, shifted by `(s+1)*10`: at slot 1, BFF gets `4173,4193` and domain-service gets `5173,4173,5193,4193`. Host-env passthroughs and unparseable origins are reported on stderr.
+
+**Adapter §6** (local and gitignored, so it is recorded here) now carries the per-slot frontend launch recipe:
+- `--strictPort` on every Vite command.
+- Admin: `VITE_DOMAIN_SERVICE_URL` and `VITE_AUTH_ENABLED=false`.
+- Vanilla: `VITE_BFF_URL`, plus a rebuild before `preview`.
+- public-react: an explicit `BFF_URL`.
+
+QA ran the recipe verbatim on slot 1, and every step worked first time.

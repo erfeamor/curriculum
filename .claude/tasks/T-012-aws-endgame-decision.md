@@ -13,6 +13,8 @@ due: 2026-11-01          # DECISION met 2026-09-24 (A). Execution: upgrade the p
 deadline: 2027-01-12     # the Free-plan window; no longer the binding constraint, see below
 ---
 
+> **Board review 2026-09-28**: the `due: 2026-11-01` date was **met** (decision A, 2026-09-24). The operative dates are now **the Bedrock activity before 2027-01-12** and **the Paid upgrade by 2026-12-15**. Both are human actions; the docs criterion rides whichever board PR lands after the upgrade.
+
 ## ✅ DECIDED 2026-09-24 — **A · go Paid, with the stack trimmed first** (the human's decision)
 
 **Why A, on measured numbers** (Cost Explorer 2026-08-24 → 09-23: **$20.70 / 30 days ≈ $21/month**):
@@ -117,7 +119,7 @@ Same question applies to self-hosted MySQL, tracked as **T-001**.
 
 ## Acceptance criteria
 
-- [ ] The two activities completed **if they are still wanted**, and the grant total recorded here — **no longer a precondition for the decision** (see the "Do first" note: they buy no elapsed time while the window binds). ~~The live grant is **$160**.~~ **The live grant is $180** (Lambda `COMPLETED`, read 2026-09-23 via `aws freetier list-account-activities`); Bedrock is the one left. Note cv-infra's `budget_credit_grant_amount` is still $160, so its percentage alerts now fire ~$20 early — the safe direction, and the item above already rules against raising it past the real grant.
+- [ ] The two activities completed ~~**if they are still wanted**~~ **(wanted: under A the credit carries over and buys a month; board review 2026-09-28 aligned this with the "Do first" block)**, and the grant total recorded here — **no longer a precondition for the decision** (see the "Do first" note: they buy no elapsed time while the window binds). ~~The live grant is **$160**.~~ **The live grant is $180** (Lambda `COMPLETED`, read 2026-09-23 via `aws freetier list-account-activities`); Bedrock is the one left. Note cv-infra's `budget_credit_grant_amount` is still $160, so its percentage alerts now fire ~$20 early — the safe direction, and the item above already rules against raising it past the real grant.
 - [x] A written decision — A, B, or C — with its cost and its consequences, made on or before **2026-11-01**. — **A, 2026-09-24**, see the decision block at the top.
 - [ ] If **A**: the plan upgraded, and a follow-up task filed for the trims that are now worth doing. — *trims filed/widened 2026-09-24 (T-008, T-007, T-034, T-035); the upgrade itself is due 2026-12-15.*
 - [ ] ~~If **B**: T-008 landed first, a teardown runbook written, and the rebuild verified at least once against a throwaway apply rather than assumed.~~ **N/A — A chosen 2026-09-24.**

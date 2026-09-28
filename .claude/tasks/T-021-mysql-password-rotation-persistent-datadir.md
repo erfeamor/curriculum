@@ -11,6 +11,8 @@ risk: normal
 security_review: true
 ---
 
+> **Board review 2026-09-28**: **conditional.** This task is needed only if [T-004](T-004-terraform-state-hardening.md)'s part-3 decision is to rotate `db_password`, or when anyone later wants to. If T-004 records "accept, no rotation", this stays `todo` in "Later" with that trigger. It is not scheduled work.
+
 ## Why this exists
 
 Filed from **T-018's review round 1** (finding 5, 2026-08-14). Not a defect in T-018 — a **behaviour change T-018 necessarily introduces**, deliberately documented rather than fixed there, because the obvious fix is a credential-rewriting branch in a boot script and that deserves its own review.
