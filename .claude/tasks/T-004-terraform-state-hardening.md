@@ -10,7 +10,7 @@ depends_on: []
 risk: normal
 security_review: true
 checkpoint:
-  stage: 1   # H1 accepted by the human 2026-09-28; developer implementing
+  stage: review   # r1 fixes with the developer (10 /code-review findings); /security-review: no vulnerabilities. Code 1436e44, unpushed; NOTHING applied, live state md5 unchanged
   repo: cv-infra
   branch: chore/tf-state-hardening
   worktree: none   # main cv-infra checkout: the local state and tfvars (gitignored) live only there
@@ -19,7 +19,7 @@ checkpoint:
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true   # state holds every secret; bucket policy + public-access block are the surface
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0

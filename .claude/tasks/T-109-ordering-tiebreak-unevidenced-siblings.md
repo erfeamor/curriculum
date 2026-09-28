@@ -2,24 +2,25 @@
 id: T-109
 title: "The `id ASC` tiebreaker is asserted by tests that cannot go red — every ordered collection except experience"
 repo: cv-domain-service
-status: in_progress
+status: done
 owner: tech-product-owner
 branch: test/ordering-tiebreak-evidence
-pr:
+pr: https://github.com/erfeamor/cv-domain-service/pull/14
 depends_on: [T-105]   # PATTERN dependency, not a code one: T-105 introduces the StatementInspector harness (CapturedSql) that is the candidate remedy here, and there is no SQL-capture test anywhere in this repo today. Doing this first means inventing the same harness twice. No file collision — T-105 touches only the experience package.
 risk: normal
 security_review: false   # test-only change in the domain service; no adapter §5 path (no auth, secrets, IAM, CI). A1 re-checks against the real diff.
 checkpoint:
-  stage: 1   # H1 accepted by the human 2026-09-28; developer implementing
+  stage: done   # merged 63f75b0 (squash of cv-domain-service#14), 2026-09-28 — H2 accepted; Jenkins PR-14 green; test-only
   repo: cv-domain-service
   branch: test/ordering-tiebreak-evidence
-  worktree: /home/erfeamor/work/cvdl-worktrees/T-109
-  pr:
+  worktree: none   # removed after merge
+  commit: 63f75b0
+  pr: https://github.com/erfeamor/cv-domain-service/pull/14
   developer: backend-developer
   reviewers: [code-review, quality-assurance]
   risk: normal
   security_review: false
-  review_round: 0
+  review_round: 2   # r1: /code-review 1 finding (experience's looser check) fixed in 86935fd; QA lens clean incl. its own red-first re-run; r2 driver-read
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -98,3 +99,7 @@ PR open against `master` from `test/ordering-tiebreak-evidence`, Jenkins green, 
 Filed 2026-08-26 from [T-105](T-105-experience-ordering-retrofit.md)'s review round 1. Raised by the `backend-developer` specialist lens as an explicitly out-of-scope observation (*"Education's implementation is correct; its evidence is not… that is a separate task, and I would not expand T-105's scope"*) — board rule 3 working as designed, the same boundary that produced [T-107](T-107-post-id-cross-person-write.md), [T-108](T-108-untransacted-update-read-modify-write.md) and [T-030](T-030-pr3-build1-success-then-error.md).
 
 **The scope was widened by the driver before filing, on verification rather than on the report.** The reviewer named `education`; checking `master` directly found the same gap in `project`, `person_skill` and `skill`, and confirmed no SQL-capture harness exists anywhere in the repo. Recorded because this board has twice filed a task whose count was wrong at the moment of filing ([T-023](T-023-meta-docs-stale-bff-smoke-path.md) — two, then three, then four; [T-017](T-017-docs-drift-rds-to-selfhosted.md) — five mentions that were already permitted), both times because the filer trusted a description instead of re-running the check.
+
+## Resolution — 2026-09-28
+
+Merged 63f75b0. `testsupport/CapturedSql` is the one shared harness. All five ordered collections carry an end-anchored SQL assertion (`…<primary> ,\s*<alias>.<tiebreak>(\s+asc)?$`), and each was shown red by removing its tiebreaker. **Observation, out of scope:** `skill.name` is UNIQUE, so the skill and person_skill tiebreakers can never be reached by data (vestigial by schema). The SQL assertion is their only possible evidence.
