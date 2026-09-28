@@ -10,7 +10,7 @@ depends_on: [T-002]
 risk: normal
 security_review: true
 checkpoint:
-  stage: H1   # design decided by the human 2026-09-28; QA test plan pending
+  stage: 1   # H1 accepted by the human 2026-09-28; infrastructure-engineer implementing (code + offline only)
   repo: cv-infra
   branch: chore/drone-host-backup
   worktree: none   # main cv-infra checkout (state is remote now, but tfvars is local and gitignored)
@@ -29,7 +29,7 @@ checkpoint:
     turns: 168   # --since 2026-09-28T07:50:05.000Z (session 1)
     total_tokens: 65500000
     subagent_tokens: 0
-    spawns: 1   # quality-assurance (plan)
+    spawns: 2   # quality-assurance (plan) + infrastructure-engineer
     status: ok
     checked: 2026-09-28T15:00:00+02:00
 ---
@@ -41,6 +41,12 @@ checkpoint:
 3. **Encryption happens at [T-007](T-007-ecs-agent-cleanup.md)'s replacement.** It uses an encrypted root with the AWS-managed EBS key, at no extra cost and with no in-place conversion. `snap-0d7f5ae272ce0cef5` (unencrypted) is deleted **after the rehearsal is proven**. **`JENKINS_HOME` is out of scope:** its jobs are seeded by provisioning code (T-026), and its build history is expendable.
 
 > **Board review 2026-09-28**: runs **after [T-004](T-004-terraform-state-hardening.md) part 2** (remote state) in the same session, so this task's apply is the first against the S3 backend. This is lane ordering, not a `depends_on` edge: T-004's other criteria must not block the backup.
+
+
+**PO settlements at H1 (accepted with the plan):**
+- **The SSM path is outside `ci/*`:** `/cv-project/dev/deploy/drone-deploy/{access-key-id,secret-access-key}`. The CI host's role reads `ci/*`, and until T-007 lands so can every build container. Under `ci/*`, the deploy key would reach every build step, not just the deploy step `from_secret` feeds.
+- **The reseed runs off-host,** with operator credentials, through an **SSM port-forwarding tunnel** to Drone's API. No new IAM grant, and no secret on plain HTTP (the CI host has no TLS until T-033).
+- The rehearsal runs on the real `cv-admin-react` repo, the only Drone repo.
 
 ## ▶ First in the cost-trim sequence (added 2026-09-24 — [T-012](T-012-aws-endgame-decision.md) chose A)
 
