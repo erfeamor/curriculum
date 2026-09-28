@@ -2,14 +2,47 @@
 id: T-007
 title: "CI host: move to a plain AL2023 AMI with a MEASURED root — drops the crash-looping ecs-agent for good and trims the 30 GB disk (widened 2026-09-24, premise corrected 2026-09-25)"
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: chore/remove-ecs-agent
 pr:
 depends_on: [T-002, T-008]   # T-008 added 2026-09-24: the AMI swap REPLACES the CI host, and Drone's credentials live only on its root disk until T-008 moves them to SSM and proves a restore
 risk: normal   # raised 2026-09-24 from low: the widened scope replaces the CI host
 security_review: false   # added 2026-08-20 (hygiene): the key was missing entirely while `risk` was set. Value per adapter §5 — the diff touches none of its security paths; A1 forces /security-review anyway if the real diff disagrees, so this is a stage-0 default, not a ruling.
+checkpoint:
+  stage: H1   # design decided by the human 2026-09-29; QA plan pending
+  repo: cv-infra
+  branch: chore/remove-ecs-agent
+  worktree: none   # main cv-infra checkout (tfvars is local)
+  pr:
+  developer: infrastructure-engineer
+  reviewers: [code-review, security-review]
+  risk: high   # replaces the CI host (both CI systems), changes IMDS, adds a secret
+  security_review: true
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a   # live on the CI host
+  updated: 2026-09-29T09:00:00+02:00
+  budget:
+    turns: 113   # session 2, --since 2026-09-28T14:38:35.000Z
+    total_tokens: 59500000
+    subagent_tokens: 0
+    spawns: 1   # quality-assurance (plan)
+    status: ok
+    checked: 2026-09-29T09:00:00+02:00
 ---
+
+## H1 — design decided by the human, 2026-09-29
+
+1. **Replace onto plain AL2023** with `terraform apply -replace=aws_instance.drone` (because of `ignore_changes = [ami]`).
+2. **Explicit `root_block_device`:** 20 GB gp3, **encrypted** with the AWS-managed key, plus a weekly `docker system prune` timer. Re-measure after the first builds.
+3. **`metadata_options`** (carried from [T-005](T-005-ci-secret-blast-radius.md)): `http_tokens = "required"`, hop limit 1. Verify that containers are denied credentials, while host `param()` and SSM Session Manager still work.
+4. **Drone is rebuilt** by [T-008](T-008-drone-host-backup-and-snapshot.md)'s proven path (human GitHub login, activate, reseed). **`DRONE_DATABASE_SECRET` is set** from a new Terraform-generated SSM SecureString under `ci/drone/`, so repo secrets are encrypted at rest from day one.
+5. **`JENKINS_HOME` is re-seeded** by provisioning (the T-026 DSL). Verify the jobs appear and a build goes green.
+6. **The EIP stays**, so no webhook changes. The doorbell/reaper Lambdas pick up the new instance id in the same apply. **The reaper is paused** for the host-up window (T-034's finding).
+7. **Timing:** the human chose to run it all now and stop at SOFT.
 
 > **Board review 2026-09-28**: **this replacement also carries [T-005](T-005-ci-secret-blast-radius.md)'s CI-host `metadata_options`** (`http_tokens = "required"`, `http_put_response_hop_limit = 1` on `aws_instance.drone`). The new host is born with them, so their verification (container denied credentials, host `param()` and SSM Session Manager still working) runs in the **same host-up window** as the restore check. That saves one apply window and one verification window on the most expensive box. The app-host half stays in T-005.
 
