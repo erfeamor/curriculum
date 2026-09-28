@@ -2,14 +2,43 @@
 id: T-008
 title: Retire the T-002 gate snapshot, and give the CI host a real backup
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: chore/drone-host-backup
 pr:
 depends_on: [T-002]
 risk: normal
 security_review: true
+checkpoint:
+  stage: H1   # design decided by the human 2026-09-28; QA test plan pending
+  repo: cv-infra
+  branch: chore/drone-host-backup
+  worktree: none   # main cv-infra checkout (state is remote now, but tfvars is local and gitignored)
+  pr:
+  developer: infrastructure-engineer
+  reviewers: [code-review, security-review]
+  risk: normal
+  security_review: true   # creates an IAM access key + SSM secret; touches CI secrets
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a   # live rehearsal on the CI host
+  updated: 2026-09-28T15:00:00+02:00
+  budget:
+    turns: 168   # --since 2026-09-28T07:50:05.000Z (session 1)
+    total_tokens: 65500000
+    subagent_tokens: 0
+    spawns: 1   # quality-assurance (plan)
+    status: ok
+    checked: 2026-09-28T15:00:00+02:00
 ---
+
+## H1 — design decided by the human, 2026-09-28
+
+1. **The credential moves out of the SQLite.** Terraform creates a **new** `aws_iam_access_key` for `drone-deploy`, stored as an SSM SecureString. Its secret lands in the Terraform state, which has been in the encrypted S3 backend since T-004. A reseed script sets `cv-admin-react`'s Drone repo secrets from SSM. The old out-of-band key is **deleted after cutover**. That also rotates a credential that sat on an unencrypted disk.
+2. **The Drone SQLite is reconstructable, and rehearsed.** No ongoing backup, and **no new IAM grant** on the CI role, which build containers can reach until T-007. A live rehearsal on the CI host proves the rebuild: move the DB aside, GitHub login, activate `cv-admin-react`, reseed, push, green build. There is also a one-off pre-T-007 copy of the SQLite, kept locally at 0600 in `~/.local/share/cv-infra-state-backups/<date>/`. Build history is expendable.
+3. **Encryption happens at [T-007](T-007-ecs-agent-cleanup.md)'s replacement.** It uses an encrypted root with the AWS-managed EBS key, at no extra cost and with no in-place conversion. `snap-0d7f5ae272ce0cef5` (unencrypted) is deleted **after the rehearsal is proven**. **`JENKINS_HOME` is out of scope:** its jobs are seeded by provisioning code (T-026), and its build history is expendable.
 
 > **Board review 2026-09-28**: runs **after [T-004](T-004-terraform-state-hardening.md) part 2** (remote state) in the same session, so this task's apply is the first against the S3 backend. This is lane ordering, not a `depends_on` edge: T-004's other criteria must not block the backup.
 
