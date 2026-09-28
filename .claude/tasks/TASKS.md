@@ -127,7 +127,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state — **part 1 (0600) done; start at part 2**, the remote backend | cv-infra | in_progress | tech-product-owner | — | |
+| [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state — **part 1 (0600) done; start at part 2**, the remote backend | cv-infra | done | tech-product-owner | — | [cv-infra#22](https://github.com/erfeamor/cv-infra/pull/22) |
 | [T-005](T-005-ci-secret-blast-radius.md) | Limit CI secret blast radius: block IMDS from containers | cv-infra | todo | | T-002, T-007 | |
 | [T-007](T-007-ecs-agent-cleanup.md) | CI host: plain AL2023 AMI, **measured** root — drops the ecs-agent (**widened 2026-09-24; premise corrected 2026-09-25**: needs `-replace` and an explicit root size) | cv-infra | todo | | T-002, **T-008** | |
 | [T-008](T-008-drone-host-backup-and-snapshot.md) | Drone state to SSM + a real CI-host backup, then retire the T-002 snapshot — **trim step 1** (−$0.69/mo) | cv-infra | todo | | T-002 | |

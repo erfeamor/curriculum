@@ -2,24 +2,25 @@
 id: T-004
 title: Harden Terraform state — permissions now, remote backend properly
 repo: cv-infra
-status: in_progress
+status: done
 owner: tech-product-owner
 branch: chore/tf-state-hardening
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/22
 depends_on: []
 risk: normal
 security_review: true
 checkpoint:
-  stage: review   # r1 fixes with the developer (10 /code-review findings); /security-review: no vulnerabilities. Code 1436e44, unpushed; NOTHING applied, live state md5 unchanged
+  stage: done   # merged 8e65dec (squash of cv-infra#22), 2026-09-28 — H2 accepted; migrated live, plan No changes
   repo: cv-infra
   branch: chore/tf-state-hardening
   worktree: none   # main cv-infra checkout: the local state and tfvars (gitignored) live only there
-  pr:
+  commit: 8e65dec
+  pr: https://github.com/erfeamor/cv-infra/pull/22
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true   # state holds every secret; bucket policy + public-access block are the surface
-  review_round: 1
+  review_round: 3   # r1: 10 findings (/code-review high) + /security-review clean; r2: 5; r3 (cap): 1 doc finding, fixed past cap with the human's approval, driver-verified
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -39,7 +40,7 @@ checkpoint:
     before this task was claimed. The world-readable window is closed. Verified via:
     ls -l /home/erfeamor/work/curriculum/cv-infra/terraform.tfstate*
     -> -rw------- (0600) for both files.
-  part_2_status: claimed 2026-09-28
+  part_2_status: done 2026-09-28 — state in s3://cv-project-tfstate-760904708057/cv-infra/terraform.tfstate, DynamoDB lock cv-project-tfstate-lock
   part_3_status: decided at H1 2026-09-28 — accept, no rotation (see the H1 note)
 ---
 
@@ -112,12 +113,12 @@ The secrets have been sitting in a world-readable file. On a single-user laptop 
 ## Acceptance criteria
 
 - [x] `terraform.tfstate*` are `0600` (part 1, do first). *Done and verified 2026-08-24; see `checkpoint.part_1_note`.*
-- [ ] State in S3 with encryption, versioning, public-access block, and locking.
-- [ ] `terraform plan` after migration shows **no changes** — proving no resource was orphaned.
-- [ ] Local state files removed from the working tree only *after* the remote backend is verified working.
-- [ ] `.gitignore` still covers any state artifact that can appear locally.
-- [ ] The rotation decision is recorded with its reasoning, whichever way it goes.
-- [ ] `terraform fmt -check -recursive`, `terraform validate`, `terraform test` pass.
+- [x] State in S3 with encryption, versioning, public-access block, and locking.
+- [x] `terraform plan` after migration shows **no changes** — proving no resource was orphaned.
+- [x] Local state files removed from the working tree only *after* the remote backend is verified working.
+- [x] `.gitignore` still covers any state artifact that can appear locally.
+- [x] The rotation decision is recorded with its reasoning, whichever way it goes.
+- [x] `terraform fmt -check -recursive`, `terraform validate`, `terraform test` pass.
 
 ## Explicitly out of scope
 
@@ -126,3 +127,17 @@ Rotating Cognito or application secrets unrelated to state; changing how secrets
 ## Definition of done
 
 PR open against `master` from `chore/tf-state-hardening`, `/security-review` clean, migration verified by a no-change plan, rotation decision recorded.
+
+## Resolution — 2026-09-28
+
+Merged 8e65dec, **applied and migrated live**. Every step was approved by the human.
+- **Backup:** `~/.local/share/cv-infra-state-backups/2026-09-28/` (0700/0600), including the bootstrap module's own state.
+- **Bootstrap:** 8 resources added, and a re-plan shows no changes.
+- **Migration:** `init -migrate-state`, then a plan showing **No changes**. 73 managed resources and 8 data sources; `resources` and `outputs` are byte-identical to the backup.
+- **Locking:** proven. A concurrent `-lock-timeout=0s` plan is refused with ConditionalCheckFailed.
+- **Bucket posture:** verified via s3api, and an anonymous GET gets **403**.
+- **Cleanup:** the two stale 0664 saved plans are deleted. The local state was removed only after verification.
+
+**Observation worth keeping:** the migration gave the state a **new lineage** (b2462f89 → 32cdcf06) and reset the serial (222 → 1). The pre-migration backup can therefore be restored only through the documented migrate-to-local paths, or `state push -force`. A plain `state push` refuses on the lineage mismatch.
+
+**Part 3:** accept, no rotation. [T-021](T-021-mysql-password-rotation-persistent-datadir.md) stays deferred.
