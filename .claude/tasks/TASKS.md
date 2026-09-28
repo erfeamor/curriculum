@@ -4,16 +4,16 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-28 (full board review: the lane is re-planned as five sessions)
+## Now / Next / Later — refreshed 2026-09-28 (session 1 in progress: T-109 and T-004 merged; Terraform state now lives in S3)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Sizing** (board review 2026-09-28): each session is planned at **≤ ~100M tokens**, under the 120M soft stop, with headroom for compaction. Normal-risk code tasks measured **~8M tokens / ~45 turns each** on 2026-09-27/28. The infra figures are **extrapolated, not measured**, so sessions 2–3 are the likeliest to stop at a checkpoint and resume.
 
-**Session 1 — state first, then backup** (~60M)
-- [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) (cv-domain-service, test-only, **no AWS**): claimable now, in parallel with everything below.
-- [T-004](T-004-terraform-state-hardening.md) part 2: Terraform state to S3 **before any other apply**. Four instance replacements follow. Its part-3 rotation decision also settles [T-021](T-021-mysql-password-rotation-persistent-datadir.md).
-- → [T-008](T-008-drone-host-backup-and-snapshot.md): Drone state to SSM, a proven restore, then the old snapshot goes.
+**Session 1 — state first, then backup** (planned ~60M; **~59M spent before T-008**, so the infra estimate ran low)
+- ~~[T-109](T-109-ordering-tiebreak-unevidenced-siblings.md)~~: **done** 63f75b0.
+- ~~[T-004](T-004-terraform-state-hardening.md) part 2~~: **done** 8e65dec. State is in `s3://cv-project-tfstate-760904708057`, locked by DynamoDB. **Every cv-infra apply from here runs against the remote backend.** For offline tests, use `terraform init -backend=false`. Part 3 was accept, no rotation, so [T-021](T-021-mysql-password-rotation-persistent-datadir.md) stays deferred.
+- **Now:** [T-008](T-008-drone-host-backup-and-snapshot.md): Drone state to SSM, a proven restore, then the old snapshot goes. It is the first apply against the S3 backend, and it needs the CI host started, **right after a reaper tick** (T-034's finding).
 
 **Session 2 — the CI host, in one host-up window** (~85M; strictly one cv-infra apply at a time)
 - [T-007](T-007-ecs-agent-cleanup.md): CI host to plain AL2023, with `-replace` and an explicit `root_block_device` (read its 2026-09-25 correction). **It now also carries [T-005](T-005-ci-secret-blast-radius.md)'s CI-host `metadata_options`**, verified in the same window.
@@ -40,7 +40,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): only if T-004 decides to rotate `db_password`, or before anyone does.
 
-**Done 2026-09-27/28:** T-032, T-036, T-302, T-115, T-027, T-029 (plus T-409, T-401, T-108, T-402, T-301, T-114 earlier in the same session). Drone needs the CI host started **right after a reaper tick**: see T-034's 2026-09-27 finding.
+**Done 2026-09-27/28:** T-109, T-004, T-032, T-036, T-302, T-115, T-027, T-029 (plus T-409, T-401, T-108, T-402, T-301, T-114 earlier in the same session). Drone needs the CI host started **right after a reaper tick**: see T-034's 2026-09-27 finding.
 
 **Done in the CI-host session (2026-09-24/25):** T-155, T-153, T-156, T-111. Both Jenkins pipelines are bounded and proven, and T-019's last AC is settled.
 
