@@ -10,7 +10,7 @@ depends_on: [T-002]
 risk: normal
 security_review: true
 checkpoint:
-  stage: review   # r1: /code-review high 10 findings, fixes with the developer; H1 decision 2 amended (no off-host SQLite copy); /security-review runs on the fixed code
+  stage: review   # r2: /security-review Medium (app-host role could read deploy/*) → explicit Deny + all-roles test, with the developer
   repo: cv-infra
   branch: chore/drone-host-backup
   worktree: none   # main cv-infra checkout (state is remote now, but tfvars is local and gitignored)
@@ -19,7 +19,7 @@ checkpoint:
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true   # creates an IAM access key + SSM secret; touches CI secrets
-  review_round: 1
+  review_round: 2   # r1: /code-review high 10 findings fixed in 700fd15; r2: /security-review 1 Medium
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0

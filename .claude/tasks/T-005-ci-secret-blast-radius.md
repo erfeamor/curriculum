@@ -11,6 +11,8 @@ risk: high
 security_review: true
 ---
 
+> **Added 2026-09-28, from T-008's `/security-review`:** the **app host's** role (`aws_iam_role_policy.read_parameters`, `iam.tf:33-43`) grants `ssm:GetParameter*` on the whole `/${project}/*` tree. That includes `ci/*` (Drone's RPC secret, the GitHub OAuth client secret) and, since T-008, `deploy/*`. T-008 added an explicit **Deny on `deploy/*`** as the minimum. **Narrowing the Allow** to exactly the parameters the app-host bootstrap reads belongs here, together with the app host's `metadata_options` (IMDSv1 is on today, so its containers can reach instance credentials). Cross-check against every `param()` call in `templates/domain-service-user-data.sh` before narrowing: a missed path breaks the next boot.
+
 > **Board review 2026-09-28**: **split across two sessions.** The **CI-host** `metadata_options` and their verification moved into [T-007](T-007-ecs-agent-cleanup.md)'s replacement apply. What remains here: the **app host's** `metadata_options` (first check whether any container there relies on the instance role), the parameter-path split, and the Jenkins digest pin. The remainder runs with [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md), whose shared credential decision takes this task as its input, **not after them**. The lane used to park it in "Later", after the decision it feeds.
 
 ## Why this exists
