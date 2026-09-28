@@ -10,7 +10,7 @@ depends_on: [T-002]
 risk: normal
 security_review: true
 checkpoint:
-  stage: 1   # H1 accepted by the human 2026-09-28; infrastructure-engineer implementing (code + offline only)
+  stage: review   # r1: /code-review high 10 findings, fixes with the developer; H1 decision 2 amended (no off-host SQLite copy); /security-review runs on the fixed code
   repo: cv-infra
   branch: chore/drone-host-backup
   worktree: none   # main cv-infra checkout (state is remote now, but tfvars is local and gitignored)
@@ -19,7 +19,7 @@ checkpoint:
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true   # creates an IAM access key + SSM secret; touches CI secrets
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -42,6 +42,8 @@ checkpoint:
 
 > **Board review 2026-09-28**: runs **after [T-004](T-004-terraform-state-hardening.md) part 2** (remote state) in the same session, so this task's apply is the first against the S3 backend. This is lane ordering, not a `depends_on` edge: T-004's other criteria must not block the backup.
 
+
+**H1 decision 2 amended by the human at review round 1 (2026-09-28): no off-host SQLite copy.** Review showed Drone stores repo secrets and GitHub OAuth tokens **unencrypted** in `database.sqlite`, since `DRONE_DATABASE_SECRET` is unset. Every route off the host either failed (`aws s3 presign` has no PUT) or left a lingering copy (the CI artifacts bucket is versioned). Once the cutover deletes the old key, the file's only value is build history. The fallback during the rehearsal is the moved-aside `database.sqlite.rehearsal-<date>` on the host, which disappears with T-007's replacement. *Observation for T-007/T-005: Drone's SQLite secrets are unencrypted at rest; consider `DRONE_DATABASE_SECRET` when the host is rebuilt.*
 
 **PO settlements at H1 (accepted with the plan):**
 - **The SSM path is outside `ci/*`:** `/cv-project/dev/deploy/drone-deploy/{access-key-id,secret-access-key}`. The CI host's role reads `ci/*`, and until T-007 lands so can every build container. Under `ci/*`, the deploy key would reach every build step, not just the deploy step `from_secret` feeds.
