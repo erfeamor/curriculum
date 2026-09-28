@@ -2,19 +2,20 @@
 id: T-008
 title: Retire the T-002 gate snapshot, and give the CI host a real backup
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: chore/drone-host-backup
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/23
 depends_on: [T-002]
 risk: normal
 security_review: true
 checkpoint:
-  stage: review   # r2: /security-review Medium (app-host role could read deploy/*) → explicit Deny + all-roles test, with the developer
+  stage: qa   # review converged r2 (59f3b82); cv-infra#23 open (no CI in cv-infra). NEXT = the LIVE part, deferred by the human to the START of session 2: apply → CI host up after a reaper tick → SSM tunnel → safe cutover (runbook) → real deploy → SQLite rebuild rehearsal (human does GitHub OAuth + copies a fresh Drone token) → delete snap-0d7f5ae272ce0cef5 → H2
   repo: cv-infra
   branch: chore/drone-host-backup
   worktree: none   # main cv-infra checkout (state is remote now, but tfvars is local and gitignored)
-  pr:
+  commit: 59f3b82   # branch head, main cv-infra checkout is ON this branch
+  pr: https://github.com/erfeamor/cv-infra/pull/23
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: normal
@@ -24,10 +25,10 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a   # live rehearsal on the CI host
-  updated: 2026-09-28T15:00:00+02:00
+  updated: 2026-09-28T17:00:00+02:00
   budget:
-    turns: 168   # --since 2026-09-28T07:50:05.000Z (session 1)
-    total_tokens: 65500000
+    turns: 232   # --since 2026-09-28T07:50:05.000Z (session 1)
+    total_tokens: 95000000
     subagent_tokens: 0
     spawns: 2   # quality-assurance (plan) + infrastructure-engineer
     status: ok
