@@ -2,32 +2,33 @@
 id: T-007
 title: "CI host: move to a plain AL2023 AMI with a MEASURED root — drops the crash-looping ecs-agent for good and trims the 30 GB disk (widened 2026-09-24, premise corrected 2026-09-25)"
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: chore/remove-ecs-agent
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/24
 depends_on: [T-002, T-008]   # T-008 added 2026-09-24: the AMI swap REPLACES the CI host, and Drone's credentials live only on its root disk until T-008 moves them to SSM and proves a restore
 risk: normal   # raised 2026-09-24 from low: the widened scope replaces the CI host
 security_review: false   # added 2026-08-20 (hygiene): the key was missing entirely while `risk` was set. Value per adapter §5 — the diff touches none of its security paths; A1 forces /security-review anyway if the real diff disagrees, so this is a stage-0 default, not a ruling.
 checkpoint:
-  stage: review   # r1: /code-review high 10 findings (ForceNew encrypted root → -replace BEFORE merge; prune deleting stopped containers; host-network IMDS gap; boot race; runbook plan shape; reaper drift; …) — fixes with the developer; branch chore/remove-ecs-agent @85de043
+  stage: qa   # review converged at the cap (d95cd13; r1 10 findings, r2 security clean + 1 blocker (cloud-init deadlock) + 4, r3 driver-verified). cv-infra#24 open and DO NOT MERGE before the -replace is applied (encrypted root is ForceNew). NEXT = live replace, opening session 3 — docs/t007-ci-host-replace-runbook.md; reaper paused via the CIKeepAlive tag; human does the Drone GitHub login + token again
   repo: cv-infra
   branch: chore/remove-ecs-agent
   worktree: none   # main cv-infra checkout (tfvars is local)
-  pr:
+  commit: d95cd13   # branch head; main cv-infra checkout is ON this branch
+  pr: https://github.com/erfeamor/cv-infra/pull/24
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: high   # replaces the CI host (both CI systems), changes IMDS, adds a secret
   security_review: true
-  review_round: 1
+  review_round: 3
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a   # live on the CI host
-  updated: 2026-09-29T09:00:00+02:00
+  updated: 2026-09-29T12:00:00+02:00
   budget:
-    turns: 113   # session 2, --since 2026-09-28T14:38:35.000Z
-    total_tokens: 59500000
+    turns: 162   # session 2, --since 2026-09-28T14:38:35.000Z
+    total_tokens: 87500000
     subagent_tokens: 0
     spawns: 2   # quality-assurance (plan) + infrastructure-engineer
     status: ok
