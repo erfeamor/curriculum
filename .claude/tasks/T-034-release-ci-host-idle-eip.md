@@ -10,9 +10,9 @@ depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root modu
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 checkpoint:
-  stage: 0   # PHASE 1 DONE (e295b95, cv-infra#27; H2 accepted 2026-09-29, proven live). PHASE 2 next: refine ci.erfeamor.com DNS-on-boot + EIP release + Let's Encrypt (T-033) — zone Z0608270B7WND031GVOW exists
+  stage: 1   # PHASE 2: H1 accepted 2026-09-29 (+ PO settlements: IAM Resource = the zone ARN + 3 condition keys; LE production CA with persisted certs; OAuth re-check after apply 2); developer implementing on feat/ci-host-dns-tls — commit 1 DNS+Caddy/TLS+re-point, commit 2 EIP removal
   repo: cv-infra
-  branch: (phase 2 branch TBD)
+  branch: feat/ci-host-dns-tls
   worktree: none   # main cv-infra checkout
   commit: e295b95   # phase 1 merge
   pr:   # phase 2 has no PR yet
@@ -21,7 +21,7 @@ checkpoint:
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true   # new token, IAM, a public Function URL path
-  review_round: 3
+  review_round: 0   # phase 2
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
