@@ -2,10 +2,10 @@
 id: T-039
 title: "cv-infra: turn the task-named T-007/T-008 runbooks and check scripts into durable, task-neutral ones"
 repo: cv-infra
-status: todo
-owner:
+status: in_review
+owner: tech-product-owner
 branch: chore/durable-runbooks-and-checks
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/25
 depends_on: [T-007, T-008]
 risk: normal
 security_review: false   # docs and offline check scripts only; A1 re-checks the real diff
@@ -33,11 +33,19 @@ History already lives in the task files and PR descriptions. The repo should car
 
 ## Acceptance criteria
 
-- [ ] No task-numbered file names remain under `cv-infra/scripts` or `cv-infra/docs`.
-- [ ] Each invariant from both old scripts is still enforced, shown by a red-first mutation per check.
-- [ ] Both runbooks are task-neutral: no review-round or "rehearsal" narrative, and each step is valid for the *next* use.
-- [ ] `terraform fmt`, `validate` (`-backend=false`), `terraform test`, `check-static.sh`, `bootstrap/check-static.sh` and the reseed harness all pass. CLAUDE.md's gate list names the new script.
+- [x] No task-numbered file names remain under `cv-infra/scripts` or `cv-infra/docs`.
+- [x] Each invariant from both old scripts is still enforced, shown by a red-first mutation per check.
+- [x] Both runbooks are task-neutral: no review-round or "rehearsal" narrative, and each step is valid for the *next* use.
+- [x] `terraform fmt`, `validate` (`-backend=false`), `terraform test`, `check-static.sh`, `bootstrap/check-static.sh` and the reseed harness all pass. CLAUDE.md's gate list names the new script.
 
 ## Provenance
 
 Filed by the driver at T-007's H2, 2026-09-29, on the human's instruction ("merge #24, then follow-up task").
+
+## Implementation — 2026-09-29 (outside the dev loop, on the human's instruction: docs and scripts only, with the premise and H1 already settled at T-007's H2)
+
+[cv-infra#25](https://github.com/erfeamor/cv-infra/pull/25):
+- **`scripts/check-static.sh`** holds all 7 invariants. The policy hash pin is now a **semantic least-privilege check**.
+- **`docs/runbooks/drone.md`** and **`docs/runbooks/ci-host-replace.md`** are written from what worked live.
+- **Evidence:** 8 mutations in scratch copies, each red with the right message. The full offline gate is green, and the real `terraform plan` shows **No changes**.
+- **Known leftover:** `templates/jenkins-provision.sh` still names the old script in two comments. Editing even a comment there re-provisions Jenkins on the live host, so those references ride that template's next real change.
