@@ -2,19 +2,20 @@
 id: T-034
 title: "Release the CI host's fixed public IP — it bills $3.64/month while the box is stopped, a sixth of the whole account"
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: chore/release-ci-host-eip
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/27
 depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root module with local state, so its applies run one at a time; T-007 replaces the CI host first (AMI swap + disk shrink), and this task then changes how that host is addressed
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 checkpoint:
-  stage: review   # phase 1: r1 fixed (b1c5760) + driver correction (d902dde: public InvokeFunction restored per T-019, async event HMAC-signed instead); /security-review CLEAN; r2 /code-review 6 findings → final round 3 with the developer. Branch pushed as backup (origin/feat/ci-doorbell-drone-redelivery). Budget re-baselined at the human's confirmed window reset 2026-09-29T13:30Z
+  stage: qa   # phase 1 code converged at the review cap (79844f4 + driver runbook fix 8a3944e); security review clean; cv-infra#27 open, NOT to merge before the live cold-start test. NEXT (needs the human): github_hooks_token in tfvars → apply → add the doorbell hook on cv-admin-react (push+pull_request) → cold-start test. Phase 2 waits for the domain
   repo: cv-infra
   branch: feat/ci-doorbell-drone-redelivery
   worktree: none   # main cv-infra checkout
-  pr:
+  commit: 8a3944e
+  pr: https://github.com/erfeamor/cv-infra/pull/27
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: normal
