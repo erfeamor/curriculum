@@ -14,8 +14,9 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 
 **Host-up work from here:** follow `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`). Pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
-**Session 4 — CI host edge and the reaper** (~70–90M), **in progress**
-- [T-034](T-034-release-ci-host-idle-eip.md) + [T-033](T-033-ci-host-tls.md). H1 decided 2026-09-29: the doorbell relays Drone pushes; the reaper gets a post-start grace and a Drone busy check; **the EIP is released** behind a DNS-on-boot updater (IAM scoped to one record); **Let's Encrypt** on `ci-proxy`. **Phase 1** (relay and reaper) now. **Phase 2 waits for the human to register a domain.**
+**Session 4 — CI host edge and the reaper**, **in progress**
+- [T-034](T-034-release-ci-host-idle-eip.md) **phase 1 done** (e295b95): a push while the CI host is stopped now wakes it, and the doorbell **redelivers Drone's missed webhooks** (proven live). The reaper has a 15-minute post-start grace.
+- **Next:** T-034 **phase 2** + [T-033](T-033-ci-host-tls.md): `ci.erfeamor.com` (the domain is registered and the zone exists) with DNS on boot, the EIP released, and **Let's Encrypt** on `ci-proxy`.
 
 **Session 5 — [T-014](T-014-deploy-bff-to-aws.md) alone** (~80–100M)
 - Deploy the BFF. It carries the production Flyway pin, decides [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at its H2, and **measures memory** (any resize is a cost decision under A). **It lifts the migration freeze.**
@@ -131,7 +132,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution (cross-repo: split at stage 0 if implemented) | cv-infra + cv-domain-service | todo | | T-022 | |
 | [T-033](T-033-ci-host-tls.md) | CI host serves Jenkins login and Drone OAuth over plain HTTP on a scanned public IP — decide TLS or record the accepted risk | cv-infra | in_progress | tech-product-owner | — | |
-| [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3); **also wires Drone to the doorbell** | cv-infra | in_review | tech-product-owner | T-007 | [cv-infra#27](https://github.com/erfeamor/cv-infra/pull/27) |
+| [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3); **also wires Drone to the doorbell** | cv-infra | in_progress | tech-product-owner | T-007 | phase 1: [cv-infra#27](https://github.com/erfeamor/cv-infra/pull/27) |
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |

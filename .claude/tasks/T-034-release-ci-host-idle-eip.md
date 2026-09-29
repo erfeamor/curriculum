@@ -2,20 +2,20 @@
 id: T-034
 title: "Release the CI host's fixed public IP — it bills $3.64/month while the box is stopped, a sixth of the whole account"
 repo: cv-infra
-status: in_review
+status: in_progress
 owner: tech-product-owner
 branch: chore/release-ci-host-eip
-pr: https://github.com/erfeamor/cv-infra/pull/27
+pr:   # phase 1 merged via cv-infra#27 (e295b95); phase 2's PR goes here
 depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root module with local state, so its applies run one at a time; T-007 replaces the CI host first (AMI swap + disk shrink), and this task then changes how that host is addressed
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 checkpoint:
-  stage: qa   # phase 1 code converged at the review cap (79844f4 + driver runbook fix 8a3944e); security review clean; cv-infra#27 open, NOT to merge before the live cold-start test. NEXT (needs the human): github_hooks_token in tfvars → apply → add the doorbell hook on cv-admin-react (push+pull_request) → cold-start test. Phase 2 waits for the domain
+  stage: 0   # PHASE 1 DONE (e295b95, cv-infra#27; H2 accepted 2026-09-29, proven live). PHASE 2 next: refine ci.erfeamor.com DNS-on-boot + EIP release + Let's Encrypt (T-033) — zone Z0608270B7WND031GVOW exists
   repo: cv-infra
-  branch: feat/ci-doorbell-drone-redelivery
+  branch: (phase 2 branch TBD)
   worktree: none   # main cv-infra checkout
-  commit: 8a3944e
-  pr: https://github.com/erfeamor/cv-infra/pull/27
+  commit: e295b95   # phase 1 merge
+  pr: https://github.com/erfeamor/cv-infra/pull/27   # phase 1
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: normal
@@ -88,7 +88,7 @@ Also: **settle [T-033](T-033-ci-host-tls.md)'s TLS decision at this task's H1**.
 
 ## Acceptance criteria
 
-- [ ] A push to `cv-admin-react` **while the host is stopped** wakes it and produces a green Drone build (added 2026-09-25, see above).
+- [x] A push to `cv-admin-react` **while the host is stopped** wakes it and produces a green Drone build *(phase 1, proven live 2026-09-29, see below)* (added 2026-09-25, see above).
 - [ ] Every consumer of `13.39.59.12` enumerated in the PR (in Terraform and outside it).
 - [ ] A cold start from stopped: a push to a Jenkins repo and to `cv-admin-react` (Drone) both trigger builds that go green, **after** a stop/start cycle has changed the public IP.
 - [ ] Drone's GitHub login still works after the same cycle.
@@ -142,3 +142,20 @@ The human registered **`erfeamor.com`** through Route 53 Domains, in this accoun
 - **Hosted zone `Z0608270B7WND031GVOW`** (public) was created with it. The domain's nameservers match the zone's delegation set.
 
 **For phase 2:** use a CI subdomain (e.g. `ci.erfeamor.com`) in this zone; don't touch the apex. The boot updater's IAM should be scoped to that one record name (`route53:ChangeResourceRecordSetsNormalizedRecordNames`). **Decide at phase 2 whether Terraform manages the zone** (import `Z0608270B7WND031GVOW`) **or only its records.** The registration itself stays outside Terraform. **Cost:** the domain registration fee (annual, auto-renews) plus ~$0.50/month for the zone.
+
+## Phase 1 — done 2026-09-29 (merged e295b95, cv-infra#27)
+
+**Applied and proven live**, with the human's approval at each step:
+- **Apply:** 2 added, 3 changed, 0 destroyed. That's the token's SSM parameter (`/cv-project/dev/doorbell/github-hooks-token`), `event_invoke_config` (retries 0, max age 60s), the doorbell's IAM, its code, env and 895s timeout, and the reaper's `POST_START_GRACE_MINUTES = 15`.
+- **The Function URL still works:** an unsigned POST gets **401** from the HMAC check, not 403. The T-019 permission is intact.
+- **Doorbell-signed hook** `689017760` created on `cv-admin-react` (push and pull_request), with the secret piped from SSM and never printed. Its ping returned 200. Drone's own hook `687961843` is unchanged.
+- **Cold start,** push at 20:52:41Z to a throwaway branch (deleted afterwards):
+  - 20:52:44 the doorbell scheduled the async task;
+  - **20:52:45 it started the host**;
+  - Drone's hook failed with **502** at 20:52:45–46;
+  - **20:53:07 the doorbell redelivered 2/2 still-failing deliveries**, same guids, now 200;
+  - **20:54:37 the Drone build was success.**
+- **Reaper grace:** it logged "within 15-minute post-start grace; leaving instance running" on both runs after the wake.
+- **The token appears 0 times** in the doorbell's CloudWatch logs.
+
+**Phase 2 is next:** the `ci.erfeamor.com` DNS-on-boot updater (IAM scoped to one record), the EIP release, Let's Encrypt on `ci-proxy` (T-033), and re-pointing `DRONE_SERVER_HOST`/`PROTO`, the OAuth callback and Drone's hook. The zone `Z0608270B7WND031GVOW` exists. `local.ci_public_host` is the single place the host address is defined.
