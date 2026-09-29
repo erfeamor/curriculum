@@ -4,36 +4,29 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-29 (session 3: T-007 merged, CI host replaced — plain AL2023, encrypted root, IMDSv2, Drone DB encrypted)
+## Now / Next / Later — refreshed 2026-09-29 (session 3 closed: T-007 and T-039 merged; the CI host is rebuilt and its runbooks are durable)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Sizing** (board review 2026-09-28): each session is planned at **≤ ~100M tokens**, under the 120M soft stop, with headroom for compaction. Normal-risk code tasks measured **~8M tokens / ~45 turns each** on 2026-09-27/28. The infra figures are **extrapolated, not measured**, so sessions 2–3 are the likeliest to stop at a checkpoint and resume.
 
-**Session 1 — state first, then backup** (planned ~60M; **~59M spent before T-008**, so the infra estimate ran low)
-- ~~[T-109](T-109-ordering-tiebreak-unevidenced-siblings.md)~~: **done** 63f75b0.
-- ~~[T-004](T-004-terraform-state-hardening.md) part 2~~: **done** 8e65dec. State is in `s3://cv-project-tfstate-760904708057`, locked by DynamoDB. **Every cv-infra apply from here runs against the remote backend.** For offline tests, use `terraform init -backend=false`. Part 3 was accept, no rotation, so [T-021](T-021-mysql-password-rotation-persistent-datadir.md) stays deferred.
-- ~~[T-008](T-008-drone-host-backup-and-snapshot.md)~~: **done** b5110dd, closed at the start of session 2 (see below).
+**Sessions 1–3 — done (2026-09-28/29).** T-109, T-004 (state in S3), T-008 (deploy key in Terraform/SSM, Drone rebuild proven), T-007 (CI host rebuilt: plain AL2023, an encrypted root, IMDSv2, the Drone DB encrypted) and T-039 (durable runbooks and one `check-static.sh`). **Measured cost:** ~95M, ~88M and ~46M. Infra tasks ran about 2× their first estimates. Only T-007's live part came in under estimate, because the rebuild path was already proven.
 
-**Session 2 — the CI host, in one host-up window** (re-estimate **~110M**: plan it as the whole session and stop at SOFT; strictly one cv-infra apply at a time)
-- ~~T-008's live part~~: **done** (~54M tokens including the plugin install and the rehearsal). The drone-deploy key is now Terraform/SSM-managed, the old key is deleted, and a Drone rebuild from an empty DB is proven. **Until T-034 fixes the reaper, pause it for any host-up window** (`aws events disable-rule cv-project-ci-reaper`), then re-enable it and check the plan shows no drift.
-- ~~[T-007](T-007-ecs-agent-cleanup.md)~~: **done** 2830a5f (session 3).
-**Session 3 — T-007's live replace** (done at ~46M; the live part cost less than T-008's because the rebuild path was already proven)
-- ~~T-007~~: **done** 2830a5f. The new CI host `i-0ee24b3d917501c4d` is verified end to end. **Pause the reaper with the `CIKeepAlive` tag** (drift-free), not by disabling the rule.
-- **Next, cheap:** [T-039](T-039-cv-infra-durable-runbooks-and-checks.md): turn the T-007/T-008 docs and check scripts into durable runbooks and one `check-static.sh` (docs/scripts only, no AWS).
+**Host-up work from here:** follow `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`). Pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
-- → [T-034](T-034-release-ci-host-idle-eip.md) + [T-033](T-033-ci-host-tls.md) (**likely spills into its own session**: at session 1's measured ~2× infra cost, session 2 fits T-008's live part and T-007, so the plan is now **~6 sessions**, not 5): **one H1**. Release the idle EIP, wire Drone to the doorbell, give the reaper a post-start grace and a Drone busy check, and decide TLS. They share a DNS name and a hosted zone.
+**Session 4 — CI host edge and the reaper** (~70–90M)
+- [T-034](T-034-release-ci-host-idle-eip.md) + [T-033](T-033-ci-host-tls.md), **one H1**: release the idle EIP, wire Drone to the doorbell, give the reaper a post-start grace and a Drone busy check, and decide TLS. They share a DNS name and a hosted zone.
 
-**Session 3 — [T-014](T-014-deploy-bff-to-aws.md) alone** (~80–100M)
+**Session 5 — [T-014](T-014-deploy-bff-to-aws.md) alone** (~80–100M)
 - Deploy the BFF. It carries the production Flyway pin, decides [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at its H2, and **measures memory** (any resize is a cost decision under A). **It lifts the migration freeze.**
 
-**Session 4 — after T-014** (~85M)
+**Session 6 — after T-014** (~85M)
 - [T-035](T-035-app-host-to-graviton.md): app host to `t4g.micro`, as its own apply.
 - In parallel, three different repos: [T-113](T-113-optimistic-locking-lost-update.md) (`@Version`/409, now that migrations are allowed; contract PR first), [T-403](T-403-public-vanilla-deploy.md) (vanilla deploy), [T-404](T-404-public-react-point-at-deployed-bff.md) (Vercel `BFF_URL`).
-- [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), if the date has passed **2026-10-12**.
+- [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), from **2026-10-12**.
 
-**Session 5 — CI deploy stages, then the milestone** (~80M)
-- [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-005](T-005-ci-secret-blast-radius.md)'s remainder: **one H1** for the credential model, with T-005 as its input. Then two implementations in parallel, sharing one cv-infra apply.
+**Session 7 — CI deploy stages, then the milestone** (~80M)
+- [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-005](T-005-ci-secret-blast-radius.md)'s remainder: **one H1** for the credential model, with T-005 as its input. T-005 now also owns the docker.sock/host-network IMDS gap and narrowing the app-host role's SSM read.
 - → **[T-501](T-501-e2e-cv-milestone.md)**, whose PR **also carries [T-015](T-015-docs-reflect-deployed-bff.md)** (same files, same live verification).
 
 **Human**
@@ -45,7 +38,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): only if T-004 decides to rotate `db_password`, or before anyone does.
 
-**Done 2026-09-27/29:** T-007, T-008, T-109, T-004, T-032, T-036, T-302, T-115, T-027, T-029 (plus T-409, T-401, T-108, T-402, T-301, T-114 earlier in the same session). Drone needs the CI host started **right after a reaper tick**: see T-034's 2026-09-27 finding.
+**Done 2026-09-27/29:** T-039, T-007, T-008, T-109, T-004, T-032, T-036, T-302, T-115, T-027, T-029 (plus T-409, T-401, T-108, T-402, T-301, T-114 earlier in the same session).
 
 **Done in the CI-host session (2026-09-24/25):** T-155, T-153, T-156, T-111. Both Jenkins pipelines are bounded and proven, and T-019's last AC is settled.
 
@@ -100,12 +93,11 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** (every ordered collection but experience) | cv-domain-service | done | tech-product-owner | T-105 | |
 | [T-113](T-113-optimistic-locking-lost-update.md) | Two concurrent PUTs silently lose one write — no `@Version`, no 409 (T-108's declined half) | cv-domain-service | todo | | T-108, T-014 | |
 | [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔ | |
 
 <details>
-<summary>Defects, hygiene & hardening — 14 done</summary>
+<summary>Defects, hygiene & hardening — 15 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -123,6 +115,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-114](T-114-test-profile-open-in-view.md) | The test profile runs **open-in-view ON**, production OFF — it hid T-108's real failure mode once | cv-domain-service | done | tech-product-owner | — | [#12](https://github.com/erfeamor/cv-domain-service/pull/12) |
 | [T-115](T-115-section-period-cross-field-validation.md) | The domain service accepts `endDate` earlier than `startDate` on a section | cv-domain-service | done | tech-product-owner | T-027 | [cv-domain-service#13](https://github.com/erfeamor/cv-domain-service/pull/13) |
 | [T-302](T-302-admin-store-read-races.md) | Admin section/skills stores: rare load-vs-write interleavings show a wrong list, notice or error until reload | cv-admin-react | done | tech-product-owner | T-301 | [cv-admin-react#14](https://github.com/erfeamor/cv-admin-react/pull/14) |
+| [T-109](T-109-ordering-tiebreak-unevidenced-siblings.md) | The `id ASC` tiebreaker is asserted by tests that **cannot go red** (every ordered collection but experience) | cv-domain-service | done | tech-product-owner | T-105 | |
 
 </details>
 
@@ -132,10 +125,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state — **part 1 (0600) done; start at part 2**, the remote backend | cv-infra | done | tech-product-owner | — | [cv-infra#22](https://github.com/erfeamor/cv-infra/pull/22) |
 | [T-005](T-005-ci-secret-blast-radius.md) | Limit CI secret blast radius: block IMDS from containers | cv-infra | todo | | T-002, T-007 | |
-| [T-007](T-007-ecs-agent-cleanup.md) | CI host: plain AL2023 AMI, **measured** root — drops the ecs-agent (**widened 2026-09-24; premise corrected 2026-09-25**: needs `-replace` and an explicit root size) | cv-infra | done | tech-product-owner | T-002, **T-008** | [cv-infra#24](https://github.com/erfeamor/cv-infra/pull/24) |
-| [T-008](T-008-drone-host-backup-and-snapshot.md) | Drone state to SSM + a real CI-host backup, then retire the T-002 snapshot — **trim step 1** (−$0.69/mo) | cv-infra | done | tech-product-owner | T-002 | [cv-infra#23](https://github.com/erfeamor/cv-infra/pull/23) |
 | [T-012](T-012-aws-endgame-decision.md) | **Paid-vs-teardown — DECIDED 2026-09-24: A, go Paid with the stack trimmed**; upgrade by 2026-12-15 | cv-project (meta) | in_progress | tech-product-owner | — | |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution (cross-repo: split at stage 0 if implemented) | cv-infra + cv-domain-service | todo | | T-022 | |
@@ -143,10 +133,9 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3); **also wires Drone to the doorbell** | cv-infra | todo | | T-007 | |
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
-| [T-039](T-039-cv-infra-durable-runbooks-and-checks.md) | cv-infra: task-named T-007/T-008 runbooks and checks → durable, task-neutral ones | cv-infra | in_review | tech-product-owner | T-007, T-008 | [cv-infra#25](https://github.com/erfeamor/cv-infra/pull/25) |
 
 <details>
-<summary>Infra & ops — 28 done</summary>
+<summary>Infra & ops — 32 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -178,6 +167,10 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-029](T-029-code-review-cannot-see-worktrees.md) | `/code-review` **silently reviews the wrong thing** without an explicit target | cv-project (meta) | done | tech-product-owner | — | local adapter edit (gitignored) |
 | [T-032](T-032-board-check-re-review-after-live-use.md) | Re-review `board-check.py` after live use, plus two blind spots: **link integrity** and **status-gated `pr:`** | cv-project (meta) | done | tech-product-owner | T-031 ✔ | [#102](https://github.com/erfeamor/curriculum/pull/102) |
 | [T-036](T-036-qa-env-cors-port-shift.md) | `qa-env-override.py` shifts the BFF port but not its CORS allowlist — a port-shifted frontend preview is CORS-blocked | cv-project (meta) | done | tech-product-owner | — | [#101](https://github.com/erfeamor/curriculum/pull/101) |
+| [T-004](T-004-terraform-state-hardening.md) | Harden Terraform state — **part 1 (0600) done; start at part 2**, the remote backend | cv-infra | done | tech-product-owner | — | [cv-infra#22](https://github.com/erfeamor/cv-infra/pull/22) |
+| [T-008](T-008-drone-host-backup-and-snapshot.md) | Drone state to SSM + a real CI-host backup, then retire the T-002 snapshot — **trim step 1** (−$0.69/mo) | cv-infra | done | tech-product-owner | T-002 | [cv-infra#23](https://github.com/erfeamor/cv-infra/pull/23) |
+| [T-007](T-007-ecs-agent-cleanup.md) | CI host: plain AL2023 AMI, **measured** root — drops the ecs-agent (**widened 2026-09-24; premise corrected 2026-09-25**: needs `-replace` and an explicit root size) | cv-infra | done | tech-product-owner | T-002, **T-008** | [cv-infra#24](https://github.com/erfeamor/cv-infra/pull/24) |
+| [T-039](T-039-cv-infra-durable-runbooks-and-checks.md) | cv-infra: task-named T-007/T-008 runbooks and checks → durable, task-neutral ones | cv-infra | done | tech-product-owner | T-007, T-008 | [cv-infra#25](https://github.com/erfeamor/cv-infra/pull/25) |
 
 </details>
 
