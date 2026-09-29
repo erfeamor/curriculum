@@ -160,3 +160,10 @@ The human registered **`erfeamor.com`** through Route 53 Domains, in this accoun
 - **The token appears 0 times** in the doorbell's CloudWatch logs.
 
 **Phase 2 is next:** the `ci.erfeamor.com` DNS-on-boot updater (IAM scoped to one record), the EIP release, Let's Encrypt on `ci-proxy` (T-033), and re-pointing `DRONE_SERVER_HOST`/`PROTO`, the OAuth callback and Drone's hook. The zone `Z0608270B7WND031GVOW` exists. `local.ci_public_host` is the single place the host address is defined.
+
+## Phase 2 — H1 decided by the human, 2026-09-29
+
+1. **DNS:** the zone is read as a **data source** (`Z0608270B7WND031GVOW` stays outside Terraform; not imported). Terraform creates the `ci.erfeamor.com` A record with **TTL 60** and `ignore_changes = [records]`. A boot-time updater on the CI host (IMDSv2 → UPSERT, on every boot, before the proxy) keeps it current. The CI role's grant is `route53:ChangeResourceRecordSets` on that zone, **conditioned** to that one name, type A and UPSERT.
+2. **TLS: nginx is replaced by Caddy** as `ci-proxy`, with automatic Let's Encrypt, HTTP→HTTPS, the same routing, and certificates persisted on the host.
+3. **Re-point:** `DRONE_SERVER_HOST=ci.erfeamor.com` and `PROTO=https`; `local.ci_public_host = "ci.erfeamor.com"`; Drone's repo hook is PATCHed to `https://ci.erfeamor.com/hook`. **Human step:** the GitHub OAuth app callback becomes `https://ci.erfeamor.com/login`.
+4. **The EIP is released in the same PR, as a second apply.** Apply 1 is DNS and TLS with the EIP attached, proven. Apply 2 removes the EIP, proven by a cold start with a new IP.
