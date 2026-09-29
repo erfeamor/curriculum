@@ -10,7 +10,7 @@ depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root modu
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 checkpoint:
-  stage: review   # phase 1 r1: /code-review high 10 findings (incl. SECURITY: public InvokeFunction grant lets any AWS principal reach the async path) — fixes with the developer; branch feat/ci-doorbell-drone-redelivery @0567f6a
+  stage: review   # STOPPED 2026-09-29 on the human's plan quota (~92%). Phase 1 r1: 10 /code-review findings accepted (incl. SECURITY: public InvokeFunction grant reaches the async path). The developer was stopped MID-FIX: branch feat/ci-doorbell-drone-redelivery, last commit 0567f6a (unpushed); any uncommitted edits in the main cv-infra checkout are partial r1 work. Resume: inspect `git status`, then re-brief a fresh developer with the 10 findings (listed in the session transcript and summarised in this file's review note)
   repo: cv-infra
   branch: feat/ci-doorbell-drone-redelivery
   worktree: none   # main cv-infra checkout
@@ -118,3 +118,18 @@ Two gaps:
 2. **Drone activity is invisible.** The reaper checks the Jenkins executor and CPU, and has no view of Drone's queue or running builds. A Jenkins doorbell start is covered by the busy executor; a Drone build is covered only by CPU.
 
 **Add to this task's scope** (it already owns wiring Drone to the doorbell): a minimum uptime after any start (e.g. ≥ 20 min of datapoints before "idle" can be true), and a Drone busy check (the Drone API's running/pending builds) beside the Jenkins one. The cold-start AC for `cv-admin-react` cannot pass reliably without both.
+
+## Review round 1 findings — phase 1 (0567f6a), all accepted, fixes NOT yet complete
+
+1. **SECURITY:** the public `lambda:InvokeFunction` grant (principal `*`) lets any AWS principal invoke the doorbell directly, and an event without `requestContext` reaches the async task unauthenticated. Scope the permission to Function-URL invocation, and make the async task re-validate `repo` against the allowlist and `wake_time` against [now−15m, now].
+2. **The wake-time race:** start the redelivery window at `wake_time − 5 min`.
+3. **Deduplicate by delivery `guid`:** skip any guid that already has a 2xx entry, redeliveries included.
+4. **Async retries:** add `event_invoke_config` with `maximum_retry_attempts = 0`; a failed POST must not abort the loop; recheck the timeout budget.
+5. **The doorbell hook** must subscribe to `push` **and** `pull_request`.
+6. **If the instance is `stopping`:** wait until it's stopped, then start it.
+7. **Wire `POST_START_GRACE_MINUTES`** into the reaper env, with an assertion.
+8. **Paginate** the deliveries and hooks lists (`per_page=100`, follow `Link`).
+9. **The healthz probe** must also catch `OSError` and `http.client.HTTPException`.
+10. **Build `DRONE_HEALTHZ_URL` from one local** (`local.ci_public_host`), so phase 2 changes a single place.
+
+Still pending after these: `/security-review`, a round-2 check, the human's `github_hooks_token` in tfvars, the manual doorbell hook, the apply, and the live cold-start test. Phase 2 waits for the human's domain.
