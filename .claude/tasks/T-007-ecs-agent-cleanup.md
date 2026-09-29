@@ -2,7 +2,7 @@
 id: T-007
 title: "CI host: move to a plain AL2023 AMI with a MEASURED root — drops the crash-looping ecs-agent for good and trims the 30 GB disk (widened 2026-09-24, premise corrected 2026-09-25)"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: chore/remove-ecs-agent
 pr: https://github.com/erfeamor/cv-infra/pull/24
@@ -10,11 +10,11 @@ depends_on: [T-002, T-008]   # T-008 added 2026-09-24: the AMI swap REPLACES the
 risk: normal   # raised 2026-09-24 from low: the widened scope replaces the CI host
 security_review: false   # added 2026-08-20 (hygiene): the key was missing entirely while `risk` was set. Value per adapter §5 — the diff touches none of its security paths; A1 forces /security-review anyway if the real diff disagrees, so this is a stage-0 default, not a ruling.
 checkpoint:
-  stage: qa   # review converged at the cap (d95cd13; r1 10 findings, r2 security clean + 1 blocker (cloud-init deadlock) + 4, r3 driver-verified). cv-infra#24 open and DO NOT MERGE before the -replace is applied (encrypted root is ForceNew). NEXT = live replace, opening session 3 — docs/t007-ci-host-replace-runbook.md; reaper paused via the CIKeepAlive tag; human does the Drone GitHub login + token again
+  stage: done   # merged 2830a5f (squash of cv-infra#24), 2026-09-29 — replace applied from the branch first; H2 accepted
   repo: cv-infra
   branch: chore/remove-ecs-agent
-  worktree: none   # main cv-infra checkout (tfvars is local)
-  commit: d95cd13   # branch head; main cv-infra checkout is ON this branch
+  worktree: none   # main cv-infra checkout, back on master
+  commit: 2830a5f
   pr: https://github.com/erfeamor/cv-infra/pull/24
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
@@ -66,10 +66,10 @@ The *Watch out for* note below calls a plain Amazon Linux 2023 AMI *"the right l
 **Added scope:** swap `aws_instance.drone` to the latest AL2023 AMI (the AL2023 AMI-filter gotcha is in the memory notes — filter `al2023-ami-2023.*-x86_64`, not a wildcard that matches the ECS image); size the root to what Drone + Jenkins + Docker images actually use, measured on the live host (`df`, `docker system df`) plus headroom, not guessed.
 
 **Added acceptance criteria:**
-- [ ] The CI host runs a plain AL2023 AMI; `docker ps -a` shows no `ecs-agent` because nothing installs it (the original ACs below then hold trivially — record that rather than re-implementing the mask).
-- [ ] Root volume sized from measured usage, with the measurement in the PR.
-- [ ] After replacement, restored from [T-008](T-008-drone-host-backup-and-snapshot.md)'s backup: Drone logs in, `cv-admin-react` still active with its secrets, Jenkins jobs present — and a push to each goes green.
-- [ ] `user_data` size re-measured (the 16 KB wall, T-009).
+- [x] The CI host runs a plain AL2023 AMI; `docker ps -a` shows no `ecs-agent` because nothing installs it (the original ACs below then hold trivially — record that rather than re-implementing the mask).
+- [x] Root volume sized from measured usage, with the measurement in the PR.
+- [x] After replacement, restored from [T-008](T-008-drone-host-backup-and-snapshot.md)'s backup: Drone logs in, `cv-admin-react` still active with its secrets, Jenkins jobs present — and a push to each goes green.
+- [x] `user_data` size re-measured (the 16 KB wall, T-009).
 
 
 ## Why this exists
@@ -111,18 +111,36 @@ So: disable and mask the `ecs` unit in the user-data template *and* apply the sa
 
 ## Acceptance criteria
 
-- [ ] **(added 2026-09-28, from T-005)** `aws_instance.drone` has `metadata_options` with `http_tokens = "required"` and `http_put_response_hop_limit = 1`. Verified on the new host: a container **cannot** fetch instance credentials, while the host-side `param()` path and SSM Session Manager still work (the lock-yourself-out check, done **before** trusting the change).
+- [x] **(added 2026-09-28, from T-005)** `aws_instance.drone` has `metadata_options` with `http_tokens = "required"` and `http_put_response_hop_limit = 1`. Verified on the new host: a container **cannot** fetch instance credentials, while the host-side `param()` path and SSM Session Manager still work (the lock-yourself-out check, done **before** trusting the change).
 
 > **These are the ORIGINAL ACs, written for the mask-the-unit approach.** Under the widened scope, the AMI swap removes the agent instead. The first four then hold trivially on the new host; record that rather than implementing the mask (the widened ACs above say so too).
 
-- [ ] `ecs` systemd unit disabled and masked, and the `ecs-agent` container removed, on the live CI host.
-- [ ] The same change in `templates/drone-user-data.sh` (or the shared provisioning path), so a replacement instance never starts it.
-- [ ] Idempotent — safe to re-run against a host where it has already been applied, matching the existing scripts' name-guarded style.
-- [ ] `docker ps -a` on the CI host shows no `ecs-agent` entry, and none reappears after a reboot.
+- [x] `ecs` systemd unit disabled and masked, and the `ecs-agent` container removed, on the live CI host. *(trivially true under the widened scope: the plain AL2023 AMI has no ECS unit or package at all; verified 2026-09-29: 0 ecs units, 0 ecs-init packages)*
+- [x] The same change in `templates/drone-user-data.sh` (or the shared provisioning path), so a replacement instance never starts it. *(trivially true under the widened scope: the plain AL2023 AMI has no ECS unit or package at all; verified 2026-09-29: 0 ecs units, 0 ecs-init packages)*
+- [x] Idempotent — safe to re-run against a host where it has already been applied, matching the existing scripts' name-guarded style. *(trivially true under the widened scope: the plain AL2023 AMI has no ECS unit or package at all; verified 2026-09-29: 0 ecs units, 0 ecs-init packages)*
+- [x] `docker ps -a` on the CI host shows no `ecs-agent` entry, and none reappears after a reboot.
 - [x] `aws_instance.domain_service` checked for the same leftover; fixed too if present, or explicitly noted as unaffected. *Unaffected: it runs plain AL2023 (checked 2026-09-25, see the correction at the top).*
-- [ ] Drone and Jenkins both still healthy afterwards.
-- [ ] `user_data` size re-measured and recorded if the template grew.
+- [x] Drone and Jenkins both still healthy afterwards.
+- [x] `user_data` size re-measured and recorded if the template grew.
 
 ## Definition of done
 
 PR open against `master` from `chore/remove-ecs-agent`, `terraform fmt`/`validate`/`test` green, reboot persistence demonstrated rather than assumed.
+
+## Resolution — 2026-09-29 (session 3)
+
+Merged 2830a5f (cv-infra#24). **The replace was applied from the branch before merge** (an encrypted root forces replacement), and every step was approved by the human.
+
+- **The plan matched the runbook's expected shape exactly:** 6 add, 6 change, 4 destroy (the instance and its EIP association, the null_resource and local_file, the Lambdas and their policies, the provisioning object and its sha, the new secret). The state was backed up first.
+- **New host `i-0ee24b3d917501c4d`:**
+  - plain AL2023 (`ami-065179b9d30243a88`), a **20 GB gp3 root encrypted** (KMS), `http_tokens = "required"` with hop limit 1, the same EIP 13.39.59.12
+  - Jenkins provisioning finished in **4m23s**, so round 2's cloud-init deadlock fix held on the real boot path
+- **Verification:**
+  - **ecs-agent:** 0 containers; 0 ECS units, 0 `ecs-init` packages.
+  - **IMDS:** a bridge container is **denied** (timeout); a host-network container gets a token, which is T-005's recorded docker.sock gap (no running container uses host networking); host IMDSv1 returns 401; host `param()` works.
+  - **Drone:** `DRONE_DATABASE_SECRET` present (32 characters), so repo secrets are encrypted at rest. **Rebuilt** via T-008's path: the human logged in with GitHub and supplied a token. The first token capture held page text (124 bytes), was caught by a shape check without revealing it, and was redone. The repo activation was done through the API. The deploy is green: cv-admin-react#16, merged as 7e9df5d, push build #3 through `deploy`.
+  - **Jenkins:** both jobs seeded, and `cv-domain-service` master **#1 SUCCESS**. The admin user is `erfeamor`, not `admin`.
+  - **Disk:** 22% after provisioning, **46% after two repos' builds** (under the 75% threshold); 4.4 GB of image cache can be reclaimed by the weekly prune (`image` and `builder` only, never containers).
+  - **user_data:** 6,201 of 8,192 bytes.
+- **Reaper paused with the `CIKeepAlive` tag,** which is drift-free, then removed. The host is stopped, the tunnel closed, and the token shredded. **Master plans No changes.**
+- **Follow-up:** [T-039](T-039-cv-infra-durable-runbooks-and-checks.md) turns the task-named T-007/T-008 docs and check scripts into durable runbooks and one static-check script, as the human requested at H2.
