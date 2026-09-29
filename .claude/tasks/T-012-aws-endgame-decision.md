@@ -35,9 +35,9 @@ deadline: 2027-01-12     # the Free-plan window; no longer the binding constrain
 
 **Execution — what is still open on this task:**
 - [ ] **Do the last $20 activity** (Bedrock playground) before 2027-01-12 — no longer "optional": under A its credit carries over and buys a month.
-- [ ] **Upgrade to the Paid plan by 2026-12-15** — *late on purpose*: upgrading ends the Free plan's protection against charges beyond the credits, so there is no reason to give that up early. **Upgrade the standalone account; never by joining an AWS Organization or a Control Tower landing zone — that forfeits the remaining credits immediately.**
-- [ ] Before upgrading: confirm the budget alarm ([T-011](T-011-budget-credit-alarm.md)) still fires on credit burn — under Paid it becomes the only guard against a runaway bill.
-- [ ] After upgrading: `docs/architecture.md` and both `CLAUDE.md` files state the Paid plan (this task's last AC).
+- [x] **Upgrade to the Paid plan by 2026-12-15** *(done 2026-09-29 by the human, earlier than planned, to register a Route 53 domain for T-034; verified: `accountPlanType: PAID`, ACTIVE, $102.13 credits remain)* — *late on purpose*: upgrading ends the Free plan's protection against charges beyond the credits, so there is no reason to give that up early. **Upgrade the standalone account; never by joining an AWS Organization or a Control Tower landing zone — that forfeits the remaining credits immediately.**
+- [x] Before upgrading: confirm the budget alarm ([T-011](T-011-budget-credit-alarm.md)) still fires on credit burn — under Paid it becomes the only guard against a runaway bill.
+- [x] After upgrading: `docs/architecture.md` and both `CLAUDE.md` files state the Paid plan (this task's last AC). *(2026-09-29: the meta files in this board sync; cv-infra/CLAUDE.md in its own cv-infra PR)*
 
 Everything below this block is the reasoning that led here, kept as the record.
 
@@ -121,11 +121,22 @@ Same question applies to self-hosted MySQL, tracked as **T-001**.
 
 - [ ] The two activities completed ~~**if they are still wanted**~~ **(wanted: under A the credit carries over and buys a month; board review 2026-09-28 aligned this with the "Do first" block)**, and the grant total recorded here — **no longer a precondition for the decision** (see the "Do first" note: they buy no elapsed time while the window binds). ~~The live grant is **$160**.~~ **The live grant is $180** (Lambda `COMPLETED`, read 2026-09-23 via `aws freetier list-account-activities`); Bedrock is the one left. Note cv-infra's `budget_credit_grant_amount` is still $160, so its percentage alerts now fire ~$20 early — the safe direction, and the item above already rules against raising it past the real grant.
 - [x] A written decision — A, B, or C — with its cost and its consequences, made on or before **2026-11-01**. — **A, 2026-09-24**, see the decision block at the top.
-- [ ] If **A**: the plan upgraded, and a follow-up task filed for the trims that are now worth doing. — *trims filed/widened 2026-09-24 (T-008, T-007, T-034, T-035); the upgrade itself is due 2026-12-15.*
+- [x] If **A**: the plan upgraded, and a follow-up task filed for the trims that are now worth doing. — *trims filed/widened 2026-09-24 (T-008, T-007, T-034, T-035); the upgrade itself is due 2026-12-15.*
 - [ ] ~~If **B**: T-008 landed first, a teardown runbook written, and the rebuild verified at least once against a throwaway apply rather than assumed.~~ **N/A — A chosen 2026-09-24.**
 - [ ] ~~If **C**: the migration scoped as its own dependency-ordered tasks.~~ **N/A — A chosen 2026-09-24.**
-- [ ] Whichever is chosen, `docs/architecture.md` and both `CLAUDE.md` files reflect it.
+- [x] Whichever is chosen, `docs/architecture.md` and both `CLAUDE.md` files reflect it.
 
 ## Definition of done
 
 A decision written down before the deadline, with its consequences owned — not a date that passed while the board said `todo`.
+
+## Upgraded to Paid — 2026-09-29 (verified by the driver the same day)
+
+The human upgraded the standalone account to the **Paid plan** earlier than the planned 2026-12-15 date, to register a Route 53 domain for [T-034](T-034-release-ci-host-idle-eip.md). Read from the account:
+- `aws freetier get-account-plan-state`: **PAID, ACTIVE, $102.13 credits remaining**. That's consistent with $106.61 on 09-23 minus ~6 days at ~$0.72/day.
+- **Activities:** Lambda, EC2, RDS and Budgets are **COMPLETED** (Lambda had been recorded as pending); **Bedrock is still NOT_STARTED (+$20)**.
+- **Daily usage** 09-20 to 09-28: **$0.67–0.80/day**, at the T-020 model. The higher days are CI host sessions.
+- **September:** $19.50 gross, fully credited, net $0.
+- **Budgets:** `credit-runway` (a $160 limit against what is really a ~$180 grant, so it alerts ~$20 early, which is the safe side; not raised, per this file's own note) and `gross-usage` ($30/month) both notify the SNS topic `cv-project-dev-budget-alerts`, which has a **confirmed email subscriber**.
+
+**What this changes:** the Free plan's protection is gone, and charges beyond the credits now bill the card. At the current rate the credits cover about 4½ months. Whether they carry an expiry date isn't exposed by the API: **check the Billing console's Credits page**. Remaining open item: **the Bedrock activity** (+$20).
