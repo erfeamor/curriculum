@@ -19,6 +19,11 @@ security_review: true   # changes the CI host's public addressing and the GitHub
 - **TLS is folded in (T-033 option b, via Let's Encrypt on the host):** `ci-proxy` gets a Let's Encrypt certificate for the CI hostname (HTTP-01, renewed when the host is up). `DRONE_SERVER_HOST`/`PROTO`, the GitHub OAuth callback and the webhooks are re-pointed to `https://<ci-hostname>`.
 - **Phasing:** phase 1 (the relay and the reaper) needs no domain. Phase 2 (the zone, updater, EIP release and TLS) **waits for the human's domain**.
 
+**H1 correction, same day, decided by the human: the relay is GitHub REDELIVERY, not a forward.** Checking the design against GitHub and Drone found two constraints. **GitHub times out a webhook after 10 seconds**, so the doorbell must answer at once and work asynchronously. **Drone verifies each webhook against a per-repo secret only it knows**, so a doorbell-signed delivery replayed to Drone would be rejected.
+
+- **Design:** keep Drone's own hook, and add a second, **doorbell-signed** hook on `cv-admin-react`. The doorbell returns 202 at once, then asynchronously starts the host, waits for Drone's `/healthz`, and calls GitHub's **redeliver** API for the Drone hook's failed deliveries since the wake. Signatures stay intact end to end.
+- **The token this needs is created by the human:** a **fine-grained token limited to `erfeamor/cv-admin-react`, Webhooks read/write only**. It goes into `terraform.tfvars`, and Terraform stores it as an SSM SecureString **outside `ci/*`**, readable only by the doorbell Lambda. The existing CI token was checked and **can't** manage webhooks (403, `repository_hooks=read` required).
+
 ## Why this exists
 
 Filed 2026-09-24 from the cost review that led to [T-012](T-012-aws-endgame-decision.md)'s decision **A (go Paid, with the stack trimmed)**. Cost Explorer, 2026-08-24 → 09-23:
