@@ -2,14 +2,18 @@
 id: T-033
 title: "The CI host serves Jenkins admin login and Drone OAuth over plain HTTP on a scanned public IP"
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: feat/ci-host-tls
 pr:
 depends_on: []
 risk: normal
 security_review: true   # stage-0 default, and it is not a guess: any implementation touches listener/ingress config and the OAuth callback, both adapter §5 paths. A1 re-checks against the real diff.
 ---
+
+## H1 — decided by the human, 2026-09-29 (session 4, at T-034's H1 as planned)
+
+**Option (b), with Let's Encrypt on the host** (not ACM): `ci-proxy` terminates TLS for the CI hostname that [T-034](T-034-release-ci-host-idle-eip.md) creates. It costs $0; the recurring cost is the domain and zone, recorded under T-034. Implemented in **T-034's phase 2**, once the human's domain exists: `DRONE_SERVER_PROTO=https`, both webhooks re-registered, and the OAuth flow re-tested end to end.
 
 > **Board review 2026-09-28**: **decide this task at [T-034](T-034-release-ci-host-idle-eip.md)'s H1, in the same session, as one gate.** Both hinge on the same DNS name and hosted zone. Option (a) (accept and record) remains a complete outcome and costs minutes.
 
