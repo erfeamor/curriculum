@@ -15,7 +15,8 @@ checkpoint:
   branch: (phase 2 branch TBD)
   worktree: none   # main cv-infra checkout
   commit: e295b95   # phase 1 merge
-  pr: https://github.com/erfeamor/cv-infra/pull/27   # phase 1
+  pr:   # phase 2 has no PR yet
+  phase1_pr: https://github.com/erfeamor/cv-infra/pull/27   # merged e295b95
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: normal
