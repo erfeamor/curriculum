@@ -143,7 +143,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3); **also wires Drone to the doorbell** | cv-infra | todo | | T-007 | |
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
-| [T-039](T-039-cv-infra-durable-runbooks-and-checks.md) | cv-infra: task-named T-007/T-008 runbooks and checks → durable, task-neutral ones | cv-infra | todo | | T-007, T-008 | |
+| [T-039](T-039-cv-infra-durable-runbooks-and-checks.md) | cv-infra: task-named T-007/T-008 runbooks and checks → durable, task-neutral ones | cv-infra | in_review | tech-product-owner | T-007, T-008 | [cv-infra#25](https://github.com/erfeamor/cv-infra/pull/25) |
 
 <details>
 <summary>Infra & ops — 28 done</summary>
