@@ -9,6 +9,29 @@ pr:
 depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root module with local state, so its applies run one at a time; T-007 replaces the CI host first (AMI swap + disk shrink), and this task then changes how that host is addressed
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
+checkpoint:
+  stage: 1   # phase 1 (doorbell redelivery + reaper grace): H1 accepted 2026-09-29, infrastructure-engineer implementing code + offline tests. Phase 2 waits for the human's domain
+  repo: cv-infra
+  branch: feat/ci-doorbell-drone-redelivery
+  worktree: none   # main cv-infra checkout
+  pr:
+  developer: infrastructure-engineer
+  reviewers: [code-review, security-review]
+  risk: normal
+  security_review: true   # new token, IAM, a public Function URL path
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a
+  updated: 2026-09-29T12:30:00+02:00
+  budget:
+    turns: 20   # session 4, --since 2026-09-29T09:28:39.000Z
+    total_tokens: 12000000
+    subagent_tokens: 0
+    spawns: 2   # quality-assurance (plan) + infrastructure-engineer
+    status: ok
+    checked: 2026-09-29T12:30:00+02:00
 ---
 
 ## H1 — decided by the human, 2026-09-29 (session 4); phase 2 waits on a domain
@@ -23,6 +46,12 @@ security_review: true   # changes the CI host's public addressing and the GitHub
 
 - **Design:** keep Drone's own hook, and add a second, **doorbell-signed** hook on `cv-admin-react`. The doorbell returns 202 at once, then asynchronously starts the host, waits for Drone's `/healthz`, and calls GitHub's **redeliver** API for the Drone hook's failed deliveries since the wake. Signatures stay intact end to end.
 - **The token this needs is created by the human:** a **fine-grained token limited to `erfeamor/cv-admin-react`, Webhooks read/write only**. It goes into `terraform.tfvars`, and Terraform stores it as an SSM SecureString **outside `ci/*`**, readable only by the doorbell Lambda. The existing CI token was checked and **can't** manage webhooks (403, `repository_hooks=read` required).
+
+**Phase-1 PO settlements, accepted at H1 confirm:**
+- **Reaper:** a 15-minute post-start grace. **No Drone queue signal (deferred):** reading it needs a Drone token or public metrics, and CPU already sees Drone's npm builds.
+- **Healthz ceiling:** 8 minutes, then skip and log; the runbook documents manual redelivery.
+- The token is at `/cv-project/dev/doorbell/github-hooks-token`.
+
 
 ## Why this exists
 
