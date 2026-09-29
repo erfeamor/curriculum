@@ -2,14 +2,22 @@
 id: T-034
 title: "Release the CI host's fixed public IP — it bills $3.64/month while the box is stopped, a sixth of the whole account"
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: chore/release-ci-host-eip
 pr:
 depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root module with local state, so its applies run one at a time; T-007 replaces the CI host first (AMI swap + disk shrink), and this task then changes how that host is addressed
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 ---
+
+## H1 — decided by the human, 2026-09-29 (session 4); phase 2 waits on a domain
+
+- **Drone cold start: the doorbell relays.** `cv-admin-react`'s webhook moves to the doorbell Function URL, which already verifies the HMAC and checks the allowlist. It starts the host, waits for Drone's `/healthz`, and **replays the exact body and headers** to Drone, so Drone's own signature check passes.
+- **Reaper:** a **post-start grace** (no stop within about 15 minutes of launch) and a **Drone busy check** (running or pending builds from Drone's API), alongside the Jenkins and CPU checks.
+- **EIP: design 1, release it.** The human registers a **domain** (their action, a real purchase). Then a Route 53 hosted zone, and a **DNS-on-boot updater** whose IAM grant is **scoped to one record name** (`route53:ChangeResourceRecordSetsNormalizedRecordNames`), because the CI role is reachable from builds (the T-005 gap). Then the EIP is released.
+- **TLS is folded in (T-033 option b, via Let's Encrypt on the host):** `ci-proxy` gets a Let's Encrypt certificate for the CI hostname (HTTP-01, renewed when the host is up). `DRONE_SERVER_HOST`/`PROTO`, the GitHub OAuth callback and the webhooks are re-pointed to `https://<ci-hostname>`.
+- **Phasing:** phase 1 (the relay and the reaper) needs no domain. Phase 2 (the zone, updater, EIP release and TLS) **waits for the human's domain**.
 
 ## Why this exists
 
