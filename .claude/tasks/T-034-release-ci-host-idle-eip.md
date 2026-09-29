@@ -10,11 +10,11 @@ depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root modu
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 checkpoint:
-  stage: 1   # PHASE 2: H1 accepted 2026-09-29 (+ PO settlements: IAM Resource = the zone ARN + 3 condition keys; LE production CA with persisted certs; OAuth re-check after apply 2); developer implementing on feat/ci-host-dns-tls — commit 1 DNS+Caddy/TLS+re-point, commit 2 EIP removal
+  stage: A1   # PHASE 2 code done: 303d461 (DNS+updater+IAM+Caddy/TLS+re-point, EIP kept) + 78a3b4b (EIP removal), pushed as backup (origin/feat/ci-host-dns-tls), NO PR yet. A1 green. STOPPED on the human's quota (>75%) before reviews. NEXT: /code-review high + /security-review on both commits (check DRONE_TUNNEL_INSECURE=1 in the reseed script; the developer made one read-only live AWS call via terraform plan — disclosed in 303d461), fix round, then apply 1 → OAuth callback (human) → apply 2 → cold start
   repo: cv-infra
   branch: feat/ci-host-dns-tls
   worktree: none   # main cv-infra checkout
-  commit: e295b95   # phase 1 merge
+  commit: 78a3b4b   # phase 2 branch head
   pr:   # phase 2 has no PR yet
   phase1_pr: https://github.com/erfeamor/cv-infra/pull/27   # merged e295b95
   developer: infrastructure-engineer
