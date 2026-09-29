@@ -32,7 +32,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 **Human**
 - **By 2026-10-30:** create a replacement CI GitHub token for Jenkins ([T-040](T-040-jenkins-github-pat-expiry.md)). The current one expires **2026-11-06**.
 - The last $20 credit activity (Bedrock playground), any time before **2027-01-12**. Under A its credit carries over.
-- **By 2026-12-15:** upgrade the standalone account to the Paid plan, **never** via an Organization or Control Tower (that forfeits the credits). Tracked in [T-012](T-012-aws-endgame-decision.md).
+- ~~Upgrade to the Paid plan~~: **done 2026-09-29** ([T-012](T-012-aws-endgame-decision.md)). Charges past the remaining credits ($102.13) now bill the card; the budget alarms are the guard.
 
 **Standing invariant:** no new migration in cv-database until T-014 moves production to Flyway 13.7.0.
 
