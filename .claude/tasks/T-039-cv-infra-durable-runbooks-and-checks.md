@@ -2,7 +2,7 @@
 id: T-039
 title: "cv-infra: turn the task-named T-007/T-008 runbooks and check scripts into durable, task-neutral ones"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: chore/durable-runbooks-and-checks
 pr: https://github.com/erfeamor/cv-infra/pull/25
@@ -49,3 +49,11 @@ Filed by the driver at T-007's H2, 2026-09-29, on the human's instruction ("merg
 - **`docs/runbooks/drone.md`** and **`docs/runbooks/ci-host-replace.md`** are written from what worked live.
 - **Evidence:** 8 mutations in scratch copies, each red with the right message. The full offline gate is green, and the real `terraform plan` shows **No changes**.
 - **Known leftover:** `templates/jenkins-provision.sh` still names the old script in two comments. Editing even a comment there re-provisions Jenkins on the live host, so those references ride that template's next real change.
+
+## Resolution — 2026-09-29
+
+Merged cb4d642 ([cv-infra#25](https://github.com/erfeamor/cv-infra/pull/25)) on the human's acceptance. The human asked for a `/code-review` after implementation, and it ran in two passes:
+- **Medium pass: 6 findings,** all fixed. The policy check could be bypassed (one-line statements, `NotAction`/`NotResource`, multi-line lists) and could abort silently. Procedure B's `-replace` deleted the old key first, so it now uses `terraform state rm` and an apply for overlap. The state backup didn't create its directory. There were stale comments, and non-runnable queries.
+- **Low verification pass: 2 more,** both fixed: a bare `Action = "*"` passed the check, and rotation step 4 only warned.
+- **Final state:** 15 bypass mutations are red, and a control (a harmless multi-line reformat) passes. The offline gate is green, the runbooks' read-only queries were verified against the live host, and the real plan shows No changes.
+- **Leftover by design:** two comments in `templates/jenkins-provision.sh` still name the old script. They ride that template's next real change, because editing it re-provisions Jenkins live.
