@@ -30,6 +30,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - → **[T-501](T-501-e2e-cv-milestone.md)**, whose PR **also carries [T-015](T-015-docs-reflect-deployed-bff.md)** (same files, same live verification).
 
 **Human**
+- **By 2026-10-30:** create a replacement CI GitHub token for Jenkins ([T-040](T-040-jenkins-github-pat-expiry.md)). The current one expires **2026-11-06**.
 - The last $20 credit activity (Bedrock playground), any time before **2027-01-12**. Under A its credit carries over.
 - **By 2026-12-15:** upgrade the standalone account to the Paid plan, **never** via an Organization or Control Tower (that forfeits the credits). Tracked in [T-012](T-012-aws-endgame-decision.md).
 
@@ -133,6 +134,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3); **also wires Drone to the doorbell** | cv-infra | in_progress | tech-product-owner | T-007 | |
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
+| [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
 
 <details>
 <summary>Infra & ops — 32 done</summary>
