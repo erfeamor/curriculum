@@ -134,3 +134,11 @@ Two gaps:
 10. **Build `DRONE_HEALTHZ_URL` from one local** (`local.ci_public_host`), so phase 2 changes a single place.
 
 Still pending after these: `/security-review`, a round-2 check, the human's `github_hooks_token` in tfvars, the manual doorbell hook, the apply, and the live cold-start test. Phase 2 waits for the human's domain.
+
+## Phase 2 prerequisite met — the domain is registered (2026-09-29)
+
+The human registered **`erfeamor.com`** through Route 53 Domains, in this account. Verified by the driver:
+- `REGISTER_DOMAIN` SUCCESSFUL; status ACTIVE; created 2026-09-29; **expires 2027-09-29, auto-renew on**; privacy on for the registrant, admin and tech contacts.
+- **Hosted zone `Z0608270B7WND031GVOW`** (public) was created with it. The domain's nameservers match the zone's delegation set.
+
+**For phase 2:** use a CI subdomain (e.g. `ci.erfeamor.com`) in this zone; don't touch the apex. The boot updater's IAM should be scoped to that one record name (`route53:ChangeResourceRecordSetsNormalizedRecordNames`). **Decide at phase 2 whether Terraform manages the zone** (import `Z0608270B7WND031GVOW`) **or only its records.** The registration itself stays outside Terraform. **Cost:** the domain registration fee (annual, auto-renews) plus ~$0.50/month for the zone.
