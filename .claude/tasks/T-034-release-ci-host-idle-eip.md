@@ -10,7 +10,7 @@ depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root modu
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 checkpoint:
-  stage: 1   # phase 1 (doorbell redelivery + reaper grace): H1 accepted 2026-09-29, infrastructure-engineer implementing code + offline tests. Phase 2 waits for the human's domain
+  stage: review   # phase 1 r1: /code-review high 10 findings (incl. SECURITY: public InvokeFunction grant lets any AWS principal reach the async path) — fixes with the developer; branch feat/ci-doorbell-drone-redelivery @0567f6a
   repo: cv-infra
   branch: feat/ci-doorbell-drone-redelivery
   worktree: none   # main cv-infra checkout
@@ -19,7 +19,7 @@ checkpoint:
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true   # new token, IAM, a public Function URL path
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
