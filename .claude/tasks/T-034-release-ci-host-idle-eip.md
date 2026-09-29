@@ -10,7 +10,7 @@ depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root modu
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 checkpoint:
-  stage: review   # STOPPED 2026-09-29 on the human's plan quota (~92%). Phase 1 r1: 10 /code-review findings accepted (incl. SECURITY: public InvokeFunction grant reaches the async path). The developer was stopped MID-FIX: branch feat/ci-doorbell-drone-redelivery, last commit 0567f6a (unpushed); any uncommitted edits in the main cv-infra checkout are partial r1 work. Resume: inspect `git status`, then re-brief a fresh developer with the 10 findings (listed in the session transcript and summarised in this file's review note)
+  stage: review   # phase 1: r1 fixed (b1c5760) + driver correction (d902dde: public InvokeFunction restored per T-019, async event HMAC-signed instead); /security-review CLEAN; r2 /code-review 6 findings → final round 3 with the developer. Branch pushed as backup (origin/feat/ci-doorbell-drone-redelivery). Budget re-baselined at the human's confirmed window reset 2026-09-29T13:30Z
   repo: cv-infra
   branch: feat/ci-doorbell-drone-redelivery
   worktree: none   # main cv-infra checkout
@@ -19,7 +19,7 @@ checkpoint:
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true   # new token, IAM, a public Function URL path
-  review_round: 1
+  review_round: 3
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
