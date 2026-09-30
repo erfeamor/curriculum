@@ -10,7 +10,7 @@ depends_on: [T-034]
 risk: low
 security_review: false   # narrows what the doorbell acts on; the HMAC check and allowlist are untouched
 checkpoint:
-  stage: qa   # review round 1 clean; PR open; NEXT: live apply (Lambda code only), delete/push/delete proof with the host stopped — deferred: /usage 40–75% at H1
+  stage: h2   # applied from the branch 2026-10-01; live proof passed; awaiting human acceptance
   repo: cv-infra
   branch: fix/doorbell-skip-deleted-refs
   worktree: none   # main cv-infra checkout
@@ -25,14 +25,14 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a   # live Lambda + CI host
-  updated: 2026-10-01T01:45:00+02:00
+  updated: 2026-10-01T01:55:00+02:00
   budget:
     turns: 0
     total_tokens: 0
     subagent_tokens: 73041
     spawns: 1   # infrastructure-engineer (fresh)
     status: ok   # human-reported /usage 40–75%
-    checked: 2026-10-01T01:45:00+02:00
+    checked: 2026-10-01T01:55:00+02:00
 ---
 
 ## H1 — decided by the human, 2026-10-01
@@ -43,6 +43,13 @@ Refinement found the same waste one step wider: the doorbell's synchronous path 
 2. **Red-first unit tests:** a deletion payload and a non-build PR action don't start the host or schedule the async task; a normal push and an `opened` PR still do.
 3. **Live proof:** host stopped → delete a throwaway `cv-admin-react` branch → no `StartInstances` (CloudTrail eu-west-3) and an "ignored" doorbell log; then push a fresh branch → the host still wakes and redelivers; delete that branch (skipped), then stop. The PR-action skip is proven by unit tests only.
 4. **Budget:** `/usage` 40–75% → implement and review, **checkpoint before the live apply**.
+
+## Live QA — 2026-10-01, applied from the branch
+
+- **Apply:** 0 added, 1 changed (`aws_lambda_function.ci_doorbell`), 0 destroyed.
+- **Control, host stopped:** push to `ci/t042-proof` at 23:44:54Z → the doorbell started the host 23:44:59, **redelivered 2/2** at 23:46:17, Drone green by 23:47:40. Stopped at 23:48:15; the record flipped to `192.0.2.1` (T-041 holding).
+- **The fix, host stopped:** deleted `ci/t042-proof` at 23:48:15Z → doorbell log `ignored: repo=erfeamor/cv-admin-react event=push reason=deleted ref` at 23:48:18; the host stayed `stopped` for the 2 minutes watched; CloudTrail (eu-west-3) shows **one** `StartInstances` in the window, the control push's.
+- The branch plans **No changes**; no throwaway branches left.
 
 ## Implement + review — 2026-10-01 (2854cb0, cv-infra#30)
 
@@ -65,5 +72,5 @@ Workaround in use: delete branches only while the host is already up, so the doo
 
 ## Acceptance criteria
 
-- [ ] A branch deletion on `cv-admin-react` while the host is stopped leaves it stopped (live check, CloudTrail shows no `StartInstances`).
-- [ ] A normal push still wakes it (the existing cold-start path, unchanged).
+- [x] A branch deletion on `cv-admin-react` while the host is stopped leaves it stopped (live check, CloudTrail shows no `StartInstances`).
+- [x] A normal push still wakes it (the existing cold-start path, unchanged).
