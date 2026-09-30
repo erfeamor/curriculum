@@ -10,7 +10,7 @@ depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root modu
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 checkpoint:
-  stage: review   # PHASE 2 final round 3 INTERRUPTED 2026-09-30 by the human's session limit (resets 21:20 Madrid). Partial round-3 work saved as WIP commit 037da55 on origin/wip/t034-p2-round3 (unfinished, gates not run, not yet split into the 2-commit structure). Reviewed branch feat/ci-host-dns-tls untouched at ab6338a. RESUME: developer continues from the WIP branch, folds fixes into the two commits on feat/ci-host-dns-tls, runs gates at both trees; driver verifies (past-cap round is driver-verified), then apply 1 → hook PATCH via /config + real delivery → OAuth (human) → apply 2 (host stopped) → cold start
+  stage: review   # PHASE 2 final round 3 RESUMED 2026-09-30 22:50 by a FRESH infrastructure-engineer (4th spawn on this task, over max_spawns_per_task=3 — deliberate cost trade: the original instance's context made every turn very expensive) from WIP 037da55; target history on feat/ci-host-dns-tls = 2 commits over e295b95
   repo: cv-infra
   branch: feat/ci-host-dns-tls
   worktree: none   # main cv-infra checkout
@@ -31,7 +31,7 @@ checkpoint:
     turns: 20   # session 4, --since 2026-09-29T09:28:39.000Z
     total_tokens: 12000000
     subagent_tokens: 0
-    spawns: 2   # quality-assurance (plan) + infrastructure-engineer
+    spawns: 4   # QA p1, dev (resumed many times), QA p2, fresh dev for round 3 (over cap, recorded)
     status: ok
     checked: 2026-09-29T12:30:00+02:00
 ---
