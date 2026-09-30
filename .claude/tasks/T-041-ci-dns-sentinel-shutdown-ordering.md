@@ -2,7 +2,7 @@
 id: T-041
 title: "The CI host's shutdown DNS sentinel is a race: two stops in four left ci.erfeamor.com pointing at a released public IP"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: fix/ci-dns-sentinel-ordering
 pr: https://github.com/erfeamor/cv-infra/pull/29
@@ -10,11 +10,11 @@ depends_on: [T-034]
 risk: normal
 security_review: true   # the sentinel exists to stop a released IP (possibly reassigned to another AWS customer) from answering for ci.erfeamor.com — adapter §5 network exposure
 checkpoint:
-  stage: h2   # applied from the branch 2026-10-01; 6/6 stops wrote the sentinel; awaiting human acceptance
+  stage: done   # merged 92d6332 (squash of cv-infra#29), 2026-10-01 — applied from the branch first; H2 accepted; master plans No changes
   repo: cv-infra
   branch: fix/ci-dns-sentinel-ordering
   worktree: none   # main cv-infra checkout
-  commit: f51c201
+  commit: 92d6332
   pr: https://github.com/erfeamor/cv-infra/pull/29
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]

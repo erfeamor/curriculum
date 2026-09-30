@@ -4,7 +4,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-30 (session 4 closed: T-034 and T-033 merged; the CI host has a name, TLS and no EIP)
+## Now / Next / Later — refreshed 2026-10-01 (T-041 merged: the CI host's DNS sentinel is reliable; next T-042, then T-014)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
@@ -16,8 +16,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 
 **Session 4 — done (2026-09-29/30).** [T-034](T-034-release-ci-host-idle-eip.md) + [T-033](T-033-ci-host-tls.md) (cv-infra#27, #28): a push while the CI host is stopped wakes it and the doorbell redelivers Drone's missed webhooks; `ci.erfeamor.com` is kept current by a boot updater; `ci-proxy` is Caddy with Let's Encrypt; the CI host's EIP is released (−$3.64/mo). **Measured cost:** it spanned several plan windows, and the probe under-counted it badly because developer subagents, which it does not count, dominated the spend. Budget infra tasks by the human's `/usage` figure, not by the probe.
 
-**Session 5 — two small CI-host fixes first, then [T-014](T-014-deploy-bff-to-aws.md)**
-- [T-041](T-041-ci-dns-sentinel-shutdown-ordering.md) (**security**: the shutdown DNS sentinel lost a race in two of four stops) and [T-042](T-042-doorbell-wakes-on-branch-deletion.md) (branch deletions wake the host). Both are small and cv-infra-only; run them before T-014 so applies stay serial. **Until T-041 lands:** after any manual stop, read the `ci.erfeamor.com` record and UPSERT `192.0.2.1` by hand if it didn't flip; delete branches only while the host is up (T-042).
+**Session 5 — [T-041](T-041-ci-dns-sentinel-shutdown-ordering.md) done (2026-10-01, cv-infra#29):** the shutdown sentinel now writes on every stop (6/6 proven). Next, [T-042](T-042-doorbell-wakes-on-branch-deletion.md) (branch deletions wake the host; small, cv-infra-only; until it lands, delete branches only while the host is up), then T-014.
 
 **Then [T-014](T-014-deploy-bff-to-aws.md)** (~80–100M)
 - Deploy the BFF. It carries the production Flyway pin, decides [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at its H2, and **measures memory** (any resize is a cost decision under A). **It lifts the migration freeze.**
@@ -41,7 +40,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): only if T-004 decides to rotate `db_password`, or before anyone does.
 
-**Done 2026-09-27/30:** T-034, T-033, T-039, T-007, T-008, T-109, T-004, T-032, T-036, T-302, T-115, T-027, T-029 (plus T-409, T-401, T-108, T-402, T-301, T-114 earlier in the same session).
+**Done 2026-09-27/10-01:** T-041, T-034, T-033, T-039, T-007, T-008, T-109, T-004, T-032, T-036, T-302, T-115, T-027, T-029 (plus T-409, T-401, T-108, T-402, T-301, T-114 earlier in the same session).
 
 **Done in the CI-host session (2026-09-24/25):** T-155, T-153, T-156, T-111. Both Jenkins pipelines are bounded and proven, and T-019's last AC is settled.
 
@@ -135,11 +134,10 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
-| [T-041](T-041-ci-dns-sentinel-shutdown-ordering.md) | **The shutdown DNS sentinel is a race**: two stops in four left `ci.erfeamor.com` on a released public IP | cv-infra | in_review | tech-product-owner | T-034 ✔ | [cv-infra#29](https://github.com/erfeamor/cv-infra/pull/29) |
 | [T-042](T-042-doorbell-wakes-on-branch-deletion.md) | The doorbell wakes the CI host for branch deletions (nothing to build) | cv-infra | todo | | T-034 ✔ | |
 
 <details>
-<summary>Infra & ops — 34 done</summary>
+<summary>Infra & ops — 35 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -177,6 +175,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-039](T-039-cv-infra-durable-runbooks-and-checks.md) | cv-infra: task-named T-007/T-008 runbooks and checks → durable, task-neutral ones | cv-infra | done | tech-product-owner | T-007, T-008 | [cv-infra#25](https://github.com/erfeamor/cv-infra/pull/25) |
 | [T-033](T-033-ci-host-tls.md) | CI host TLS — **decided (b): Let's Encrypt via Caddy on `ci.erfeamor.com`**, shipped in T-034 phase 2 | cv-infra | done | tech-product-owner | — | [cv-infra#28](https://github.com/erfeamor/cv-infra/pull/28) |
 | [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle EIP — **done**: `ci.erfeamor.com` + DNS on boot, EIP released, Drone wired to the doorbell | cv-infra | done | tech-product-owner | T-007 | [cv-infra#27](https://github.com/erfeamor/cv-infra/pull/27) + [#28](https://github.com/erfeamor/cv-infra/pull/28) |
+| [T-041](T-041-ci-dns-sentinel-shutdown-ordering.md) | The shutdown DNS sentinel raced network teardown — **fixed**: the unit orders after `network-online.target`; 6/6 stops proven | cv-infra | done | tech-product-owner | T-034 ✔ | [cv-infra#29](https://github.com/erfeamor/cv-infra/pull/29) |
 
 </details>
 
