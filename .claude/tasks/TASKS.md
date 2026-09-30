@@ -32,8 +32,8 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 
 **Human**
 - **By 2026-10-30:** create a replacement CI GitHub token for Jenkins ([T-040](T-040-jenkins-github-pat-expiry.md)). The current one expires **2026-11-06**.
-- The last $20 credit activity (Bedrock playground), any time before **2027-01-12**. Under A its credit carries over.
-- ~~Upgrade to the Paid plan~~: **done 2026-09-29** ([T-012](T-012-aws-endgame-decision.md)). Charges past the remaining credits ($102.13) now bill the card; the budget alarms are the guard.
+- ~~The last $20 credit activity (Bedrock playground)~~: **done 2026-10-01** — all five activities complete, grant $200 ([T-012](T-012-aws-endgame-decision.md) closed).
+- ~~Upgrade to the Paid plan~~: **done 2026-09-29** ([T-012](T-012-aws-endgame-decision.md)). Charges past the remaining credits (**$120.75** on 2026-10-01) now bill the card; the budget alarms are the guard.
 
 **Standing invariant:** no new migration in cv-database until T-014 moves production to Flyway 13.7.0.
 
@@ -123,12 +123,11 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 
 ## Infra & ops (outside M2)
 
-[T-012](T-012-aws-endgame-decision.md) decided **A (go Paid, trimmed)** on 2026-09-24, so the hardening and cost trims below are all worth doing. **cv-infra applies are strictly serial** — one root module, local state.
+[T-012](T-012-aws-endgame-decision.md) decided **A (go Paid, trimmed)** on 2026-09-24 and closed 2026-10-01 (Paid since 09-29, all credit activities done, $120.75 left), so the hardening and cost trims below are all worth doing. **cv-infra applies are strictly serial** — one root module, local state.
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-005](T-005-ci-secret-blast-radius.md) | Limit CI secret blast radius: block IMDS from containers | cv-infra | todo | | T-002, T-007 | |
-| [T-012](T-012-aws-endgame-decision.md) | **Paid-vs-teardown — DECIDED 2026-09-24: A, go Paid with the stack trimmed**; upgrade by 2026-12-15 | cv-project (meta) | in_progress | tech-product-owner | — | |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution (cross-repo: split at stage 0 if implemented) | cv-infra + cv-domain-service | todo | | T-022 | |
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
@@ -136,7 +135,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
 
 <details>
-<summary>Infra & ops — 36 done</summary>
+<summary>Infra & ops — 37 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -176,10 +175,13 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle EIP — **done**: `ci.erfeamor.com` + DNS on boot, EIP released, Drone wired to the doorbell | cv-infra | done | tech-product-owner | T-007 | [cv-infra#27](https://github.com/erfeamor/cv-infra/pull/27) + [#28](https://github.com/erfeamor/cv-infra/pull/28) |
 | [T-041](T-041-ci-dns-sentinel-shutdown-ordering.md) | The shutdown DNS sentinel raced network teardown — **fixed**: the unit orders after `network-online.target`; 6/6 stops proven | cv-infra | done | tech-product-owner | T-034 ✔ | [cv-infra#29](https://github.com/erfeamor/cv-infra/pull/29) |
 | [T-042](T-042-doorbell-wakes-on-branch-deletion.md) | The doorbell woke the CI host for events with nothing to build — **fixed**: deleted refs and non-build PR actions are ignored | cv-infra | done | tech-product-owner | T-034 ✔ | [cv-infra#30](https://github.com/erfeamor/cv-infra/pull/30) |
+| [T-012](T-012-aws-endgame-decision.md) | **Paid-vs-teardown — DECIDED 2026-09-24: A, go Paid with the stack trimmed**; upgrade by 2026-12-15 | cv-project (meta) | done | tech-product-owner | — | |
 
 </details>
 
 ### The measured model — [T-020](T-020-cost-model-correction.md), read 2026-08-19, updated 2026-09-23
+
+> **Superseded as current figures (2026-10-01):** the plan is **PAID** since 2026-09-29, the grant is **$200** (all five activities done), and **$120.75** remains. The table below is the 2026-09-23 reading, kept as the record; [T-012](T-012-aws-endgame-decision.md)'s closing note has the current state.
 
 **No console needed, and that is itself a finding.** `aws freetier get-account-plan-state` and `list-account-activities` post-date T-010 and return everything its `human_dependency` declared console-only. T-020's §1 was parked on a constraint that had expired.
 
