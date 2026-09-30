@@ -10,7 +10,7 @@ depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root modu
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 checkpoint:
-  stage: review   # PHASE 2 r1 fixed: 3d5870f (commit 1: DNS+TLS, EIP kept) + ab6338a (commit 2: EIP removal), pushed (origin/feat/ci-host-dns-tls, force-with-lease), NO PR yet; offline gates green at both trees. STOPPED on quota (>75%). NEXT: /security-review + round-2 /code-review on e295b95..ab6338a, then apply 1 → PATCH Drone hook 687961843 to https://ci.erfeamor.com/hook → human OAuth callback → verify → apply 2 with the host STOPPED → cold start. Runbook sections are in docs/runbooks/drone.md
+  stage: review   # PHASE 2: /security-review CLEAN; r2 /code-review 5 findings (hook PATCH would drop the webhook secret; dangling A record → recycled IP while stopped: sentinel 192.0.2.1 on stop via shutdown unit + reaper, doorbell waits for DNS=current IP; ordering fixes into commit 1; cert-independent routing probe; placeholder = sentinel) → FINAL round 3 with the developer
   repo: cv-infra
   branch: feat/ci-host-dns-tls
   worktree: none   # main cv-infra checkout
@@ -21,7 +21,7 @@ checkpoint:
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true   # new token, IAM, a public Function URL path
-  review_round: 1   # phase 2
+  review_round: 3   # phase 2
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
