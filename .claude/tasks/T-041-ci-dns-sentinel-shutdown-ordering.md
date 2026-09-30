@@ -2,37 +2,37 @@
 id: T-041
 title: "The CI host's shutdown DNS sentinel is a race: two stops in four left ci.erfeamor.com pointing at a released public IP"
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: fix/ci-dns-sentinel-ordering
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/29
 depends_on: [T-034]
 risk: normal
 security_review: true   # the sentinel exists to stop a released IP (possibly reassigned to another AWS customer) from answering for ci.erfeamor.com — adapter §5 network exposure
 checkpoint:
-  stage: implement   # H1 decided 2026-09-30 (below); human /usage 40–75% → stop at a checkpoint BEFORE the live apply
+  stage: qa   # review round 1 clean; PR open; NEXT: live apply from the branch (host must be up, CIKeepAlive), systemctl show check, then 5 stop/start cycles — deferred: human /usage 40–75% at H1
   repo: cv-infra
   branch: fix/ci-dns-sentinel-ordering
   worktree: none   # main cv-infra checkout
-  commit:
-  pr:
+  commit: f51c201
+  pr: https://github.com/erfeamor/cv-infra/pull/29
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a   # live on the CI host
-  updated: 2026-10-01T00:50:00+02:00
+  updated: 2026-10-01T01:05:00+02:00
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 107346
+    spawns: 1   # infrastructure-engineer (fresh)
     status: ok   # human-reported /usage 40–75%
-    checked: 2026-10-01T00:50:00+02:00
+    checked: 2026-10-01T01:05:00+02:00
 ---
 
 ## H1 — decided by the human, 2026-09-30
@@ -44,6 +44,14 @@ checkpoint:
 3. **Runbooks:** after a manual stop, read the record; UPSERT `192.0.2.1` by hand if it didn't flip.
 4. **Live proof: 5 consecutive operator stop/start cycles** after the apply, each leaving the record on `192.0.2.1` within a minute, with the host's own UPSERT in CloudTrail (**us-east-1**) and "UPSERTed" in the journal.
 5. **Budget:** the human reported `/usage` at 40–75%, so implement and review this window, and **checkpoint before the live apply**.
+
+## Implement + review — 2026-10-01 (f51c201, cv-infra#29)
+
+- Developer (fresh infrastructure-engineer, 1 spawn, ~107k tokens): exactly the H1 scope. Check 17 red-first (FAIL with the unit change stashed, OK restored).
+- Driver-verified: diff read, full offline gate re-run green (terraform test 14/14, check-static 17/17, harnesses 12/21/10, Lambda 75).
+- **Review round 1 (driver, code + security lenses): clean.** Ordering holds on stop (networkd and resolved are both ordered before `network-online.target`); no boot cycle (docker already starts after network-online; the updater uses the same pair live); 20s is well inside systemd's 90s stop timeout; the logged CLI error carries no credentials. Non-blocking, pre-existing: `scripts/tests/run-ci-dns-sentinel-tests.sh` isn't in cv-infra CLAUDE.md's offline-gate list.
+
+**Next (resume here):** start the host with `CIKeepAlive`, back up state, plan from the branch (expect the provisioning script's S3 object, SSM hash and `null_resource.jenkins_provision` only), apply, `systemctl show ci-dns-sentinel -p After -p Wants`, then 5 stop/start cycles with record + CloudTrail (us-east-1) + journal checks. Then H2.
 
 ## Why
 
