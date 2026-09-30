@@ -2,14 +2,18 @@
 id: T-033
 title: "The CI host serves Jenkins admin login and Drone OAuth over plain HTTP on a scanned public IP"
 repo: cv-infra
-status: in_progress
+status: done
 owner: tech-product-owner
-branch: feat/ci-host-tls
-pr:
+branch: feat/ci-host-dns-tls   # shipped inside T-034 phase 2
+pr: https://github.com/erfeamor/cv-infra/pull/28
 depends_on: []
 risk: normal
 security_review: true   # stage-0 default, and it is not a guess: any implementation touches listener/ingress config and the OAuth callback, both adapter §5 paths. A1 re-checks against the real diff.
 ---
+
+## Done 2026-09-30 — shipped in T-034 phase 2 (cv-infra#28, f14bcfa)
+
+`ci-proxy` is now Caddy with automatic Let's Encrypt (production CA) for `ci.erfeamor.com`, certificates persisted on the host so stop/start never re-issues. Verified live: the certificate is `CN=ci.erfeamor.com` (valid to 2026-12-29), plain HTTP gets a 301 to HTTPS, an unknown `Host` gets 421, Jenkins answers 200 over HTTPS, Drone's hook delivers 200 to `https://ci.erfeamor.com/hook`, and the human's Drone GitHub login works after the IP changed (re-checked 2026-09-30). Detail on [T-034](T-034-release-ci-host-idle-eip.md).
 
 ## H1 — decided by the human, 2026-09-29 (session 4, at T-034's H1 as planned)
 

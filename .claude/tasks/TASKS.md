@@ -4,7 +4,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-09-29 (session 3 closed: T-007 and T-039 merged; the CI host is rebuilt and its runbooks are durable)
+## Now / Next / Later — refreshed 2026-09-30 (session 4 closed: T-034 and T-033 merged; the CI host has a name, TLS and no EIP)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
@@ -14,11 +14,12 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 
 **Host-up work from here:** follow `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`). Pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
-**Session 4 — CI host edge and the reaper**, **in progress**
-- [T-034](T-034-release-ci-host-idle-eip.md) **phase 1 done** (e295b95): a push while the CI host is stopped now wakes it, and the doorbell **redelivers Drone's missed webhooks** (proven live). The reaper has a 15-minute post-start grace.
-- **Next:** T-034 **phase 2** + [T-033](T-033-ci-host-tls.md): `ci.erfeamor.com` (the domain is registered and the zone exists) with DNS on boot, the EIP released, and **Let's Encrypt** on `ci-proxy`.
+**Session 4 — done (2026-09-29/30).** [T-034](T-034-release-ci-host-idle-eip.md) + [T-033](T-033-ci-host-tls.md) (cv-infra#27, #28): a push while the CI host is stopped wakes it and the doorbell redelivers Drone's missed webhooks; `ci.erfeamor.com` is kept current by a boot updater; `ci-proxy` is Caddy with Let's Encrypt; the CI host's EIP is released (−$3.64/mo). **Measured cost:** it spanned several plan windows, and the probe under-counted it badly because developer subagents, which it does not count, dominated the spend. Budget infra tasks by the human's `/usage` figure, not by the probe.
 
-**Session 5 — [T-014](T-014-deploy-bff-to-aws.md) alone** (~80–100M)
+**Session 5 — two small CI-host fixes first, then [T-014](T-014-deploy-bff-to-aws.md)**
+- [T-041](T-041-ci-dns-sentinel-shutdown-ordering.md) (**security**: the shutdown DNS sentinel lost a race in two of four stops) and [T-042](T-042-doorbell-wakes-on-branch-deletion.md) (branch deletions wake the host). Both are small and cv-infra-only; run them before T-014 so applies stay serial. **Until T-041 lands:** after any manual stop, read the `ci.erfeamor.com` record and UPSERT `192.0.2.1` by hand if it didn't flip; delete branches only while the host is up (T-042).
+
+**Then [T-014](T-014-deploy-bff-to-aws.md)** (~80–100M)
 - Deploy the BFF. It carries the production Flyway pin, decides [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at its H2, and **measures memory** (any resize is a cost decision under A). **It lifts the migration freeze.**
 
 **Session 6 — after T-014** (~85M)
@@ -40,7 +41,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): only if T-004 decides to rotate `db_password`, or before anyone does.
 
-**Done 2026-09-27/29:** T-039, T-007, T-008, T-109, T-004, T-032, T-036, T-302, T-115, T-027, T-029 (plus T-409, T-401, T-108, T-402, T-301, T-114 earlier in the same session).
+**Done 2026-09-27/30:** T-034, T-033, T-039, T-007, T-008, T-109, T-004, T-032, T-036, T-302, T-115, T-027, T-029 (plus T-409, T-401, T-108, T-402, T-301, T-114 earlier in the same session).
 
 **Done in the CI-host session (2026-09-24/25):** T-155, T-153, T-156, T-111. Both Jenkins pipelines are bounded and proven, and T-019's last AC is settled.
 
@@ -131,14 +132,14 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-012](T-012-aws-endgame-decision.md) | **Paid-vs-teardown — DECIDED 2026-09-24: A, go Paid with the stack trimmed**; upgrade by 2026-12-15 | cv-project (meta) | in_progress | tech-product-owner | — | |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution (cross-repo: split at stage 0 if implemented) | cv-infra + cv-domain-service | todo | | T-022 | |
-| [T-033](T-033-ci-host-tls.md) | CI host serves Jenkins login and Drone OAuth over plain HTTP on a scanned public IP — decide TLS or record the accepted risk | cv-infra | in_progress | tech-product-owner | — | |
-| [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle Elastic IP — $3.64/mo for an address used ~0.3% of the time (trim step 3); **also wires Drone to the doorbell** | cv-infra | in_progress | tech-product-owner | T-007 | phase 1: [cv-infra#27](https://github.com/erfeamor/cv-infra/pull/27) |
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
+| [T-041](T-041-ci-dns-sentinel-shutdown-ordering.md) | **The shutdown DNS sentinel is a race**: two stops in four left `ci.erfeamor.com` on a released public IP | cv-infra | todo | | T-034 ✔ | |
+| [T-042](T-042-doorbell-wakes-on-branch-deletion.md) | The doorbell wakes the CI host for branch deletions (nothing to build) | cv-infra | todo | | T-034 ✔ | |
 
 <details>
-<summary>Infra & ops — 32 done</summary>
+<summary>Infra & ops — 34 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -174,6 +175,8 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-008](T-008-drone-host-backup-and-snapshot.md) | Drone state to SSM + a real CI-host backup, then retire the T-002 snapshot — **trim step 1** (−$0.69/mo) | cv-infra | done | tech-product-owner | T-002 | [cv-infra#23](https://github.com/erfeamor/cv-infra/pull/23) |
 | [T-007](T-007-ecs-agent-cleanup.md) | CI host: plain AL2023 AMI, **measured** root — drops the ecs-agent (**widened 2026-09-24; premise corrected 2026-09-25**: needs `-replace` and an explicit root size) | cv-infra | done | tech-product-owner | T-002, **T-008** | [cv-infra#24](https://github.com/erfeamor/cv-infra/pull/24) |
 | [T-039](T-039-cv-infra-durable-runbooks-and-checks.md) | cv-infra: task-named T-007/T-008 runbooks and checks → durable, task-neutral ones | cv-infra | done | tech-product-owner | T-007, T-008 | [cv-infra#25](https://github.com/erfeamor/cv-infra/pull/25) |
+| [T-033](T-033-ci-host-tls.md) | CI host TLS — **decided (b): Let's Encrypt via Caddy on `ci.erfeamor.com`**, shipped in T-034 phase 2 | cv-infra | done | tech-product-owner | — | [cv-infra#28](https://github.com/erfeamor/cv-infra/pull/28) |
+| [T-034](T-034-release-ci-host-idle-eip.md) | Release the CI host's idle EIP — **done**: `ci.erfeamor.com` + DNS on boot, EIP released, Drone wired to the doorbell | cv-infra | done | tech-product-owner | T-007 | [cv-infra#27](https://github.com/erfeamor/cv-infra/pull/27) + [#28](https://github.com/erfeamor/cv-infra/pull/28) |
 
 </details>
 

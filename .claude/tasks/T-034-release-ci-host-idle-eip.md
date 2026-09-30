@@ -2,20 +2,20 @@
 id: T-034
 title: "Release the CI host's fixed public IP — it bills $3.64/month while the box is stopped, a sixth of the whole account"
 repo: cv-infra
-status: in_progress
+status: done
 owner: tech-product-owner
-branch: chore/release-ci-host-eip
-pr:   # phase 1 merged via cv-infra#27 (e295b95); phase 2's PR goes here
+branch: feat/ci-host-dns-tls
+pr: https://github.com/erfeamor/cv-infra/pull/28   # phase 2 (f14bcfa); phase 1 was cv-infra#27 (e295b95)
 depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root module with local state, so its applies run one at a time; T-007 replaces the CI host first (AMI swap + disk shrink), and this task then changes how that host is addressed
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 checkpoint:
-  stage: review   # PHASE 2 final round 3 RESUMED 2026-09-30 22:50 by a FRESH infrastructure-engineer (4th spawn on this task, over max_spawns_per_task=3 — deliberate cost trade: the original instance's context made every turn very expensive) from WIP 037da55; target history on feat/ci-host-dns-tls = 2 commits over e295b95
+  stage: done   # phase 2 merged f14bcfa (squash of cv-infra#28), 2026-09-30 — all three commits applied from the branch first, cold starts proven; H2 accepted
   repo: cv-infra
   branch: feat/ci-host-dns-tls
   worktree: none   # main cv-infra checkout
-  commit: ab6338a   # phase 2 branch head
-  pr:   # phase 2 has no PR yet
+  commit: f14bcfa
+  pr: https://github.com/erfeamor/cv-infra/pull/28
   phase1_pr: https://github.com/erfeamor/cv-infra/pull/27   # merged e295b95
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
@@ -26,14 +26,14 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a
-  updated: 2026-09-29T12:30:00+02:00
+  updated: 2026-09-30T00:35:00+02:00
   budget:
     turns: 20   # session 4, --since 2026-09-29T09:28:39.000Z
     total_tokens: 12000000
     subagent_tokens: 0
-    spawns: 4   # QA p1, dev (resumed many times), QA p2, fresh dev for round 3 (over cap, recorded)
+    spawns: 5   # QA p1, dev (resumed many times), QA p2, fresh dev for round 3, fresh dev for the DNS-wait fix (both over cap, recorded)
     status: ok
-    checked: 2026-09-29T12:30:00+02:00
+    checked: 2026-09-30T00:35:00+02:00
 ---
 
 ## H1 — decided by the human, 2026-09-29 (session 4); phase 2 waits on a domain
@@ -90,11 +90,11 @@ Also: **settle [T-033](T-033-ci-host-tls.md)'s TLS decision at this task's H1**.
 ## Acceptance criteria
 
 - [x] A push to `cv-admin-react` **while the host is stopped** wakes it and produces a green Drone build *(phase 1, proven live 2026-09-29, see below)* (added 2026-09-25, see above).
-- [ ] Every consumer of `13.39.59.12` enumerated in the PR (in Terraform and outside it).
-- [ ] A cold start from stopped: a push to a Jenkins repo and to `cv-admin-react` (Drone) both trigger builds that go green, **after** a stop/start cycle has changed the public IP.
-- [ ] Drone's GitHub login still works after the same cycle.
-- [ ] `aws ec2 describe-addresses` shows no idle address on the CI host — or, under design 3, the decision recorded with its cost.
-- [ ] The saving recorded against [T-020](T-020-cost-model-correction.md)'s model.
+- [x] Every consumer of `13.39.59.12` enumerated in the PR (in Terraform and outside it). *(Drone's hook, OAuth callback, `DRONE_SERVER_HOST`, JCasC `location.url`, `local.ci_public_host`; the Jenkins repos' hooks target the doorbell URL, not the host.)*
+- [x] A cold start from stopped: a push to a Jenkins repo and to `cv-admin-react` (Drone) both trigger builds that go green, **after** a stop/start cycle has changed the public IP. *(2026-09-30, see Phase 2 — done.)*
+- [x] Drone's GitHub login still works after the same cycle. *(the human, 2026-09-30)*
+- [x] `aws ec2 describe-addresses` shows no idle address on the CI host — or, under design 3, the decision recorded with its cost. *(one address left, the app host's.)*
+- [x] The saving recorded against [T-020](T-020-cost-model-correction.md)'s model. *(−$3.64/mo for the EIP; +~$0.50/mo zone and the domain's annual fee — see Phase 2 — done.)*
 
 ## Watch-outs
 
@@ -167,3 +167,21 @@ The human registered **`erfeamor.com`** through Route 53 Domains, in this accoun
 2. **TLS: nginx is replaced by Caddy** as `ci-proxy`, with automatic Let's Encrypt, HTTP→HTTPS, the same routing, and certificates persisted on the host.
 3. **Re-point:** `DRONE_SERVER_HOST=ci.erfeamor.com` and `PROTO=https`; `local.ci_public_host = "ci.erfeamor.com"`; Drone's repo hook is PATCHed to `https://ci.erfeamor.com/hook`. **Human step:** the GitHub OAuth app callback becomes `https://ci.erfeamor.com/login`.
 4. **The EIP is released in the same PR, as a second apply.** Apply 1 is DNS and TLS with the EIP attached, proven. Apply 2 removes the EIP, proven by a cold start with a new IP.
+
+## Phase 2 — done 2026-09-30 (merged f14bcfa, cv-infra#28, with T-033)
+
+Three commits, each **applied from the branch before merge**, with the human's approval at each apply:
+1. **5efc690 — DNS + TLS, EIP still attached.** 4 added, 6 changed, 2 destroyed. Verified: the Let's Encrypt certificate `CN=ci.erfeamor.com` (to 2026-12-29), HTTP → 301, an unknown `Host` → 421, Jenkins 200 over HTTPS. Drone's hook `687961843` re-pointed via `PATCH …/hooks/687961843/config` (secret kept); a real redelivery returned 200. The human's OAuth login worked. A stop set the sentinel.
+2. **bdfb176 — EIP released.** `aws_eip.drone` and its association destroyed.
+3. **b474af8 — the doorbell's DNS wait reads Route 53 authoritatively.** The first cold start after apply 2 exposed it: the doorbell compared the instance IP against the Lambda's *resolver*, which kept the sentinel cached, so its 60s wait always failed (seen live twice: 21:26Z and 21:43Z). The fix reads the record via `route53:ListResourceRecordSets` (read-only, this zone only; check-static check 16), with a 120s wait and the GitHub budget cut 60s to keep 895s. A red-first test reproduces the live failure. Plan: 2 changed (the doorbell's policy and code).
+
+**Cold starts, host stopped, DNS on the sentinel, no manual step:**
+- **Drone** (`cv-admin-react`), push 22:03:09Z: the doorbell started the host 22:03:13, DNS was on the new IP by 22:03:36, **2/2 missed deliveries redelivered 22:04:30**, build green 22:05:51.
+- **Jenkins** (`cv-database`), push 22:29:40Z: the host was up with a new IP by 22:30:08, build green 22:32:03.
+
+Master plans **No changes** after the merge. `describe-addresses` shows one EIP (the app host's).
+
+**Cost:** −$3.64/mo (EIP). New: the hosted zone (~$0.50/mo) and the domain (`erfeamor.com`, $16 + VAT a year, auto-renews 2027-09-29, card-billed, not credit-covered).
+
+**Filed from this phase:** [T-041](T-041-ci-dns-sentinel-shutdown-ordering.md): the shutdown sentinel lost its race in 2 of 4 operator stops, and the driver set it by hand both times. [T-042](T-042-doorbell-wakes-on-branch-deletion.md): a branch deletion is a push event and wakes the host.
+
