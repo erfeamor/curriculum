@@ -135,7 +135,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
-| [T-041](T-041-ci-dns-sentinel-shutdown-ordering.md) | **The shutdown DNS sentinel is a race**: two stops in four left `ci.erfeamor.com` on a released public IP | cv-infra | todo | | T-034 ✔ | |
+| [T-041](T-041-ci-dns-sentinel-shutdown-ordering.md) | **The shutdown DNS sentinel is a race**: two stops in four left `ci.erfeamor.com` on a released public IP | cv-infra | in_progress | tech-product-owner | T-034 ✔ | |
 | [T-042](T-042-doorbell-wakes-on-branch-deletion.md) | The doorbell wakes the CI host for branch deletions (nothing to build) | cv-infra | todo | | T-034 ✔ | |
 
 <details>
