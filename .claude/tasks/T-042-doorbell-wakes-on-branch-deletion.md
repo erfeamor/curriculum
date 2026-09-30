@@ -2,7 +2,7 @@
 id: T-042
 title: "The doorbell wakes the CI host for events with nothing to build — branch deletions and non-build PR actions (widened at H1)"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: fix/doorbell-skip-deleted-refs
 pr: https://github.com/erfeamor/cv-infra/pull/30
@@ -10,11 +10,11 @@ depends_on: [T-034]
 risk: low
 security_review: false   # narrows what the doorbell acts on; the HMAC check and allowlist are untouched
 checkpoint:
-  stage: h2   # applied from the branch 2026-10-01; live proof passed; awaiting human acceptance
+  stage: done   # merged c45861e (squash of cv-infra#30), 2026-10-01 — applied from the branch first; H2 accepted; master plans No changes
   repo: cv-infra
   branch: fix/doorbell-skip-deleted-refs
   worktree: none   # main cv-infra checkout
-  commit: 2854cb0
+  commit: c45861e
   pr: https://github.com/erfeamor/cv-infra/pull/30
   developer: infrastructure-engineer
   reviewers: [code-review]
