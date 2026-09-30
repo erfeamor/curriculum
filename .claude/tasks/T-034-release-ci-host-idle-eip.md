@@ -10,7 +10,7 @@ depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root modu
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 checkpoint:
-  stage: review   # PHASE 2: /security-review CLEAN; r2 /code-review 5 findings (hook PATCH would drop the webhook secret; dangling A record → recycled IP while stopped: sentinel 192.0.2.1 on stop via shutdown unit + reaper, doorbell waits for DNS=current IP; ordering fixes into commit 1; cert-independent routing probe; placeholder = sentinel) → FINAL round 3 with the developer
+  stage: review   # PHASE 2 final round 3 INTERRUPTED 2026-09-30 by the human's session limit (resets 21:20 Madrid). Partial round-3 work saved as WIP commit 037da55 on origin/wip/t034-p2-round3 (unfinished, gates not run, not yet split into the 2-commit structure). Reviewed branch feat/ci-host-dns-tls untouched at ab6338a. RESUME: developer continues from the WIP branch, folds fixes into the two commits on feat/ci-host-dns-tls, runs gates at both trees; driver verifies (past-cap round is driver-verified), then apply 1 → hook PATCH via /config + real delivery → OAuth (human) → apply 2 (host stopped) → cold start
   repo: cv-infra
   branch: feat/ci-host-dns-tls
   worktree: none   # main cv-infra checkout
