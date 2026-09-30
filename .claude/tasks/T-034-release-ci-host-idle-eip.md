@@ -10,7 +10,7 @@ depends_on: [T-007]   # SERIALIZATION, not file-level: cv-infra is one root modu
 risk: normal
 security_review: true   # changes the CI host's public addressing and the GitHub webhook / Drone OAuth callback targets — adapter §5 network-exposure and CI-config paths
 checkpoint:
-  stage: A1   # PHASE 2 code done: 303d461 (DNS+updater+IAM+Caddy/TLS+re-point, EIP kept) + 78a3b4b (EIP removal), pushed as backup (origin/feat/ci-host-dns-tls), NO PR yet. A1 green. STOPPED on the human's quota (>75%) before reviews. NEXT: /code-review high + /security-review on both commits (check DRONE_TUNNEL_INSECURE=1 in the reseed script; the developer made one read-only live AWS call via terraform plan — disclosed in 303d461), fix round, then apply 1 → OAuth callback (human) → apply 2 → cold start
+  stage: review   # PHASE 2 r1: /code-review high 10 findings (Drone hook still on the EIP + Caddy empty-200 → silent build loss; apply 2 on a running host leaves DNS stale → reaper never stops; updater has no retry; apply-1 ordering race; first-issuance health-check timeout; Caddy headers; reseed -k → --resolve; stale EIP docs; missing tests; hostname validation) — fixes with the developer, keeping the 2-commit structure
   repo: cv-infra
   branch: feat/ci-host-dns-tls
   worktree: none   # main cv-infra checkout
@@ -21,7 +21,7 @@ checkpoint:
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true   # new token, IAM, a public Function URL path
-  review_round: 0   # phase 2
+  review_round: 1   # phase 2
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
