@@ -10,7 +10,7 @@ depends_on: [T-034]
 risk: normal
 security_review: true   # the sentinel exists to stop a released IP (possibly reassigned to another AWS customer) from answering for ci.erfeamor.com — adapter §5 network exposure
 checkpoint:
-  stage: qa   # review round 1 clean; PR open; NEXT: live apply from the branch (host must be up, CIKeepAlive), systemctl show check, then 5 stop/start cycles — deferred: human /usage 40–75% at H1
+  stage: h2   # applied from the branch 2026-10-01; 6/6 stops wrote the sentinel; awaiting human acceptance
   repo: cv-infra
   branch: fix/ci-dns-sentinel-ordering
   worktree: none   # main cv-infra checkout
@@ -25,14 +25,14 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a   # live on the CI host
-  updated: 2026-10-01T01:05:00+02:00
+  updated: 2026-10-01T01:20:00+02:00
   budget:
     turns: 0
     total_tokens: 0
     subagent_tokens: 107346
     spawns: 1   # infrastructure-engineer (fresh)
     status: ok   # human-reported /usage 40–75%
-    checked: 2026-10-01T01:05:00+02:00
+    checked: 2026-10-01T01:20:00+02:00
 ---
 
 ## H1 — decided by the human, 2026-09-30
@@ -44,6 +44,13 @@ checkpoint:
 3. **Runbooks:** after a manual stop, read the record; UPSERT `192.0.2.1` by hand if it didn't flip.
 4. **Live proof: 5 consecutive operator stop/start cycles** after the apply, each leaving the record on `192.0.2.1` within a minute, with the host's own UPSERT in CloudTrail (**us-east-1**) and "UPSERTed" in the journal.
 5. **Budget:** the human reported `/usage` at 40–75%, so implement and review this window, and **checkpoint before the live apply**.
+
+## Live QA — 2026-10-01, applied from the branch
+
+- **Apply:** 2 added, 2 changed, 2 destroyed (the provisioning script's local file, S3 object and SSM hash, and `null_resource.jenkins_provision`, which re-provisioned the running host in 35s). State backed up first (`pre-t041.tfstate`).
+- **Live unit:** `Wants=network-online.target`, `After=… network-online.target …`.
+- **5 consecutive stop/start cycles, 5/5 PASS** (23:13–23:16Z): each boot took a new IP, the record followed it, the unit was active, and each stop left the record on `192.0.2.1`. The host's journal shows "UPSERTed ci.erfeamor.com -> 192.0.2.1" about 1s after "Stopping" on all five. CloudTrail (us-east-1) shows the host's own UPSERTs at 23:13:29, 23:14:06, 23:14:49 and 23:15:32 (the fifth wasn't indexed yet when checked).
+- **A sixth stop** (23:17:52, the end-of-test stop) also flipped the record. The branch plans **No changes**. `CIKeepAlive` removed; the host is stopped.
 
 ## Implement + review — 2026-10-01 (f51c201, cv-infra#29)
 
@@ -80,6 +87,6 @@ Not yet known: whether the reaper's graceful path (it sets the sentinel itself b
 
 ## Acceptance criteria
 
-- [ ] The unit's ordering guarantees the network during `ExecStop`, asserted offline.
-- [ ] At least 5 consecutive operator stops each leave the record on `192.0.2.1` within a minute (CloudTrail shows the host's UPSERT each time).
-- [ ] The runbooks carry the manual check and fallback.
+- [x] The unit's ordering guarantees the network during `ExecStop`, asserted offline. *(check-static 17, a `terraform test` assertion.)*
+- [x] At least 5 consecutive operator stops each leave the record on `192.0.2.1` within a minute (CloudTrail shows the host's UPSERT each time). *(6/6; journal 5/5; CloudTrail 4 indexed at check time.)*
+- [x] The runbooks carry the manual check and fallback.
