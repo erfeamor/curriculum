@@ -2,37 +2,37 @@
 id: T-042
 title: "The doorbell wakes the CI host for events with nothing to build — branch deletions and non-build PR actions (widened at H1)"
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: fix/doorbell-skip-deleted-refs
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/30
 depends_on: [T-034]
 risk: low
 security_review: false   # narrows what the doorbell acts on; the HMAC check and allowlist are untouched
 checkpoint:
-  stage: implement   # H1 decided 2026-10-01 (below); human /usage 40–75% → checkpoint BEFORE the live apply
+  stage: qa   # review round 1 clean; PR open; NEXT: live apply (Lambda code only), delete/push/delete proof with the host stopped — deferred: /usage 40–75% at H1
   repo: cv-infra
   branch: fix/doorbell-skip-deleted-refs
   worktree: none   # main cv-infra checkout
-  commit:
-  pr:
+  commit: 2854cb0
+  pr: https://github.com/erfeamor/cv-infra/pull/30
   developer: infrastructure-engineer
   reviewers: [code-review]
   risk: low
   security_review: false
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a   # live Lambda + CI host
-  updated: 2026-10-01T01:35:00+02:00
+  updated: 2026-10-01T01:45:00+02:00
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 73041
+    spawns: 1   # infrastructure-engineer (fresh)
     status: ok   # human-reported /usage 40–75%
-    checked: 2026-10-01T01:35:00+02:00
+    checked: 2026-10-01T01:45:00+02:00
 ---
 
 ## H1 — decided by the human, 2026-10-01
@@ -43,6 +43,14 @@ Refinement found the same waste one step wider: the doorbell's synchronous path 
 2. **Red-first unit tests:** a deletion payload and a non-build PR action don't start the host or schedule the async task; a normal push and an `opened` PR still do.
 3. **Live proof:** host stopped → delete a throwaway `cv-admin-react` branch → no `StartInstances` (CloudTrail eu-west-3) and an "ignored" doorbell log; then push a fresh branch → the host still wakes and redelivers; delete that branch (skipped), then stop. The PR-action skip is proven by unit tests only.
 4. **Budget:** `/usage` 40–75% → implement and review, **checkpoint before the live apply**.
+
+## Implement + review — 2026-10-01 (2854cb0, cv-infra#30)
+
+- Developer (fresh infrastructure-engineer, 1 spawn, ~73k tokens): exactly the H1 scope, in `lambda/ci_doorbell/index.py` + its tests. Red-first: 4 new tests failed on the old handler, green after. One existing test sent a `pull_request` without `action` (real payloads always carry one) and now sends `synchronize`.
+- Driver-verified: diff read, full offline gate re-run green (83 Lambda tests).
+- **Review round 1 (driver): clean.** The skip is after HMAC and the allowlist; `ping` is untouched; the redelivery path for real pushes is unchanged.
+
+**Next (resume here):** checkout the branch, plan (expect `aws_lambda_function.ci_doorbell` only), apply; with the host stopped and no `CIKeepAlive`, delete a throwaway `cv-admin-react` branch → no `StartInstances` in CloudTrail eu-west-3 + an "ignored" doorbell log; push a fresh branch → host wakes, redelivery, Drone green; delete that branch (skipped); stop, check the sentinel. Then H2.
 
 ## Why
 
