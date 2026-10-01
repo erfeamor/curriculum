@@ -10,17 +10,18 @@ depends_on: [T-013, T-202, T-201, T-156]   # T-201 added 2026-08-24 on the human
 risk: high
 security_review: true
 checkpoint:
-  stage: implement   # H1 refresh decided 2026-10-01; waiting on the human's /usage before the developer spawn
+  stage: review   # round 1: 1 finding (BFF block before the backup setup), fix in progress by a fresh developer
   note: "NOT a fresh todo. Stage 0 refinement completed 2026-08-14 and the seven DoR rulings below are written up (this said 'six' until 2026-08-17 — ruling 7 was added by QA during the same refinement and the count was never updated); whoever picks this up starts at IMPLEMENTATION, not refinement. Deliberately left status:todo with no owner — an H1-complete task with an owner set reads as in-flight and blocks re-pickup under board rule 1. Same pattern T-018 used successfully."
   repo: cv-infra
+  commit: cad12dd
   branch: feat/deploy-bff-node
   worktree: none   # main cv-infra checkout (the original reason, a local backend, is gone: state is in S3 since T-004)
   developer: infrastructure-engineer
   reviewers: [code-review, infrastructure-engineer, security-review, quality-assurance]
   risk: high
   security_review: true
-  review_round: 0
-  open_findings: 0
+  review_round: 1
+  open_findings: 1
   qa_bounces: 0
   fix_attempts: 0
   premises_reverified: "2026-10-01 against cv-infra@431990e, cv-bff-node@889a82f, cv-domain-service@63f75b0, cv-database master, and the live account (read-only). See the premise re-check section: rulings 1-3, 5-7 hold; ruling 4 changed; three new findings (stale domain-service image, user_data size, memory baseline)."
@@ -62,6 +63,14 @@ checkpoint:
 5. **Memory (N3):** no resize planned. Stage 4 measures under a request burst (swap in/out, `/proc/pressure/memory`, `docker stats`). The result sets T-035's target size; a resize is a cost decision for H2.
 6. **Docs:** correct `cv-infra/CLAUDE.md`'s CloudFront-fallback claim (it's the function, not a `custom_error_response`) in this PR.
 7. [T-025](T-025-verify-requests-come-from-our-cloudfront.md) is still decided at H2.
+
+## Implement + review round 1 — 2026-10-01
+
+- **Developer** (fresh infrastructure-engineer, ~206k tokens): **cad12dd** — ECR repo + lifecycle; a dedicated `bff_node` SG (3000 from the CloudFront prefix list only); the `/bff/*` origin + behavior (unstripped, TTL 0, forwarding `Authorization`/`Content-Type`/`Accept` + query string, like `/api/*`); the BFF container (`AUTH_ENABLED=true`, issuer from SSM, `CORS_ALLOWED_ORIGINS=https://<cloudfront>`); the `spa-router` exclusion; Flyway `13.7.0`; corrected claims in `compute.tf:1`, `README.md:14` and `CLAUDE.md`. Offline assertions red-first; **rendered user_data 13,629 bytes** (guard ≤ 15,500). Logging left unwired: the domain service has none either (no awslogs driver, no `logs:*` grant); the `bff_node` log group stays unused.
+- **Driver-verified:** diff read; full offline gate re-run green (`terraform test` 17/17).
+- **Round 1 finding (fix in progress):** the BFF's pull-retry loop ran **before** the T-001 backup setup, so a missing BFF image would silently prevent the backup timer from being installed. Fix: move the BFF block to the end of the script, with an ordering assertion.
+- **Carried to H2 (T-025's decision):** origin port 3000, like 8080, is reachable by *any* CloudFront distribution (the shared prefix list), so the BFF's `/metrics` is readable that way. Its non-public routes still need a JWT.
+- **Live-step note:** the domain-service ECR lifecycle keeps the 2 most recent images (any tag), so pushing a new `:latest` may expire the July digest. **Save the July image locally before the push**, as the rollback.
 
 ## Board review 2026-10-01 — re-verify before implementing, then a short H1
 
