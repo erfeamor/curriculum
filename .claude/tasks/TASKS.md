@@ -11,7 +11,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
-- **[T-014](T-014-deploy-bff-to-aws.md)** (~2 windows) — deploy the BFF. **Refined 2026-08-14, so start with a premise re-check** (the board review 2026-10-01 block in the task lists what moved since), then a short H1: multi-arch image, memory measurement, [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at H2. Carries the production Flyway 13.7.0 pin and **lifts the migration freeze**.
+- **[T-014](T-014-deploy-bff-to-aws.md)** (~2 windows) — deploy the BFF. **Refined 2026-08-14, so start with a premise re-check** (the board review 2026-10-01 block in the task lists what moved since), then a short H1 (**done 2026-10-01**: it also pushes a current domain-service image, since the live one is from July and the admin's section editing is broken; amd64 only; a user_data size guard). [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at H2. Carries the production Flyway 13.7.0 pin and **lifts the migration freeze**.
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**; a fraction of a window). Independent of T-014.
 
 **Next — after T-014** (~1–2 windows)
@@ -19,7 +19,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - [T-035](T-035-app-host-to-graviton.md) as its own apply: app host to Graviton, **plus the app host's IMDSv2/hop-limit hardening moved from T-005** (it replaces the host and re-verifies every container anyway). Its target size follows T-014's memory numbers.
 
 **Then** (~1–2 windows)
-- [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-005](T-005-ci-secret-blast-radius.md)'s remainder: **one H1** for the credential model, with T-005 as its input. Both pipelines build **multi-arch** images.
+- [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-005](T-005-ci-secret-blast-radius.md)'s remainder: **one H1** for the credential model, with T-005 as its input. Multi-arch images are decided at their H1 (T-014 declined them for its one-off builds; T-035 does the arm64 rebuild).
 - → **[T-501](T-501-e2e-cv-milestone.md)** (~1 window), which **absorbed [T-015](T-015-docs-reflect-deployed-bff.md)** on 2026-10-01: milestone M2 done.
 
 **Anytime**
@@ -181,7 +181,7 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 |---|----|-------|------|--------|-------|------------|----|
 | 1 | [T-013](T-013-contract-bff-public-routing.md) | Contract: BFF public edge path + anonymous reads | cv-project (meta) | done | tech-product-owner | — | [#22](https://github.com/erfeamor/curriculum/pull/22) |
 | 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | done | fullstack-developer | T-013 | [#4](https://github.com/erfeamor/cv-bff-node/pull/4) |
-| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** (refined 2026-08-14 — re-verify premises, then a short H1) | cv-infra | todo | | T-013, T-202, **T-201**, **T-156** | |
+| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** (premises re-checked + H1 refreshed 2026-10-01; also pushes a current domain-service image) | cv-infra | in_progress | tech-product-owner | T-013, T-202, **T-201**, **T-156** | |
 | 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014, **T-408** | |
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed — **absorbed into T-501** (2026-10-01) | cv-project (meta) | done | tech-product-owner | T-014, T-403, T-404 | none |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
