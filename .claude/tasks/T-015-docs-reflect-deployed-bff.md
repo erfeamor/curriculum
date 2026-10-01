@@ -2,14 +2,18 @@
 id: T-015
 title: Correct the meta docs that claim the BFF and public site are deployed
 repo: cv-project (meta)
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: docs/reflect-deployed-bff
-pr:
+pr: none   # closed 2026-10-01 as ABSORBED into T-501 (board review) — no PR of its own; every criterion ships in T-501's PR. Same sentinel as T-110.
 depends_on: [T-014, T-403, T-404]   # T-404 added 2026-09-28: the docs cover both public sites
 risk: trivial
 security_review: false
 ---
+
+## ✅ CLOSED 2026-10-01 — absorbed into [T-501](T-501-e2e-cv-milestone.md)
+
+The 2026-09-28 board review already routed this task's work into T-501's PR (same files, same live verification). The 2026-10-01 review made it formal, as T-110 → T-111 did: **its four acceptance criteria are now T-501 deliverables**. Everything below is kept as the specification T-501 works from.
 
 > **Board review 2026-09-28**: **delivered in [T-501](T-501-e2e-cv-milestone.md)'s PR**, not its own. T-501 already edits `README.md`/`README.es.md` and runs against the live account, which is exactly what this task's acceptance criteria require. Three separate doc-sync passes over the same files (this task, T-501, T-012's Paid-plan line) collapse into one. Keep this file for its checklist, and close it with T-501's merge.
 

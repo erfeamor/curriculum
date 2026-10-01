@@ -9,7 +9,7 @@ pr:
 depends_on: [T-101, T-102, T-103, T-104, T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-403, T-404]
 ---
 
-> **Board review 2026-09-28**: this task's PR **also carries [T-015](T-015-docs-reflect-deployed-bff.md)'s doc corrections** (same files, same live verification). Tick T-015's criteria in the same PR and close both together.
+> **Board review 2026-09-28**: this task's PR **also carries [T-015](T-015-docs-reflect-deployed-bff.md)'s doc corrections** *(absorbed formally 2026-10-01: its criteria are in Deliverables below)* (same files, same live verification). Tick T-015's criteria in the same PR and close both together.
 
 ## Goal
 
@@ -37,6 +37,7 @@ Prove milestone M2 works as a system, not just as green unit tests, then close o
 ## Deliverables
 
 - [ ] Meta-repo PR: roadmap in `README.md` + `README.es.md` ticks the domain-model item; `.claude/tasks/` board updated to `done` for the whole milestone (the batched board-sync commit rides on this PR).
+- [ ] **From [T-015](T-015-docs-reflect-deployed-bff.md) (absorbed 2026-10-01; its "Why" table lists the claims):** every claim it lists matches the live account at the time of the PR; anything deferred out of the T-013…T-403 chain is named in the backlog with its task ID; `docs/architecture.md` distinguishes target design from deployed state; no new claim is added that was not verified against the account.
 - [ ] Any defect found does **not** get fixed in this task — file it as a new task and mark this one `blocked` until resolved.
 
 ## Definition of done

@@ -857,3 +857,54 @@ Cost-model consequences 3 and 4 of T-020's measured model: 3 described a Septemb
 
 3. **The budget alarm's premise evaporated.** The `$30` monthly limit is not structurally exceeded at $20.81/month — September projects to **68%**. August still breaches once (~$34.68, 116%) on the strength of its first half. T-020 §4 now recommends **changing nothing**: a $30 limit against a $20.81 rate fires precisely when the CI host is left running, which is the one behaviour worth an alert.
 4. **Jenkins and Drone are on the stopped box, and T-102/T-103/T-104 all require "Jenkins CI green".** The M2 backend wave cannot close while it is off — so the cost model and the milestone schedule became the same decision. **[T-019](T-019-ci-host-on-demand.md)'s H1 was ratified 2026-08-19: build the start-on-push automation**, which keeps the rate *and* unblocks M2. Its "runs 24/7" premise is corrected in that file.
+
+## Moved out of TASKS.md in the 2026-10-01 board review — verbatim
+
+The lane is forward-looking again; these were true when written.
+
+### Lane: sizing note, host-up note and the session 1–5 close-outs
+
+**Sizing** (board review 2026-09-28): each session is planned at **≤ ~100M tokens**, under the 120M soft stop, with headroom for compaction. Normal-risk code tasks measured **~8M tokens / ~45 turns each** on 2026-09-27/28. The infra figures are **extrapolated, not measured**, so sessions 2–3 are the likeliest to stop at a checkpoint and resume.
+
+**Sessions 1–3 — done (2026-09-28/29).** T-109, T-004 (state in S3), T-008 (deploy key in Terraform/SSM, Drone rebuild proven), T-007 (CI host rebuilt: plain AL2023, an encrypted root, IMDSv2, the Drone DB encrypted) and T-039 (durable runbooks and one `check-static.sh`). **Measured cost:** ~95M, ~88M and ~46M. Infra tasks ran about 2× their first estimates. Only T-007's live part came in under estimate, because the rebuild path was already proven.
+
+**Host-up work from here:** follow `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`). Pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
+
+**Session 4 — done (2026-09-29/30).** [T-034](T-034-release-ci-host-idle-eip.md) + [T-033](T-033-ci-host-tls.md) (cv-infra#27, #28): a push while the CI host is stopped wakes it and the doorbell redelivers Drone's missed webhooks; `ci.erfeamor.com` is kept current by a boot updater; `ci-proxy` is Caddy with Let's Encrypt; the CI host's EIP is released (−$3.64/mo). **Measured cost:** it spanned several plan windows, and the probe under-counted it badly because developer subagents, which it does not count, dominated the spend. Budget infra tasks by the human's `/usage` figure, not by the probe.
+
+**Session 5 — CI-host follow-ups done (2026-10-01):** [T-041](T-041-ci-dns-sentinel-shutdown-ordering.md) (cv-infra#29: the shutdown DNS sentinel now writes on every stop, 6/6 proven) and [T-042](T-042-doorbell-wakes-on-branch-deletion.md) (cv-infra#30: branch deletions and non-build PR actions no longer wake the host). No CI-host workarounds remain.
+
+### Lane: the done-lists
+
+**Done 2026-09-27/10-01:** T-042, T-041, T-034, T-033, T-039, T-007, T-008, T-109, T-004, T-032, T-036, T-302, T-115, T-027, T-029 (plus T-409, T-401, T-108, T-402, T-301, T-114 earlier in the same session).
+
+**Done in the CI-host session (2026-09-24/25):** T-155, T-153, T-156, T-111. Both Jenkins pipelines are bounded and proven, and T-019's last AC is settled.
+
+### Infra & ops: the T-020 measured model (2026-09-23 reading) and its consequences
+
+### The measured model — [T-020](T-020-cost-model-correction.md), read 2026-08-19, updated 2026-09-23
+
+> **Superseded as current figures (2026-10-01):** the plan is **PAID** since 2026-09-29, the grant is **$200** (all five activities done), and **$120.75** remains. The table below is the 2026-09-23 reading, kept as the record; [T-012](T-012-aws-endgame-decision.md)'s closing note has the current state.
+
+**No console needed, and that is itself a finding.** `aws freetier get-account-plan-state` and `list-account-activities` post-date T-010 and return everything its `human_dependency` declared console-only. T-020's §1 was parked on a constraint that had expired.
+
+| | |
+|---|---|
+| Plan | **FREE**, ACTIVE, expires **2027-01-12T15:38:35Z** |
+| Credits remaining | **$106.61** |
+| Grant | **$180** — the Lambda activity (one of the two T-010 ratified on 2026-08-11) is `COMPLETED`; only the Bedrock one is still `NOT_STARTED` |
+| Run rate | **$0.6837/day ≈ $20.81/month** (Aug 15–17). Cross-check: $111.08 + $20 − $106.61 over 2026-08-19→09-23 = **~$0.70/day**, so the model held — and it only reconciles *with* the Lambda credit |
+| Binding constraint | **WINDOW** (2027-01-12); credits now last to ~2027-02-26 |
+
+**Why the rate fell: `cv-project-drone` has been `stopped` since 2026-08-14 08:12 GMT** (`User initiated`), and it was 46% of the bill. Nothing on the board recorded that. Daily Cost Explorer confirms all three eras — $0.92 (Aug 5–7), $1.226 (Aug 9–13), **$0.684 (Aug 15–17)** — so both earlier models were accurate for their moment and both are now wrong.
+
+Two consequences still current (3 and 4 moved to HISTORY.md on 2026-09-24):
+
+1. **The binding constraint flipped back to the window**, reversing the 2026-08-14 re-derivation (in HISTORY.md). Crossover is **$0.761/day**: below it the window binds, above it the credits do. Restart the CI host 24/7 and it is credits again at ~2026-11-17.
+2. **[T-012](T-012-aws-endgame-decision.md) stays at `due: 2026-11-01`** — deliberately *not* relaxed. The low rate rests on a stopped box and an unbuilt automation; one forgotten `start-instances` restores the November cliff, and a loosened deadline would then sit after it.
+> **Earlier cost-model derivations** — the superseded $0.92/day and $1.23/day models, and the close-out notes for T-019 and T-001 — are in [HISTORY.md](HISTORY.md). They were correct for the rates they assumed; quote the table above, not them.
+
+### Deployment gap: the old deadline-context bullet
+
+- **Deadline context:** anything meant to be demonstrated live must exist before the T-012 dates (the Free-plan window, **2027-01-12**, binds first; at the real burn rate credits last to ~2027-02-26 — re-derived 2026-09-23. ~~credits ~2026-11-17~~ was the 2026-08-14 estimate, superseded by T-020). If T-012 resolves to teardown-and-rebuild, this chain must be **in Terraform before teardown** or the rebuild will not reproduce it.
+

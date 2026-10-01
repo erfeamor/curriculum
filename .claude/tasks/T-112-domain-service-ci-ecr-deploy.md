@@ -70,6 +70,7 @@ T-203 is **GitHub Actions**; this is **Jenkins on our own EC2 host**. The creden
 - [ ] The IAM principal used can push to that one ECR repo and roll that one instance, and nothing else. The policy is in the PR (in `cv-infra` if Terraform-managed; if so, record the cross-repo ordering in the checkpoint).
 - [ ] **The credential model is reconciled with [T-005](T-005-ci-secret-blast-radius.md) in writing** — either it survives IMDS being blocked from containers, or the PR states plainly what T-005 will have to change and why that is acceptable.
 - [ ] No credential value in the repo.
+- [ ] **(board review 2026-10-01)** The pushed image is **multi-arch** (`linux/amd64` + `linux/arm64`, one manifest), so [T-035](T-035-app-host-to-graviton.md)'s Graviton swap needs no rebuild here.
 - [ ] The tag contract is documented, and `cv-infra/compute.tf:46` still resolves to the image the pipeline pushed.
 - [ ] `mvn -B checkstyle:check` and `mvn -B test` still gate the push — a failing test must block the deploy.
 

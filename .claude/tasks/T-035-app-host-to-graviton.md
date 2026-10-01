@@ -41,6 +41,8 @@ Per adapter §2, stage 0 splits this into dependency-ordered single-repo tasks (
 - [ ] The public path works end to end after the swap: `/bff/api/v1/people/1/cv` through CloudFront, the admin through `/api/*`.
 - [ ] Memory headroom measured under a warm JVM and compared with T-014's numbers on `t3.micro` — the same 1 GiB, but not assumed to behave the same.
 - [ ] The saving recorded against [T-020](T-020-cost-model-correction.md)'s model.
+- [ ] **(moved from [T-005](T-005-ci-secret-blast-radius.md), board review 2026-10-01)** `aws_instance.domain_service` gets `metadata_options` `http_tokens = "required"` and `http_put_response_hop_limit = 1`; verified on the live host that no container on it (domain service, MySQL, Flyway, BFF) needs the instance role through IMDS, that a bridge container cannot obtain credentials, and that SSM and the host's own `param()` reads still work.
+- [ ] **The target size follows [T-014](T-014-deploy-bff-to-aws.md)'s memory measurement:** if T-014 shows the 1 GiB box can't carry JVM + MySQL + BFF, the target is `t4g.small`, and the saving is re-derived rather than assumed.
 
 ## Watch-outs
 
