@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: chore/deploy-and-bff-url
 pr:
-depends_on: [T-014, T-408]   # T-408 added 2026-09-23 — FILE-LEVEL: this task edits `src/main.js:3` (the localhost fallback) and T-408 fixes `main.js:10`; and a deploy of the pre-T-408 bundle would publish a page whose only request 404s.
+depends_on: [T-014, T-408, T-043]   # T-043 added 2026-10-01: the BFF's public routes 401/502 until it has a service token. T-408 added 2026-09-23 — FILE-LEVEL: this task edits `src/main.js:3` (the localhost fallback) and T-408 fixes `main.js:10`; and a deploy of the pre-T-408 bundle would publish a page whose only request 404s.
 risk: normal
 security_review: true
 ---
@@ -42,6 +42,7 @@ Together these are why the public path shows nothing in AWS even once T-014 land
 - Remove or guard the `localhost:3000` fallback so a missing env var **fails the build** rather than shipping a bundle that fetches from the visitor's laptop.
 
 ## Acceptance criteria
+- [ ] **(from T-014's H1 refresh, 2026-10-01)** Once this task publishes a root `index.html`, `/metrics` and `/health` through the CloudFront domain still do **not** return the SPA shell (T-014 excluded them from `spa-router.js` while the defect was dormant). Verify by request.
 
 - [ ] A `master` push publishes the built site and invalidates its prefix; PR builds do not deploy.
 - [ ] The deployed bundle contains **no** `localhost:3000` — grep the built output in CI and fail on a hit. This is the whole point of the task; a convention is not enough.

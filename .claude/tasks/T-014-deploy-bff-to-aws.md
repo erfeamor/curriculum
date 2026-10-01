@@ -2,30 +2,98 @@
 id: T-014
 title: Deploy cv-bff-node to AWS — registry, container, edge route
 repo: cv-infra
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: feat/deploy-bff-node
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/32
 depends_on: [T-013, T-202, T-201, T-156]   # T-201 added 2026-08-24 on the human's instruction, as a SEQUENCING decision, not a technical one — T-014 can deploy without it. Ruling 7 (below) had this task knowingly deploy an image that 404s the contract's aggregate, with NO task on T-501's path owning the redeploy that fixes it: the task that rebuilds and rolls the BFF container is T-203, which is DOWNSTREAM of this one and is absent from T-501's depends_on (the board calls it "off the critical path"), so the milestone could verify end-to-end against a BFF still 404ing /cv. So a manual redeploy was baked into the plan and assigned to nobody — the hot-potato shape T-404 was filed for. Deploying T-201's code in the FIRST image removes that step and lets this task's one expensive apply verify /cv in the stage-4 run it is already paying for. Encoded as depends_on rather than prose per T-016's precedent ("this board has repeatedly lost gating conditions that lived only in prose"). REVERSIBLE IN ONE LINE: if H1 wants the BFF deployed sooner, drop this edge and file the redeploy as its own task — but do not simply drop it and leave the redeploy unowned again.
 risk: high
 security_review: true
 checkpoint:
-  stage: H1
+  stage: done   # merged 924ed9b (squash of cv-infra#32), 2026-10-01 — applied from the branch first; H2 accepted with the public-200 and real-path memory criteria MOVED to T-043; master plans No changes
   note: "NOT a fresh todo. Stage 0 refinement completed 2026-08-14 and the seven DoR rulings below are written up (this said 'six' until 2026-08-17 — ruling 7 was added by QA during the same refinement and the count was never updated); whoever picks this up starts at IMPLEMENTATION, not refinement. Deliberately left status:todo with no owner — an H1-complete task with an owner set reads as in-flight and blocks re-pickup under board rule 1. Same pattern T-018 used successfully."
   repo: cv-infra
+  commit: 924ed9b
+  pr: https://github.com/erfeamor/cv-infra/pull/32
   branch: feat/deploy-bff-node
   worktree: none   # main cv-infra checkout (the original reason, a local backend, is gone: state is in S3 since T-004)
   developer: infrastructure-engineer
   reviewers: [code-review, infrastructure-engineer, security-review, quality-assurance]
   risk: high
   security_review: true
-  review_round: 0
+  review_round: 2
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
-  premises_reverified: "2026-08-14 against cv-infra@774a9fc and cv-bff-node@b63eae2. Every original claim in this task still holds: no BFF ECR repo, no BFF container in user_data, exactly one ordered_cache_behavior (/api/* → domain-service-api), bff_node log group still empty, and compute.tf:1 still falsely claims the box runs the BFF."
+  premises_reverified: "2026-10-01 against cv-infra@431990e, cv-bff-node@889a82f, cv-domain-service@63f75b0, cv-database master, and the live account (read-only). See the premise re-check section: rulings 1-3, 5-7 hold; ruling 4 changed; three new findings (stale domain-service image, user_data size, memory baseline)."
   budget_note: "2026-08-14: stopped at H1 by the old 400-turn ceiling. Superseded: size this by plan windows and the human's /usage (~2 windows), not by the probe."
 ---
+
+## Premise re-check — 2026-10-01 (driver, read-only against code and the live account)
+
+**Holds:**
+- **Original claims:** no BFF ECR repo (`registry.tf` has only `domain_service`); no BFF container in `templates/domain-service-user-data.sh`; one `ordered_cache_behavior` (`/api/*` → `domain-service-api`); `observability.tf:10`'s `bff_node` log group exists, unused; `compute.tf:1` and `README.md:14` still claim the BFF runs.
+- **Ruling 1:** 8080 is prefix-list-scoped since T-022. The CloudFront origin-facing list (`pl-75b1541c`) still has **46 entries**, so port 3000 still needs **its own security group**.
+- **Rulings 2, 3:** `/bff/*` and `/api/*` are disjoint; the origin is `aws_eip.domain_service.public_dns`, `http_port = 8080`, `http-only`; the EIP still exists.
+- **Ruling 5:** the BFF installs auth only when `AUTH_ENABLED === 'true'`; `/cv-project/dev/cognito/issuer-uri` exists; `/api/v1/people/1` through the edge answers **401** today (the domain service's auth is on).
+- **Ruling 6:** `CORS_ALLOWED_ORIGINS` is a comma list (default `http://localhost:4173`).
+- **Ruling 7:** `GET /people/:id/cv` exists (T-201); base path `/bff/api/v1`; `PUBLIC_ROUTES` in `src/middleware/auth.ts`. Image `node:20-alpine` (multi-arch base), `USER node`, `EXPOSE 3000`.
+- **Open question:** the domain service runs as `--name domain-service --network cv`, so `http://domain-service:8080` resolves.
+- **T-018:** `/var/lib/cv-mysql` is mounted from `/dev/nvme1n1`; `user_data_replace_on_change = true` is still set.
+- **ECR pull:** the app host's role has `AmazonEC2ContainerRegistryReadOnly` (all repos), so pulling a BFF repo needs no IAM change.
+- **Flyway:** line 181 still pins `flyway/flyway:10` (the 13.7.0 AC stands). cv-database has only `V1__init_schema.sql`, and the live `flyway_schema_history` has V1 applied: **no schema gap**.
+
+**Changed:**
+- **Ruling 4 — the defect is dormant, and its AC can't be met as written.** `/metrics` and `/health` through the edge answer **403 application/xml**, not 200: the function still rewrites them to `/index.html`, but the bucket has no root `index.html` (only `admin/`; the vanilla site is T-403). The 200-SPA-shell defect appears only once T-403 publishes one. And an excluded path still reaches S3, which answers **403** for a missing key, so "404 at the edge" isn't what the fix produces.
+- **Docs:** `cv-infra/CLAUDE.md` says CloudFront serves a 403/404 → `/index.html` fallback; `frontend.tf` has **no** `custom_error_response`. The SPA routing is the function's job. Correct the doc in this task's PR, since it touches the edge.
+
+**New:**
+- **N1 — the live domain-service image is from 2026-07-18; 13 merges since were never deployed** (ECR `:latest` = the running digest `sha256:92f8b8de…`). Missing live: the section resources T-101–T-104 (the experience resource merged 2026-08-09), and the T-106/T-107 security fixes, plus T-105/T-108/T-109/T-111/T-114/T-115. Consequences:
+  - **The BFF's `/cv` would 502** on deploy: it calls `/experiences`, `/educations`, `/skills` and `/projects` upstream.
+  - **The live admin's section editing is already broken**: its bundle (deployed 2026-09-29) calls `/experiences`, `/educations` and `/projects`.
+  - **Nobody owns the fix.** T-112 automates the deploy but comes after T-014. The cheapest fix is pushing a current `:latest` before this task's apply, since the instance replacement pulls `:latest` anyway.
+- **N2 — user_data size.** `templates/domain-service-user-data.sh` is **12,593 bytes** against EC2's **16,384-byte** limit, with no size guard (T-009 hit the same wall on the CI host). The BFF block adds roughly 1–1.5 KB.
+- **N3 — memory baseline (idle, 2026-10-01):** 916 MB total, **302 MB available**, **497 MB of the 2 GB swap in use**; domain-service 284 MiB, mysql 54 MiB; idle (no swap in/out, memory pressure about 0). A Node BFF needs roughly 60–90 MB: it fits at idle. Stage 4 must measure under a request burst (swap in/out, `/proc/pressure/memory`).
+
+## H1 refresh — decided by the human, 2026-10-01 (after the premise re-check above)
+
+1. **N1, the stale domain-service image: this task builds `cv-domain-service` master and pushes it to ECR as `:latest` before its apply**, so the instance replacement deploys it. The July digest (`sha256:92f8b8de…`) stays in ECR, untagged, as the rollback. Stage 4 adds: the admin's section endpoints answer (authenticated) through `/api/*`, and the BFF's `/cv` returns 200 with all four sections.
+2. **Images are `linux/amd64` only.** Multi-arch was declined; [T-035](T-035-app-host-to-graviton.md) rebuilds both images for arm64.
+3. **Ruling 4: fix it here, re-verify in [T-403](T-403-public-vanilla-deploy.md).** Exclude `/metrics` and `/health` from `functions/spa-router.js`. The acceptance criterion becomes **"never the SPA shell"**: 403 from S3 today (baseline captured 2026-10-01: 403 `application/xml`), and T-403 re-checks once a root `index.html` exists.
+4. **N2, user_data size:** add an offline assertion that the rendered user_data is **under 16,384 bytes with a margin**, and keep the BFF block compact. If it doesn't fit, decide at review whether to move to T-009's S3 pattern.
+5. **Memory (N3):** no resize planned. Stage 4 measures under a request burst (swap in/out, `/proc/pressure/memory`, `docker stats`). The result sets T-035's target size; a resize is a cost decision for H2.
+6. **Docs:** correct `cv-infra/CLAUDE.md`'s CloudFront-fallback claim (it's the function, not a `custom_error_response`) in this PR.
+7. [T-025](T-025-verify-requests-come-from-our-cloudfront.md) is still decided at H2.
+
+## ✅ H2 — decided by the human, 2026-10-01: merged (924ed9b), with two criteria moved to T-043
+
+- **Merged now** so master matches what's live (master plans "No changes" after the merge).
+- **The design gap below is [T-043](T-043-bff-service-token-to-domain.md)**: a Cognito service token for the BFF (client credentials; the domain service checks only the issuer, so no domain-side change). **Moved there:** "a public read route returns 200 through the CloudFront domain" and the memory measurement on the real aggregate path. T-043 now gates T-403, T-404 and T-501.
+- **[T-025](T-025-verify-requests-come-from-our-cloudfront.md) stays its own task**, after T-043, now also covering the BFF's `/metrics` on origin port 3000.
+- **The admin's section editing works again** (the human checked in the UI after the apply), so the July domain-service image is retired in production.
+
+## Live stage — 2026-10-01, applied from the branch (cv-infra#32 @ 70148e5)
+
+**Before the apply:** the July domain-service image was saved locally (`~/.local/share/cv-image-backups/domain-service-2026-07-18.tar.gz`) as the rollback. Current `cv-domain-service` master (63f75b0) was built and pushed as ECR `:latest` (`sha256:7ec81aa3…`). Row-count baseline: person 1, experience 1, skill 1, person_skill 1, education 0, project 0. State backed up (`pre-t014.tfstate`).
+
+**Apply** (09:47–09:49Z): 6 added, 2 changed, 3 destroyed. The new instance is `i-046eb731acd03f34e`; the EIP and the MySQL volume were re-attached and the volume itself was untouched. The BFF image (889a82f) was pushed into the new repo at 09:49:27, picked up by the bootstrap's retry loop, and cloud-init was done at 09:52:59 with all three containers up.
+
+**Stage 4: passed**
+- `/var/lib/cv-mysql` mounted from `/dev/nvme1n1`; **row counts identical** to the baseline; `mysql-backup.timer` enabled.
+- The Flyway log: `Flyway OSS Edition 13.7.0`, "Schema `cv` is up to date", no upgrade warning.
+- Running images: domain-service `@7ec81aa3…` (rev 63f75b0), bff-node `@7ff776ce…` (rev 889a82f).
+- The edge: protected BFF route without a token → **401** "invalid or missing token" (the BFF's auth works); `/api/v1/people/1` → 401; `/admin/` → 200; `/metrics` and `/health` → **403 from S3, never the SPA shell**; origin `:3000` directly from a non-CloudFront IP → **timeout** (the SG holds).
+- Memory: idle 239 MB available, BFF ~30–50 MiB. A 900-request burst caused brief swap (si/so ~700 for 1s), memory pressure "some avg10" 2.6%, recovered at once, 189 MB available afterwards. **But the burst's `/cv` calls failed fast on the 401 below, so the real aggregate path is unmeasured.**
+
+**Stage 4: FAILED — a design gap, not an implementation defect.** `GET /bff/api/v1/people/1` → **401 "upstream error"**, `/cv` → **502**. In AWS the domain service runs `AUTH_ENABLED=true` and permits only `/actuator/health` anonymously (`SecurityConfig`, T-106), while the BFF's public routes call it **with no credentials** (`src/routes/people.ts`, `cv.ts`). The contract (T-013) made the routes public *at the BFF* but never specified how the BFF authenticates *upstream*. Locally it works only because the dev stack runs the domain service with auth off. Neither the 2026-08-14 refinement nor the 2026-10-01 premise re-check caught it; the latter checked ruling 5 only on the BFF side.
+
+## Implement + review round 1 — 2026-10-01
+
+- **Developer** (fresh infrastructure-engineer, ~206k tokens): **cad12dd** — ECR repo + lifecycle; a dedicated `bff_node` SG (3000 from the CloudFront prefix list only); the `/bff/*` origin + behavior (unstripped, TTL 0, forwarding `Authorization`/`Content-Type`/`Accept` + query string, like `/api/*`); the BFF container (`AUTH_ENABLED=true`, issuer from SSM, `CORS_ALLOWED_ORIGINS=https://<cloudfront>`); the `spa-router` exclusion; Flyway `13.7.0`; corrected claims in `compute.tf:1`, `README.md:14` and `CLAUDE.md`. Offline assertions red-first; **rendered user_data 13,629 bytes** (guard ≤ 15,500). Logging left unwired: the domain service has none either (no awslogs driver, no `logs:*` grant); the `bff_node` log group stays unused.
+- **Driver-verified:** diff read; full offline gate re-run green (`terraform test` 17/17).
+- **Round 1 finding — FIXED in 70148e5** (a fresh developer, ~52k tokens; red-first ordering assertion; driver re-ran the gate green; round 2 clean): the BFF's pull-retry loop ran **before** the T-001 backup setup, so a missing BFF image would silently prevent the backup timer from being installed. Fix: move the BFF block to the end of the script, with an ordering assertion.
+- **Carried to H2 (T-025's decision):** origin port 3000, like 8080, is reachable by *any* CloudFront distribution (the shared prefix list), so the BFF's `/metrics` is readable that way. Its non-public routes still need a JWT.
+- **Live-step note:** the domain-service ECR lifecycle keeps the 2 most recent images (any tag), so pushing a new `:latest` may expire the July digest. **Save the July image locally before the push**, as the rollback.
 
 ## Board review 2026-10-01 — re-verify before implementing, then a short H1
 
@@ -161,15 +229,19 @@ The BFF container must reach the domain service as `http://domain-service:8080` 
 
 ## Acceptance criteria
 
-- [ ] **(added 2026-09-24, T-155 decided)** `templates/domain-service-user-data.sh:181` pins `flyway/flyway:13.7.0`, in **this** PR — the production half of the Flyway bump rides this apply's instance replacement. After the apply, the `flyway` container log on the live host reads `Flyway OSS Edition 13.7.0` and shows no *"upgrade recommended"* warning.
+- [x] **(added 2026-09-24, T-155 decided)** `templates/domain-service-user-data.sh:181` pins `flyway/flyway:13.7.0`, in **this** PR — the production half of the Flyway bump rides this apply's instance replacement. After the apply, the `flyway` container log on the live host reads `Flyway OSS Edition 13.7.0` and shows no *"upgrade recommended"* warning.
 
-- [ ] `terraform fmt -check -recursive` clean, `terraform validate` succeeds, `terraform test` passes **offline** (mocks extended, assertions added).
-- [ ] Applied for real, and verified against the live account: the BFF container is running, a public read route returns 200 through the **CloudFront domain** (not the origin directly), and `/api/*` still reaches Java so the live admin is unaffected.
-- [ ] The domain service, MySQL and the admin are all still working after the apply — explicitly re-checked, given the instance replacement.
-- [ ] ~~MySQL data survived the replacement, or its loss was a recorded, accepted decision made **before** the apply.~~ **Superseded by T-018** — now: `/var/lib/cv-mysql` is still mounted from the dedicated EBS volume after the apply, and the data is intact.
-- [ ] `compute.tf:1` and `README.md:14` describe what actually runs.
-- [ ] **`/metrics` and `/health` are excluded from the `spa_router` CloudFront Function** (`functions/spa-router.js`) so they return 404 at the edge. Added 2026-08-13 from T-013's review: the function rewrites every extensionless URI to `/index.html`, so without this both paths answer **200 with the public SPA shell**. No metrics leak — nothing routes them to the BFF — but a monitoring probe aimed at the CloudFront domain reads that 200 as "healthy". Verify with a real request against the distribution, not by reading the Terraform.
-- [ ] No new EIP, no NAT gateway, no port-22 ingress, no secret in a committed file.
+- [x] `terraform fmt -check -recursive` clean, `terraform validate` succeeds, `terraform test` passes **offline** (mocks extended, assertions added).
+- [x] Applied for real, and verified against the live account: the BFF container is running *(2026-10-01; the "public read route returns 200" half **moved to T-043**, see H2)*, ~~a public read route returns 200~~ through the **CloudFront domain** (not the origin directly), and `/api/*` still reaches Java so the live admin is unaffected.
+- [x] The domain service, MySQL and the admin are all still working after the apply — explicitly re-checked, given the instance replacement.
+- [x] ~~MySQL data survived the replacement, or its loss was a recorded, accepted decision made **before** the apply.~~ **Superseded by T-018** — now: `/var/lib/cv-mysql` is still mounted from the dedicated EBS volume after the apply, and the data is intact.
+- [x] `compute.tf:1` and `README.md:14` describe what actually runs.
+- [x] **`/metrics` and `/health` are excluded from the `spa_router` CloudFront Function** (`functions/spa-router.js`) so they never return the SPA shell (**H1 refresh 2026-10-01:** 403 from S3 today, since the bucket has no root `index.html`; "404" was never what an excluded path produces, and T-403 re-verifies once one exists). ~~so they return 404 at the edge.~~ Added 2026-08-13 from T-013's review: the function rewrites every extensionless URI to `/index.html`, so without this both paths answer **200 with the public SPA shell**. No metrics leak — nothing routes them to the BFF — but a monitoring probe aimed at the CloudFront domain reads that 200 as "healthy". Verify with a real request against the distribution, not by reading the Terraform.
+- [x] No new EIP, no NAT gateway, no port-22 ingress, no secret in a committed file.
+- [x] **(H1 refresh 2026-10-01)** A current `cv-domain-service` master image is pushed to ECR `:latest` before the apply and is what runs afterwards (digest checked on the host). The admin's section endpoints (`/experiences`, `/educations`, `/skills`, `/projects`) answer through `/api/*` with a token, and ~~the BFF's `/bff/api/v1/people/1/cv` returns 200 with all four sections~~ *(moved to T-043; the admin half verified by the human 2026-10-01)*.
+- [x] **(H1 refresh 2026-10-01)** An offline assertion keeps the rendered app-host user_data under 16,384 bytes with a margin; the PR states the measured size.
+- [x] ~~**(H1 refresh 2026-10-01)** Memory measured under a request burst~~ *(idle and burst measured 2026-10-01; the real aggregate path **moved to T-043**)* Memory measured under a request burst after the apply (swap in/out, PSI, `docker stats`), with the numbers recorded here for T-035.
+- [x] **(H1 refresh 2026-10-01)** `cv-infra/CLAUDE.md`'s CloudFront-fallback sentence corrected.
 
 ## Test plan — authored by `quality-assurance` at stage 0, 2026-08-14
 

@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: chore/vercel-bff-url
 pr:
-depends_on: [T-014]
+depends_on: [T-014, T-043]   # T-043 added 2026-10-01: the deployed BFF can't serve the public routes until it has a service token
 risk: normal
 security_review: false
 ---
