@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: chore/m2-e2e-verification
 pr:
-depends_on: [T-101, T-102, T-103, T-104, T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-403, T-404]
+depends_on: [T-101, T-102, T-103, T-104, T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-043, T-403, T-404]
 ---
 
 > **Board review 2026-09-28**: this task's PR **also carries [T-015](T-015-docs-reflect-deployed-bff.md)'s doc corrections** *(absorbed formally 2026-10-01: its criteria are in Deliverables below)* (same files, same live verification). Tick T-015's criteria in the same PR and close both together.
