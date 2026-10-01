@@ -2,7 +2,7 @@
 id: T-043
 title: "The deployed BFF can't read the domain service: its public routes call it with no credentials and get 401 — give the BFF a Cognito service token"
 repo: cv-infra   # narrowed at H1 2026-10-01: the BFF code is T-211
-status: in_review
+status: done
 owner: tech-product-owner
 branch: feat/bff-service-token
 pr: https://github.com/erfeamor/cv-infra/pull/33
@@ -10,11 +10,11 @@ depends_on: [T-014, T-211]
 risk: high   # a new credential (client secret), a cross-repo change, and the public path's first live 200
 security_review: true   # a new Cognito client + secret in SSM; the BFF holds a credential that can read the domain service — adapter §5 auth + secrets paths
 checkpoint:
-  stage: h2   # applied 2026-10-01 from the branch; stage 4 passed — the public CV is 200; awaiting human acceptance
+  stage: done   # merged 3c43d29 (squash of cv-infra#33), 2026-10-01 — applied from the branch first; H2 accepted; master plans No changes
   repo: cv-infra
   branch: feat/bff-service-token
   worktree: none   # main cv-infra checkout
-  commit: 0d00740
+  commit: 3c43d29
   pr: https://github.com/erfeamor/cv-infra/pull/33
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
