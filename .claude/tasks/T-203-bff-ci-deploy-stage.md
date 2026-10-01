@@ -43,6 +43,7 @@ This is the same gap the meta README backlog records as *"Automated backend depl
 - [ ] A `master` push publishes an image to the T-014 ECR repository and the running container ends up on that image.
 - [ ] The IAM principal used can push to the BFF ECR repo and roll that one instance, and nothing else — the policy is in the PR (in `cv-infra` if the role is Terraform-managed; if so, note the cross-repo ordering in the checkpoint).
 - [ ] No credential value in the repo; secrets come from GitHub secrets / OIDC.
+- [ ] **(board review 2026-10-01)** The pushed image is **multi-arch** (`linux/amd64` + `linux/arm64`, one manifest), so [T-035](T-035-app-host-to-graviton.md)'s Graviton swap needs no rebuild here.
 - [ ] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` still pass; the workflow is valid YAML and runs green end-to-end at least once.
 
 ## Definition of done

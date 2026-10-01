@@ -4,45 +4,35 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-10-01 (T-041 and T-042 merged: the CI host's follow-ups are closed; next T-014)
+## Now / Next / Later — refreshed 2026-10-01 (board review: lane rebuilt around T-014; T-015 absorbed into T-501; done close-outs moved to HISTORY.md)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
-**Sizing** (board review 2026-09-28): each session is planned at **≤ ~100M tokens**, under the 120M soft stop, with headroom for compaction. Normal-risk code tasks measured **~8M tokens / ~45 turns each** on 2026-09-27/28. The infra figures are **extrapolated, not measured**, so sessions 2–3 are the likeliest to stop at a checkpoint and resume.
+**Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
-**Sessions 1–3 — done (2026-09-28/29).** T-109, T-004 (state in S3), T-008 (deploy key in Terraform/SSM, Drone rebuild proven), T-007 (CI host rebuilt: plain AL2023, an encrypted root, IMDSv2, the Drone DB encrypted) and T-039 (durable runbooks and one `check-static.sh`). **Measured cost:** ~95M, ~88M and ~46M. Infra tasks ran about 2× their first estimates. Only T-007's live part came in under estimate, because the rebuild path was already proven.
+**Now**
+- **[T-014](T-014-deploy-bff-to-aws.md)** (~2 windows) — deploy the BFF. **Refined 2026-08-14, so start with a premise re-check** (the board review 2026-10-01 block in the task lists what moved since), then a short H1: multi-arch image, memory measurement, [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at H2. Carries the production Flyway 13.7.0 pin and **lifts the migration freeze**.
+- **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**; a fraction of a window). Independent of T-014.
 
-**Host-up work from here:** follow `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`). Pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
+**Next — after T-014** (~1–2 windows)
+- In parallel, three repos: [T-403](T-403-public-vanilla-deploy.md) (vanilla deploy), [T-404](T-404-public-react-point-at-deployed-bff.md) (Vercel `BFF_URL`), [T-113](T-113-optimistic-locking-lost-update.md) (`@Version`/409; contract PR first). Two developers max at once.
+- [T-035](T-035-app-host-to-graviton.md) as its own apply: app host to Graviton, **plus the app host's IMDSv2/hop-limit hardening moved from T-005** (it replaces the host and re-verifies every container anyway). Its target size follows T-014's memory numbers.
 
-**Session 4 — done (2026-09-29/30).** [T-034](T-034-release-ci-host-idle-eip.md) + [T-033](T-033-ci-host-tls.md) (cv-infra#27, #28): a push while the CI host is stopped wakes it and the doorbell redelivers Drone's missed webhooks; `ci.erfeamor.com` is kept current by a boot updater; `ci-proxy` is Caddy with Let's Encrypt; the CI host's EIP is released (−$3.64/mo). **Measured cost:** it spanned several plan windows, and the probe under-counted it badly because developer subagents, which it does not count, dominated the spend. Budget infra tasks by the human's `/usage` figure, not by the probe.
+**Then** (~1–2 windows)
+- [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-005](T-005-ci-secret-blast-radius.md)'s remainder: **one H1** for the credential model, with T-005 as its input. Both pipelines build **multi-arch** images.
+- → **[T-501](T-501-e2e-cv-milestone.md)** (~1 window), which **absorbed [T-015](T-015-docs-reflect-deployed-bff.md)** on 2026-10-01: milestone M2 done.
 
-**Session 5 — CI-host follow-ups done (2026-10-01):** [T-041](T-041-ci-dns-sentinel-shutdown-ordering.md) (cv-infra#29: the shutdown DNS sentinel now writes on every stop, 6/6 proven) and [T-042](T-042-doorbell-wakes-on-branch-deletion.md) (cv-infra#30: branch deletions and non-build PR actions no longer wake the host). No CI-host workarounds remain.
-
-**Next — [T-014](T-014-deploy-bff-to-aws.md)** (~80–100M)
-- Deploy the BFF. It carries the production Flyway pin, decides [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at its H2, and **measures memory** (any resize is a cost decision under A). **It lifts the migration freeze.**
-
-**Session 6 — after T-014** (~85M)
-- [T-035](T-035-app-host-to-graviton.md): app host to `t4g.micro`, as its own apply.
-- In parallel, three different repos: [T-113](T-113-optimistic-locking-lost-update.md) (`@Version`/409, now that migrations are allowed; contract PR first), [T-403](T-403-public-vanilla-deploy.md) (vanilla deploy), [T-404](T-404-public-react-point-at-deployed-bff.md) (Vercel `BFF_URL`).
-- [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), from **2026-10-12**.
-
-**Session 7 — CI deploy stages, then the milestone** (~80M)
-- [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-005](T-005-ci-secret-blast-radius.md)'s remainder: **one H1** for the credential model, with T-005 as its input. T-005 now also owns the docker.sock/host-network IMDS gap and narrowing the app-host role's SSM read.
-- → **[T-501](T-501-e2e-cv-milestone.md)**, whose PR **also carries [T-015](T-015-docs-reflect-deployed-bff.md)** (same files, same live verification).
+**Anytime**
+- [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), from **2026-10-12**. Small; slot it into any window.
 
 **Human**
 - **By 2026-10-30:** create a replacement CI GitHub token for Jenkins ([T-040](T-040-jenkins-github-pat-expiry.md)). The current one expires **2026-11-06**.
-- ~~The last $20 credit activity (Bedrock playground)~~: **done 2026-10-01** — all five activities complete, grant $200 ([T-012](T-012-aws-endgame-decision.md) closed).
-- ~~Upgrade to the Paid plan~~: **done 2026-09-29** ([T-012](T-012-aws-endgame-decision.md)). Charges past the remaining credits (**$120.75** on 2026-10-01) now bill the card; the budget alarms are the guard.
+- Paid plan since 2026-09-29; all five credit activities done (grant $200). **$120.75** left on 2026-10-01, ~mid-March 2027 at the measured rate (credits expire 2027-07-12). Charges past them bill the card; the budget alarms are the guard.
 
 **Standing invariant:** no new migration in cv-database until T-014 moves production to Flyway 13.7.0.
 
 **Later / conditional**
-- [T-021](T-021-mysql-password-rotation-persistent-datadir.md): only if T-004 decides to rotate `db_password`, or before anyone does.
-
-**Done 2026-09-27/10-01:** T-042, T-041, T-034, T-033, T-039, T-007, T-008, T-109, T-004, T-032, T-036, T-302, T-115, T-027, T-029 (plus T-409, T-401, T-108, T-402, T-301, T-114 earlier in the same session).
-
-**Done in the CI-host session (2026-09-24/25):** T-155, T-153, T-156, T-111. Both Jenkins pipelines are bounded and proven, and T-019's last AC is settled.
+- [T-021](T-021-mysql-password-rotation-persistent-datadir.md): T-004 decided **not** to rotate `db_password`, so this has no trigger today. Claim it **before** anyone changes `db_password` for any reason.
 
 ## M2 — Complete the domain model end-to-end
 
@@ -77,7 +67,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 
 ### Before claiming
 
-- **The domain waves are complete** — T-101…T-105 and T-151 merged; all four section collections are contract-compliant on ordering. What still gates [T-501](T-501-e2e-cv-milestone.md) is the deployment chain below (T-014 → T-403/T-404) plus the rendering tasks: T-301, T-401 (after T-408), T-402 (after T-409).
+- **The domain waves are complete** — T-101…T-105 and T-151 merged; all four section collections are contract-compliant on ordering. The rendering tasks (T-301, T-401, T-402) are done too; **only the deployment chain below (T-014 → T-403/T-404) still gates [T-501](T-501-e2e-cv-milestone.md)**.
 - **Read contract design rule 7's carve-outs before writing a consumer.** Requests are the opposite (`PUT` replaces, so an omitted optional in a *request* body IS the empty case), and `endDate` is not governed by rule 7 at all — always emitted, its `null` means "current" under rule 3.
 - **Probe a guard, don't read it.** The T-205 → T-210 lineage caught several type-level guards passing for the wrong reason, each found only by making the defect and watching the check stay green. Narratives in HISTORY.md.
 - **Concurrency lesson from T-103:** highest-risk tasks (composite key, upsert, 409) should start first so review convergence failures surface earliest.
@@ -86,7 +76,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 
 - **cv-bff-node is now TypeScript** (strict, ts-jest/tsc). T-201's route and tests are `.ts`, type the aggregate payload, and `npm run typecheck` is a gate.
 - **cv-admin-react is hexagonal TypeScript** (domain ← application ← composition → infrastructure). T-301 follows the repo CLAUDE.md's "adding a section resource" recipe.
-- **cv-public-react** exists as a second public site (Next.js/ISR from the BFF). Rendering its CV sections is tracked as **T-402** (the React counterpart of T-401); domain types already cover all four sections.
+- **cv-public-react** exists as a second public site (Next.js/ISR from the BFF). It renders all four CV sections (T-402, done); pointing it at the deployed BFF is T-404.
 - **The database is self-hosted MySQL 8.4**, not RDS. Migrations verified compatible; production applies migrations only — dev-seeds stay dev-only. Backups (T-001) and dev/prod version parity (T-016, T-152) are done.
 
 ## Defects, hygiene & hardening — product repos (not on T-501's path)
@@ -123,14 +113,14 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 
 ## Infra & ops (outside M2)
 
-[T-012](T-012-aws-endgame-decision.md) decided **A (go Paid, trimmed)** on 2026-09-24 and closed 2026-10-01 (Paid since 09-29, all credit activities done, $120.75 left), so the hardening and cost trims below are all worth doing. **cv-infra applies are strictly serial** — one root module, local state.
+[T-012](T-012-aws-endgame-decision.md) decided **A (go Paid, trimmed)** on 2026-09-24 and closed 2026-10-01 (Paid since 09-29, all credit activities done, $120.75 left), so the hardening and cost trims below are all worth doing. **cv-infra applies are strictly serial** — one root module, one state (in S3 with a DynamoDB lock since T-004, so a concurrent apply blocks rather than corrupts).
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-005](T-005-ci-secret-blast-radius.md) | Limit CI secret blast radius: block IMDS from containers | cv-infra | todo | | T-002, T-007 | |
+| [T-005](T-005-ci-secret-blast-radius.md) | CI secret blast radius — the remainder: the docker.sock/host-network IMDS gap, split parameter paths, narrow the app-host SSM read (CI-host IMDSv2 done in T-007; app host's moved to T-035) | cv-infra | todo | | T-002, T-007 | |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution (cross-repo: split at stage 0 if implemented) | cv-infra + cv-domain-service | todo | | T-022 | |
-| [T-035](T-035-app-host-to-graviton.md) | App host `t3.micro` → `t4g.micro` (arm64 images first) — −$1.75/mo, **after** T-014 (trim step 4) | cv-infra | todo | | T-014 | |
+| [T-035](T-035-app-host-to-graviton.md) | App host to Graviton (arm64 images first) **+ its IMDSv2 hardening (from T-005)** — −$1.75/mo, **after** T-014; size follows T-014's memory numbers | cv-infra | todo | | T-014 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
 
@@ -179,27 +169,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 
 </details>
 
-### The measured model — [T-020](T-020-cost-model-correction.md), read 2026-08-19, updated 2026-09-23
-
-> **Superseded as current figures (2026-10-01):** the plan is **PAID** since 2026-09-29, the grant is **$200** (all five activities done), and **$120.75** remains. The table below is the 2026-09-23 reading, kept as the record; [T-012](T-012-aws-endgame-decision.md)'s closing note has the current state.
-
-**No console needed, and that is itself a finding.** `aws freetier get-account-plan-state` and `list-account-activities` post-date T-010 and return everything its `human_dependency` declared console-only. T-020's §1 was parked on a constraint that had expired.
-
-| | |
-|---|---|
-| Plan | **FREE**, ACTIVE, expires **2027-01-12T15:38:35Z** |
-| Credits remaining | **$106.61** |
-| Grant | **$180** — the Lambda activity (one of the two T-010 ratified on 2026-08-11) is `COMPLETED`; only the Bedrock one is still `NOT_STARTED` |
-| Run rate | **$0.6837/day ≈ $20.81/month** (Aug 15–17). Cross-check: $111.08 + $20 − $106.61 over 2026-08-19→09-23 = **~$0.70/day**, so the model held — and it only reconciles *with* the Lambda credit |
-| Binding constraint | **WINDOW** (2027-01-12); credits now last to ~2027-02-26 |
-
-**Why the rate fell: `cv-project-drone` has been `stopped` since 2026-08-14 08:12 GMT** (`User initiated`), and it was 46% of the bill. Nothing on the board recorded that. Daily Cost Explorer confirms all three eras — $0.92 (Aug 5–7), $1.226 (Aug 9–13), **$0.684 (Aug 15–17)** — so both earlier models were accurate for their moment and both are now wrong.
-
-Two consequences still current (3 and 4 moved to HISTORY.md on 2026-09-24):
-
-1. **The binding constraint flipped back to the window**, reversing the 2026-08-14 re-derivation (in HISTORY.md). Crossover is **$0.761/day**: below it the window binds, above it the credits do. Restart the CI host 24/7 and it is credits again at ~2026-11-17.
-2. **[T-012](T-012-aws-endgame-decision.md) stays at `due: 2026-11-01`** — deliberately *not* relaxed. The low rate rests on a stopped box and an unbuilt automation; one forgotten `start-instances` restores the November cliff, and a loosened deadline would then sit after it.
-> **Earlier cost-model derivations** — the superseded $0.92/day and $1.23/day models, and the close-out notes for T-019 and T-001 — are in [HISTORY.md](HISTORY.md). They were correct for the rates they assumed; quote the table above, not them.
+The cost model's 2026-09-23 reading (the T-020 table) moved to [HISTORY.md](HISTORY.md) on 2026-10-01; current figures are in [T-012](T-012-aws-endgame-decision.md)'s closing note and `cv-infra/CLAUDE.md`.
 
 ## Public-path deployment gap (cross-repo — blocks T-501)
 
@@ -211,9 +181,9 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 |---|----|-------|------|--------|-------|------------|----|
 | 1 | [T-013](T-013-contract-bff-public-routing.md) | Contract: BFF public edge path + anonymous reads | cv-project (meta) | done | tech-product-owner | — | [#22](https://github.com/erfeamor/curriculum/pull/22) |
 | 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | done | fullstack-developer | T-013 | [#4](https://github.com/erfeamor/cv-bff-node/pull/4) |
-| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** (H1 done — start at implementation) | cv-infra | todo | | T-013, T-202, **T-201**, **T-156** | |
+| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** (refined 2026-08-14 — re-verify premises, then a short H1) | cv-infra | todo | | T-013, T-202, **T-201**, **T-156** | |
 | 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014, **T-408** | |
-| 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed | cv-project (meta) | todo | | T-014, T-403, T-404 | |
+| 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed — **absorbed into T-501** (2026-10-01) | cv-project (meta) | done | tech-product-owner | T-014, T-403, T-404 | none |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
 | — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call (adopts T-201's shared guard) | cv-bff-node | done | fullstack-developer | T-202 ✔, **T-201 ✔** | [#8](https://github.com/erfeamor/cv-bff-node/pull/8) |
 | — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF | cv-public-react | todo | | T-014 | |
@@ -226,23 +196,19 @@ Two things T-014 inherited from this chain's reviews, both of which fail quietly
 
 > **T-202 merged without stage-4 QA.** Its auth matrix is proven by unit tests against `createApp()`, not against a live stack — no request has traversed a real CloudFront → BFF → domain-service path. T-014's own stage-4 verification is the first time that happens, so treat its live checks as covering both tasks.
 
-Personas and risk (assigned per the adapter's capability→repo map; each task file carries the reviewer set and gate commands):
+Personas and risk for the open rows (assigned per the adapter's capability→repo map; each task file carries the reviewer set and gate commands):
 
 | ID | Developer | Risk | `security_review` |
 |---|---|---|---|
-| T-013 | tech-product-owner | normal | false — no code changes; it fires on the consumers |
-| T-202 | fullstack-developer | normal | **true** — auth wiring + CORS (adapter §5) |
 | T-014 | infrastructure-engineer | **high** | **true** — SG ingress, published ports, CORS |
 | T-403 | fullstack-developer | normal | **true** — `.github/workflows/**` + AWS deploy creds |
-| T-015 | tech-product-owner | trivial | false — docs only |
 | T-203 | infrastructure-engineer | normal | **true** — CI config + AWS creds; read T-005 first |
-| T-204 | fullstack-developer | normal | **true** — anonymous input reaching an upstream call |
 | T-404 | fullstack-developer | normal | false — a base URL for a public anonymous read; no credentials |
 
 - **T-014 is the expensive one** (adapter §7: real apply + stage-4 AWS verification = budget for the full ceiling, never run it in a wave). It replaces the instance via `user_data_replace_on_change`; since [T-018](T-018-mysql-on-dedicated-ebs-volume.md) the MySQL datadir survives on its own volume, so confirm `/var/lib/cv-mysql` is mounted from it (`findmnt`) before applying.
 - **A trap arrived with T-018**, filed as **[T-021](T-021-mysql-password-rotation-persistent-datadir.md)**: because the datadir now survives, `mysql:8.4` skips initialization and keeps its original credentials, so rotating `var.db_password` makes Flyway fail auth, aborts the bootstrap under `set -e`, and leaves the box with **no domain-service container at all**. Anyone editing `db_password` before T-021 lands should expect that.
 - **T-203 is off the critical path** — T-501 needs the BFF *deployed*, not *auto-deployed*, and T-201 in T-014's `depends_on` means the first manual deploy already serves the aggregate.
-- **Deadline context:** anything meant to be demonstrated live must exist before the T-012 dates (the Free-plan window, **2027-01-12**, binds first; at the real burn rate credits last to ~2027-02-26 — re-derived 2026-09-23. ~~credits ~2026-11-17~~ was the 2026-08-14 estimate, superseded by T-020). If T-012 resolves to teardown-and-rebuild, this chain must be **in Terraform before teardown** or the rebuild will not reproduce it.
+- **Deadline context (2026-10-01):** none binding. Paid plan, $120.75 of credits (~mid-March 2027 at the measured rate, expiring 2027-07-12); T-012 closed as A (keep the stack, no teardown), so nothing here has to race a rebuild.
 
 
 ---

@@ -14,7 +14,7 @@ checkpoint:
   note: "NOT a fresh todo. Stage 0 refinement completed 2026-08-14 and the seven DoR rulings below are written up (this said 'six' until 2026-08-17 — ruling 7 was added by QA during the same refinement and the count was never updated); whoever picks this up starts at IMPLEMENTATION, not refinement. Deliberately left status:todo with no owner — an H1-complete task with an owner set reads as in-flight and blocks re-pickup under board rule 1. Same pattern T-018 used successfully."
   repo: cv-infra
   branch: feat/deploy-bff-node
-  worktree: none   # cv-infra has a local Terraform backend; it cannot be worked from a worktree
+  worktree: none   # main cv-infra checkout (the original reason, a local backend, is gone: state is in S3 since T-004)
   developer: infrastructure-engineer
   reviewers: [code-review, infrastructure-engineer, security-review, quality-assurance]
   risk: high
@@ -24,8 +24,17 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   premises_reverified: "2026-08-14 against cv-infra@774a9fc and cv-bff-node@b63eae2. Every original claim in this task still holds: no BFF ECR repo, no BFF container in user_data, exactly one ordered_cache_behavior (/api/* → domain-service-api), bff_node log group still empty, and compute.tf:1 still falsely claims the box runs the BFF."
-  budget_note: "Refinement only — no code, no applies. Stopped deliberately at H1 with the probe at ~70% of ceiling_turns (280/400) and ~120 turns left. T-018 cost ~190 turns from an ALREADY-REFINED start; T-014 is larger (ECR + container + edge + SG + spa-router + forced security review + live public-path verification), so implementation could not have finished in the remaining budget. Stopping at a checkpoint beats being cut off mid-apply. Implementation needs a fresh session."
+  budget_note: "2026-08-14: stopped at H1 by the old 400-turn ceiling. Superseded: size this by plan windows and the human's /usage (~2 windows), not by the probe."
 ---
+
+## Board review 2026-10-01 — re-verify before implementing, then a short H1
+
+The refinement and its premise check date from **2026-08-14**. Since then: T-022 (the origin behind CloudFront), T-018 (MySQL on its own volume), T-004 (state in S3), T-155/T-156 (Flyway 13.7.0 proven in CI), T-021 (don't touch `db_password`), T-208 (BFF error handling) and T-007/T-034/T-041/T-042 (CI host only) all merged. **Start with a cheap driver pass re-checking the seven DoR rulings against today's `cv-infra` and `cv-bff-node`**, then a short H1 for:
+1. **Multi-arch BFF image** (`linux/amd64` + `linux/arm64`, one manifest) — proposed so [T-035](T-035-app-host-to-graviton.md) needs no rebuild. Confirm or decline.
+2. **Memory** (already an AC area below): its result sets T-035's target (`t4g.micro` vs `t4g.small`).
+3. [T-025](T-025-verify-requests-come-from-our-cloudfront.md) is still decided at this task's H2.
+
+The app host's IMDSv2 hardening is **not** added here: it moved from T-005 to T-035, to keep this apply lean.
 
 ## Two tasks to weigh at H1/H2 without a dependency edge (added 2026-09-24, board review)
 

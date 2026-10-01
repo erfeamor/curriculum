@@ -1,6 +1,6 @@
 ---
 id: T-005
-title: Limit CI secret blast radius — block IMDS from containers, then split parameter paths
+title: "CI secret blast radius — the remainder: close the docker.sock/host-network IMDS path, split parameter paths, narrow the app-host SSM read"
 repo: cv-infra
 status: todo
 owner:
@@ -10,6 +10,8 @@ depends_on: [T-002, T-007]   # T-007 added 2026-09-28: the CI host's metadata_op
 risk: high
 security_review: true
 ---
+
+> **Board review 2026-10-01 — what's left here.** The CI host's IMDSv2 + hop limit 1 shipped in T-007. The **app host's** `metadata_options` moved to [T-035](T-035-app-host-to-graviton.md), which replaces that host and re-verifies every container on it anyway. This task keeps: the docker.sock/host-network gap (below), the parameter-path split, and narrowing the app-host role's SSM read. Its H1 is shared with [T-112](T-112-domain-service-ci-ecr-deploy.md)/[T-203](T-203-bff-ci-deploy-stage.md) (one credential model).
 
 > **Added 2026-09-29, from T-007's review: hop limit 1 does not close the CI host's IMDS path.** `drone-runner` and Jenkins both mount `/var/run/docker.sock`, so any build step can `docker run --network host …` and read the instance role's credentials. A host-network container shares the host's network namespace, and the hop limit never applies to it. T-007 ships `http_tokens = "required"` with hop limit 1, which stops *bridge* containers only. **What remains here:** either remove docker.sock from the build path, or make the instance role worthless to a build: a minimal role, with secrets fetched once at boot and never needed again. Decide at this task's H1.
 
@@ -33,7 +35,7 @@ Drone and Jenkins run as containers on the **same EC2 instance**, which has **on
 
 ## What actually works: stop containers reaching IMDS at all
 
-The credentials-theft path is a build step calling `169.254.169.254` to obtain the instance role. Neither instance currently sets `metadata_options` at all (verified — no `http_tokens`, no `http_put_response_hop_limit` in `compute.tf` or `ci.tf`), so IMDSv2 is not enforced and the hop limit is at provider/AWS default.
+The credentials-theft path is a build step calling `169.254.169.254` to obtain the instance role. ~~Neither instance currently sets `metadata_options` at all~~ *(stale since T-007 for the CI host; the app host's half is T-035's — board review 2026-10-01)* (verified at filing — no `http_tokens`, no `http_put_response_hop_limit` in `compute.tf` or `ci.tf`), so IMDSv2 was not enforced and the hop limit is at provider/AWS default.
 
 ```hcl
 metadata_options {
@@ -70,7 +72,7 @@ Separating Drone and Jenkins onto different hosts — that is the only *complete
 
 ## Acceptance criteria
 
-- [ ] `metadata_options` with `http_tokens = "required"` and `http_put_response_hop_limit = 1` on **both** `aws_instance.drone` and `aws_instance.domain_service`. *(2026-09-28: the `drone` half is delivered and verified in T-007; this criterion closes when the `domain_service` half lands here.)*
+- [ ] `metadata_options` with `http_tokens = "required"` and `http_put_response_hop_limit = 1` on **both** `aws_instance.drone` and `aws_instance.domain_service`. *(2026-09-28: the `drone` half is delivered and verified in T-007. 2026-10-01: the `domain_service` half **moved to [T-035](T-035-app-host-to-graviton.md)**; this criterion closes when T-035 merges.)*
 - [ ] Verified: a container on the CI host **cannot** retrieve instance credentials (`curl` to `169.254.169.254` from inside a container times out or is refused), while the host-side `param()` path still works.
 - [ ] Verified: SSM Session Manager still connects, and `null_resource.jenkins_provision`'s SSM path still runs. **This is the lock-yourself-out check — do it before trusting the change.**
 - [ ] Drone and Jenkins pipelines both still go green after the change.
