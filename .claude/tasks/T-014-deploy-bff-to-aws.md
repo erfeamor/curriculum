@@ -10,7 +10,7 @@ depends_on: [T-013, T-202, T-201, T-156]   # T-201 added 2026-08-24 on the human
 risk: high
 security_review: true
 checkpoint:
-  stage: qa   # round 1 fixed (70148e5), round 2 clean; PR open. NEXT: save the July image, build+push both images, state backup, plan, apply (replaces the app host), stage 4
+  stage: h2   # applied 2026-10-01 from the branch; stage 4 found a DESIGN GAP (the BFF can't read the domain service anonymously) — awaiting the human's decision
   note: "NOT a fresh todo. Stage 0 refinement completed 2026-08-14 and the seven DoR rulings below are written up (this said 'six' until 2026-08-17 — ruling 7 was added by QA during the same refinement and the count was never updated); whoever picks this up starts at IMPLEMENTATION, not refinement. Deliberately left status:todo with no owner — an H1-complete task with an owner set reads as in-flight and blocks re-pickup under board rule 1. Same pattern T-018 used successfully."
   repo: cv-infra
   commit: 70148e5
@@ -64,6 +64,21 @@ checkpoint:
 5. **Memory (N3):** no resize planned. Stage 4 measures under a request burst (swap in/out, `/proc/pressure/memory`, `docker stats`). The result sets T-035's target size; a resize is a cost decision for H2.
 6. **Docs:** correct `cv-infra/CLAUDE.md`'s CloudFront-fallback claim (it's the function, not a `custom_error_response`) in this PR.
 7. [T-025](T-025-verify-requests-come-from-our-cloudfront.md) is still decided at H2.
+
+## Live stage — 2026-10-01, applied from the branch (cv-infra#32 @ 70148e5)
+
+**Before the apply:** the July domain-service image was saved locally (`~/.local/share/cv-image-backups/domain-service-2026-07-18.tar.gz`) as the rollback. Current `cv-domain-service` master (63f75b0) was built and pushed as ECR `:latest` (`sha256:7ec81aa3…`). Row-count baseline: person 1, experience 1, skill 1, person_skill 1, education 0, project 0. State backed up (`pre-t014.tfstate`).
+
+**Apply** (09:47–09:49Z): 6 added, 2 changed, 3 destroyed. The new instance is `i-046eb731acd03f34e`; the EIP and the MySQL volume were re-attached and the volume itself was untouched. The BFF image (889a82f) was pushed into the new repo at 09:49:27, picked up by the bootstrap's retry loop, and cloud-init was done at 09:52:59 with all three containers up.
+
+**Stage 4: passed**
+- `/var/lib/cv-mysql` mounted from `/dev/nvme1n1`; **row counts identical** to the baseline; `mysql-backup.timer` enabled.
+- The Flyway log: `Flyway OSS Edition 13.7.0`, "Schema `cv` is up to date", no upgrade warning.
+- Running images: domain-service `@7ec81aa3…` (rev 63f75b0), bff-node `@7ff776ce…` (rev 889a82f).
+- The edge: protected BFF route without a token → **401** "invalid or missing token" (the BFF's auth works); `/api/v1/people/1` → 401; `/admin/` → 200; `/metrics` and `/health` → **403 from S3, never the SPA shell**; origin `:3000` directly from a non-CloudFront IP → **timeout** (the SG holds).
+- Memory: idle 239 MB available, BFF ~30–50 MiB. A 900-request burst caused brief swap (si/so ~700 for 1s), memory pressure "some avg10" 2.6%, recovered at once, 189 MB available afterwards. **But the burst's `/cv` calls failed fast on the 401 below, so the real aggregate path is unmeasured.**
+
+**Stage 4: FAILED — a design gap, not an implementation defect.** `GET /bff/api/v1/people/1` → **401 "upstream error"**, `/cv` → **502**. In AWS the domain service runs `AUTH_ENABLED=true` and permits only `/actuator/health` anonymously (`SecurityConfig`, T-106), while the BFF's public routes call it **with no credentials** (`src/routes/people.ts`, `cv.ts`). The contract (T-013) made the routes public *at the BFF* but never specified how the BFF authenticates *upstream*. Locally it works only because the dev stack runs the domain service with auth off. Neither the 2026-08-14 refinement nor the 2026-10-01 premise re-check caught it; the latter checked ruling 5 only on the BFF side.
 
 ## Implement + review round 1 — 2026-10-01
 
