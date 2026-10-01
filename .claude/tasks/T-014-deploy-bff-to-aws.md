@@ -2,15 +2,15 @@
 id: T-014
 title: Deploy cv-bff-node to AWS — registry, container, edge route
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: feat/deploy-bff-node
 pr:
 depends_on: [T-013, T-202, T-201, T-156]   # T-201 added 2026-08-24 on the human's instruction, as a SEQUENCING decision, not a technical one — T-014 can deploy without it. Ruling 7 (below) had this task knowingly deploy an image that 404s the contract's aggregate, with NO task on T-501's path owning the redeploy that fixes it: the task that rebuilds and rolls the BFF container is T-203, which is DOWNSTREAM of this one and is absent from T-501's depends_on (the board calls it "off the critical path"), so the milestone could verify end-to-end against a BFF still 404ing /cv. So a manual redeploy was baked into the plan and assigned to nobody — the hot-potato shape T-404 was filed for. Deploying T-201's code in the FIRST image removes that step and lets this task's one expensive apply verify /cv in the stage-4 run it is already paying for. Encoded as depends_on rather than prose per T-016's precedent ("this board has repeatedly lost gating conditions that lived only in prose"). REVERSIBLE IN ONE LINE: if H1 wants the BFF deployed sooner, drop this edge and file the redeploy as its own task — but do not simply drop it and leave the redeploy unowned again.
 risk: high
 security_review: true
 checkpoint:
-  stage: H1
+  stage: implement   # H1 refresh decided 2026-10-01; waiting on the human's /usage before the developer spawn
   note: "NOT a fresh todo. Stage 0 refinement completed 2026-08-14 and the seven DoR rulings below are written up (this said 'six' until 2026-08-17 — ruling 7 was added by QA during the same refinement and the count was never updated); whoever picks this up starts at IMPLEMENTATION, not refinement. Deliberately left status:todo with no owner — an H1-complete task with an owner set reads as in-flight and blocks re-pickup under board rule 1. Same pattern T-018 used successfully."
   repo: cv-infra
   branch: feat/deploy-bff-node
@@ -52,6 +52,16 @@ checkpoint:
   - **Nobody owns the fix.** T-112 automates the deploy but comes after T-014. The cheapest fix is pushing a current `:latest` before this task's apply, since the instance replacement pulls `:latest` anyway.
 - **N2 — user_data size.** `templates/domain-service-user-data.sh` is **12,593 bytes** against EC2's **16,384-byte** limit, with no size guard (T-009 hit the same wall on the CI host). The BFF block adds roughly 1–1.5 KB.
 - **N3 — memory baseline (idle, 2026-10-01):** 916 MB total, **302 MB available**, **497 MB of the 2 GB swap in use**; domain-service 284 MiB, mysql 54 MiB; idle (no swap in/out, memory pressure about 0). A Node BFF needs roughly 60–90 MB: it fits at idle. Stage 4 must measure under a request burst (swap in/out, `/proc/pressure/memory`).
+
+## H1 refresh — decided by the human, 2026-10-01 (after the premise re-check above)
+
+1. **N1, the stale domain-service image: this task builds `cv-domain-service` master and pushes it to ECR as `:latest` before its apply**, so the instance replacement deploys it. The July digest (`sha256:92f8b8de…`) stays in ECR, untagged, as the rollback. Stage 4 adds: the admin's section endpoints answer (authenticated) through `/api/*`, and the BFF's `/cv` returns 200 with all four sections.
+2. **Images are `linux/amd64` only.** Multi-arch was declined; [T-035](T-035-app-host-to-graviton.md) rebuilds both images for arm64.
+3. **Ruling 4: fix it here, re-verify in [T-403](T-403-public-vanilla-deploy.md).** Exclude `/metrics` and `/health` from `functions/spa-router.js`. The acceptance criterion becomes **"never the SPA shell"**: 403 from S3 today (baseline captured 2026-10-01: 403 `application/xml`), and T-403 re-checks once a root `index.html` exists.
+4. **N2, user_data size:** add an offline assertion that the rendered user_data is **under 16,384 bytes with a margin**, and keep the BFF block compact. If it doesn't fit, decide at review whether to move to T-009's S3 pattern.
+5. **Memory (N3):** no resize planned. Stage 4 measures under a request burst (swap in/out, `/proc/pressure/memory`, `docker stats`). The result sets T-035's target size; a resize is a cost decision for H2.
+6. **Docs:** correct `cv-infra/CLAUDE.md`'s CloudFront-fallback claim (it's the function, not a `custom_error_response`) in this PR.
+7. [T-025](T-025-verify-requests-come-from-our-cloudfront.md) is still decided at H2.
 
 ## Board review 2026-10-01 — re-verify before implementing, then a short H1
 
@@ -194,8 +204,12 @@ The BFF container must reach the domain service as `http://domain-service:8080` 
 - [ ] The domain service, MySQL and the admin are all still working after the apply — explicitly re-checked, given the instance replacement.
 - [ ] ~~MySQL data survived the replacement, or its loss was a recorded, accepted decision made **before** the apply.~~ **Superseded by T-018** — now: `/var/lib/cv-mysql` is still mounted from the dedicated EBS volume after the apply, and the data is intact.
 - [ ] `compute.tf:1` and `README.md:14` describe what actually runs.
-- [ ] **`/metrics` and `/health` are excluded from the `spa_router` CloudFront Function** (`functions/spa-router.js`) so they return 404 at the edge. Added 2026-08-13 from T-013's review: the function rewrites every extensionless URI to `/index.html`, so without this both paths answer **200 with the public SPA shell**. No metrics leak — nothing routes them to the BFF — but a monitoring probe aimed at the CloudFront domain reads that 200 as "healthy". Verify with a real request against the distribution, not by reading the Terraform.
+- [ ] **`/metrics` and `/health` are excluded from the `spa_router` CloudFront Function** (`functions/spa-router.js`) so they never return the SPA shell (**H1 refresh 2026-10-01:** 403 from S3 today, since the bucket has no root `index.html`; "404" was never what an excluded path produces, and T-403 re-verifies once one exists). ~~so they return 404 at the edge.~~ Added 2026-08-13 from T-013's review: the function rewrites every extensionless URI to `/index.html`, so without this both paths answer **200 with the public SPA shell**. No metrics leak — nothing routes them to the BFF — but a monitoring probe aimed at the CloudFront domain reads that 200 as "healthy". Verify with a real request against the distribution, not by reading the Terraform.
 - [ ] No new EIP, no NAT gateway, no port-22 ingress, no secret in a committed file.
+- [ ] **(H1 refresh 2026-10-01)** A current `cv-domain-service` master image is pushed to ECR `:latest` before the apply and is what runs afterwards (digest checked on the host). The admin's section endpoints (`/experiences`, `/educations`, `/skills`, `/projects`) answer through `/api/*` with a token, and the BFF's `/bff/api/v1/people/1/cv` returns 200 with all four sections.
+- [ ] **(H1 refresh 2026-10-01)** An offline assertion keeps the rendered app-host user_data under 16,384 bytes with a margin; the PR states the measured size.
+- [ ] **(H1 refresh 2026-10-01)** Memory measured under a request burst after the apply (swap in/out, PSI, `docker stats`), with the numbers recorded here for T-035.
+- [ ] **(H1 refresh 2026-10-01)** `cv-infra/CLAUDE.md`'s CloudFront-fallback sentence corrected.
 
 ## Test plan — authored by `quality-assurance` at stage 0, 2026-08-14
 

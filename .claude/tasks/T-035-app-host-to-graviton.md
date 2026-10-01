@@ -34,6 +34,8 @@ The instance change is `cv-infra`, but **every image the box runs must exist for
 
 Per adapter §2, stage 0 splits this into dependency-ordered single-repo tasks (image builds first, the instance swap last).
 
+> **2026-10-01, T-014's H1 refresh:** T-014 builds `linux/amd64` only (multi-arch declined), so **both** `cv-bff-node` and `cv-domain-service` need arm64 builds here. Whether T-112/T-203's pipelines build multi-arch is for their own H1.
+
 ## Acceptance criteria
 
 - [ ] `aws_instance.domain_service` is `t4g.micro` on an arm64 AMI; the MySQL datadir on `vol-092113db466c84bc1` survives the replacement (T-018's guarantee — confirm with `findmnt` before and after).
