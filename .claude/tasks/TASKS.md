@@ -4,18 +4,19 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-10-01 (board review: lane rebuilt around T-014; T-015 absorbed into T-501; done close-outs moved to HISTORY.md)
+## Now / Next / Later — refreshed 2026-10-01 (T-014 merged: the BFF is live; its public routes wait on T-043)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
-- **[T-014](T-014-deploy-bff-to-aws.md)** (~2 windows) — deploy the BFF. **Refined 2026-08-14, so start with a premise re-check** (the board review 2026-10-01 block in the task lists what moved since), then a short H1 (**done 2026-10-01**: it also pushes a current domain-service image, since the live one is from July and the admin's section editing is broken; amd64 only; a user_data size guard). [T-025](T-025-verify-requests-come-from-our-cloudfront.md) at H2. Carries the production Flyway 13.7.0 pin and **lifts the migration freeze**.
-- **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**; a fraction of a window). Independent of T-014.
+- **[T-043](T-043-bff-service-token-to-domain.md)** (~1–2 windows): the BFF gets a Cognito service token so its public routes stop answering 401/502. **[T-014](T-014-deploy-bff-to-aws.md) is done** (cv-infra#32, 2026-10-01): the BFF is live behind `/bff/*`, Flyway is 13.7.0 in production, the domain service runs current master, and the admin's section editing works again. **The migration freeze is lifted.**
+- **[T-113](T-113-optimistic-locking-lost-update.md)** in parallel with T-043 (cv-domain-service; it needed only T-014, which lifted the migration freeze): `@Version`/409, contract PR first.
+- **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**; a fraction of a window). Independent.
 
-**Next — after T-014** (~1–2 windows)
-- In parallel, three repos: [T-403](T-403-public-vanilla-deploy.md) (vanilla deploy), [T-404](T-404-public-react-point-at-deployed-bff.md) (Vercel `BFF_URL`), [T-113](T-113-optimistic-locking-lost-update.md) (`@Version`/409; contract PR first). Two developers max at once.
+**Next — after T-043** (~1–2 windows)
+- In parallel, two repos: [T-403](T-403-public-vanilla-deploy.md) (vanilla deploy), [T-404](T-404-public-react-point-at-deployed-bff.md) (Vercel `BFF_URL`).
 - [T-035](T-035-app-host-to-graviton.md) as its own apply: app host to Graviton, **plus the app host's IMDSv2/hop-limit hardening moved from T-005** (it replaces the host and re-verifies every container anyway). Its target size follows T-014's memory numbers.
 
 **Then** (~1–2 windows)
@@ -29,7 +30,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - **By 2026-10-30:** create a replacement CI GitHub token for Jenkins ([T-040](T-040-jenkins-github-pat-expiry.md)). The current one expires **2026-11-06**.
 - Paid plan since 2026-09-29; all five credit activities done (grant $200). **$120.75** left on 2026-10-01, ~mid-March 2027 at the measured rate (credits expire 2027-07-12). Charges past them bill the card; the budget alarms are the guard.
 
-**Standing invariant:** no new migration in cv-database until T-014 moves production to Flyway 13.7.0.
+~~**Standing invariant:** no new migration in cv-database until T-014 moves production to Flyway 13.7.0.~~ **Lifted 2026-10-01:** production runs Flyway 13.7.0 (T-014).
 
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): T-004 decided **not** to rotate `db_password`, so this has no trigger today. Claim it **before** anyone changes `db_password` for any reason.
@@ -119,7 +120,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 |----|-------|------|--------|-------|------------|----|
 | [T-005](T-005-ci-secret-blast-radius.md) | CI secret blast radius — the remainder: the docker.sock/host-network IMDS gap, split parameter paths, narrow the app-host SSM read (CI-host IMDSv2 done in T-007; app host's moved to T-035) | cv-infra | todo | | T-002, T-007 | |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
-| [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution (cross-repo: split at stage 0 if implemented) | cv-infra + cv-domain-service | todo | | T-022 | |
+| [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution (cross-repo: split at stage 0 if implemented) | cv-infra + cv-domain-service | todo | | T-022, T-043 | |
 | [T-035](T-035-app-host-to-graviton.md) | App host to Graviton (arm64 images first) **+ its IMDSv2 hardening (from T-005)** — −$1.75/mo, **after** T-014; size follows T-014's memory numbers | cv-infra | todo | | T-014 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
@@ -181,12 +182,13 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 |---|----|-------|------|--------|-------|------------|----|
 | 1 | [T-013](T-013-contract-bff-public-routing.md) | Contract: BFF public edge path + anonymous reads | cv-project (meta) | done | tech-product-owner | — | [#22](https://github.com/erfeamor/curriculum/pull/22) |
 | 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | done | fullstack-developer | T-013 | [#4](https://github.com/erfeamor/cv-bff-node/pull/4) |
-| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** (premises re-checked + H1 refreshed 2026-10-01; also pushes a current domain-service image) | cv-infra | in_review | tech-product-owner | T-013, T-202, **T-201**, **T-156** | [cv-infra#32](https://github.com/erfeamor/cv-infra/pull/32) |
-| 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014, **T-408** | |
+| 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** — done; the public 200 moved to T-043 | cv-infra | done | tech-product-owner | T-013, T-202, **T-201**, **T-156** | [cv-infra#32](https://github.com/erfeamor/cv-infra/pull/32) |
+| 3b | [T-043](T-043-bff-service-token-to-domain.md) | **The BFF can't read the domain service — give it a Cognito service token** (public routes 401/502 live) | cv-infra + cv-bff-node | todo | | T-014 ✔ | |
+| 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014 ✔, **T-408** ✔, **T-043** | |
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed — **absorbed into T-501** (2026-10-01) | cv-project (meta) | done | tech-product-owner | T-014, T-403, T-404 | none |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
 | — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call (adopts T-201's shared guard) | cv-bff-node | done | fullstack-developer | T-202 ✔, **T-201 ✔** | [#8](https://github.com/erfeamor/cv-bff-node/pull/8) |
-| — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF | cv-public-react | todo | | T-014 | |
+| — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF | cv-public-react | todo | | T-014 ✔, **T-043** | |
 
 **[T-014](T-014-deploy-bff-to-aws.md) is claimable and heads the chain** — its `depends_on` (T-013, T-202, T-201) is fully satisfied. T-201 is there as a *sequencing* decision: the first deployed image must already serve the aggregate. When a dependency changes, the task file and every prose reference to it move together — the paragraph this replaces went stale about T-201 four times (see HISTORY.md).
 

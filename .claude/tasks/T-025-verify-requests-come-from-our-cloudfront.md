@@ -6,10 +6,12 @@ status: todo
 owner:
 branch: feat/origin-shared-secret-header
 pr:
-depends_on: [T-022]
+depends_on: [T-022, T-043]   # T-043 added 2026-10-01: scheduled after the BFF's service token, per T-014's H2
 risk: normal
 security_review: true
 ---
+
+> **T-014's H2, 2026-10-01: kept as its own task, after [T-043](T-043-bff-service-token-to-domain.md).** The BFF is now live on origin port **3000**, behind the same shared CloudFront prefix list as 8080, so this task now covers both ports. Concretely, the BFF's `/metrics` (Prometheus counters, route labels bucketed since T-208) is readable through any CloudFront distribution; its non-public routes still need a JWT.
 
 ## Why this exists
 
