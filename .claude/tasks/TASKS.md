@@ -11,7 +11,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
-- **[T-043](T-043-bff-service-token-to-domain.md)** (~1–2 windows): the BFF gets a Cognito service token so its public routes stop answering 401/502. **[T-014](T-014-deploy-bff-to-aws.md) is done** (cv-infra#32, 2026-10-01): the BFF is live behind `/bff/*`, Flyway is 13.7.0 in production, the domain service runs current master, and the admin's section editing works again. **The migration freeze is lifted.**
+- **[T-211](T-211-bff-service-token-provider.md) → [T-043](T-043-bff-service-token-to-domain.md)** (~1–2 windows; H1 decided 2026-10-01: 24 h token, ~$0.07/month): the BFF gets a Cognito service token so its public routes stop answering 401/502. **[T-014](T-014-deploy-bff-to-aws.md) is done** (cv-infra#32, 2026-10-01): the BFF is live behind `/bff/*`, Flyway is 13.7.0 in production, the domain service runs current master, and the admin's section editing works again. **The migration freeze is lifted.**
 - **[T-113](T-113-optimistic-locking-lost-update.md)** in parallel with T-043 (cv-domain-service; it needed only T-014, which lifted the migration freeze): `@Version`/409, contract PR first.
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**; a fraction of a window). Independent.
 
@@ -88,6 +88,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 |----|-------|------|--------|-------|------------|----|
 | [T-113](T-113-optimistic-locking-lost-update.md) | Two concurrent PUTs silently lose one write — no `@Version`, no 409 (T-108's declined half) | cv-domain-service | todo | | T-108, T-014 | |
 | [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔ | |
+| [T-116](T-116-domain-service-scope-enforcement.md) | The domain service accepts any pool token for any method — make the BFF's read-only service token GET-only (T-043 follow-up) | cv-domain-service | todo | | T-043 | |
 
 <details>
 <summary>Defects, hygiene & hardening — 15 done</summary>
@@ -183,7 +184,8 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 | 1 | [T-013](T-013-contract-bff-public-routing.md) | Contract: BFF public edge path + anonymous reads | cv-project (meta) | done | tech-product-owner | — | [#22](https://github.com/erfeamor/curriculum/pull/22) |
 | 2 | [T-202](T-202-bff-public-routing-and-auth.md) | BFF: public edge path + anonymous read routes | cv-bff-node | done | fullstack-developer | T-013 | [#4](https://github.com/erfeamor/cv-bff-node/pull/4) |
 | 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** — done; the public 200 moved to T-043 | cv-infra | done | tech-product-owner | T-013, T-202, **T-201**, **T-156** | [cv-infra#32](https://github.com/erfeamor/cv-infra/pull/32) |
-| 3b | [T-043](T-043-bff-service-token-to-domain.md) | **The BFF can't read the domain service — give it a Cognito service token** (public routes 401/502 live) | cv-infra + cv-bff-node | todo | | T-014 ✔ | |
+| 3a | [T-211](T-211-bff-service-token-provider.md) | BFF: call the domain service with a Cognito service token (split from T-043) | cv-bff-node | in_progress | tech-product-owner | — | |
+| 3b | [T-043](T-043-bff-service-token-to-domain.md) | **The BFF can't read the domain service — give it a Cognito service token** (public routes 401/502 live) | cv-infra | todo | | T-014 ✔, T-211 | |
 | 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014 ✔, **T-408** ✔, **T-043** | |
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed — **absorbed into T-501** (2026-10-01) | cv-project (meta) | done | tech-product-owner | T-014, T-403, T-404 | none |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
