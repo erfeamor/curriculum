@@ -2,25 +2,25 @@
 id: T-043
 title: "The deployed BFF can't read the domain service: its public routes call it with no credentials and get 401 — give the BFF a Cognito service token"
 repo: cv-infra   # narrowed at H1 2026-10-01: the BFF code is T-211
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: feat/bff-service-token
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/33
 depends_on: [T-014, T-211]
 risk: high   # a new credential (client secret), a cross-repo change, and the public path's first live 200
 security_review: true   # a new Cognito client + secret in SSM; the BFF holds a credential that can read the domain service — adapter §5 auth + secrets paths
 checkpoint:
-  stage: implement   # H1 decided 2026-10-01; T-211 merged; cv-infra developer running
+  stage: qa   # review round 1 clean; PR open. NEXT: push the BFF image (7d34e7d, built locally), state backup, plan, apply (replaces the app host), stage 4
   repo: cv-infra
   branch: feat/bff-service-token
   worktree: none   # main cv-infra checkout
-  commit:
-  pr:
+  commit: 0d00740
+  pr: https://github.com/erfeamor/cv-infra/pull/33
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: high
   security_review: true
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -29,8 +29,8 @@ checkpoint:
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 50781
+    spawns: 1   # infrastructure-engineer (fresh)
     status: ok   # human-reported /usage under ~40%
     checked: 2026-10-01T15:15:00+02:00
 ---
@@ -66,6 +66,12 @@ Stage 0 facts: the pool is on the **Essentials** tier; its domain prefix is `cv-
 1. **cv-infra:** an `aws_cognito_resource_server` (e.g. identifier `cv-domain`, scope `read`) and an `aws_cognito_user_pool_client` for the BFF with `generate_secret = true`, `allowed_oauth_flows = ["client_credentials"]`, and only that scope. The client id and secret go to SSM (`/cv-project/dev/bff/…`, SecureString for the secret). The BFF container gets them at boot (`param()` in `templates/domain-service-user-data.sh`, as the issuer is read), plus the token endpoint (the existing `aws_cognito_user_pool_domain`). Keep the user_data size guard green.
 2. **cv-bff-node:** fetch a token from the Cognito token endpoint (client credentials, the scope above), **cache it until shortly before expiry**, and send `Authorization: Bearer …` on every upstream call (the public routes, and the protected ones if they don't already forward the caller's token — decide at stage 0 which wins). Fails closed: no token → the upstream call isn't made, 502. Unit tests with the token endpoint mocked: cache hit, refresh before expiry, token-endpoint failure → 502, the header is present on all five aggregate calls.
 3. **Deploy:** push the new BFF image, apply (this replaces the app host again: user_data changes), verify.
+
+## Implement + review — 2026-10-01 (0d00740, cv-infra#33)
+
+- Developer (fresh infrastructure-engineer, ~51k tokens): the resource server `cv-domain` (scope `read`), the client `bff_service` (client_credentials only, `cv-domain/read` only, secret, 24 h), four SSM parameters under `/cv-project/dev/bff/` (the secret is a SecureString), the bootstrap reads them at runtime and passes them to `bff-node`, `compute.tf` depends_on, check-static 1b (no output references a client secret). Red-first `bff_service_token` run.
+- Driver-verified: diff read; full offline gate green (`terraform test` 18/18).
+- **Review round 1 (driver, code + security): clean.** The secret is never in the rendered user_data and IAM isn't widened. It will show in `docker inspect` on the host, like the DB password (host access is SSM-only). **Watch:** rendered user_data ≈ 14,644 / 15,500 bytes, so the next bootstrap addition should move to T-009's S3 pattern.
 
 ## Acceptance criteria
 
