@@ -2,26 +2,27 @@
 id: T-014
 title: Deploy cv-bff-node to AWS — registry, container, edge route
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: feat/deploy-bff-node
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/32
 depends_on: [T-013, T-202, T-201, T-156]   # T-201 added 2026-08-24 on the human's instruction, as a SEQUENCING decision, not a technical one — T-014 can deploy without it. Ruling 7 (below) had this task knowingly deploy an image that 404s the contract's aggregate, with NO task on T-501's path owning the redeploy that fixes it: the task that rebuilds and rolls the BFF container is T-203, which is DOWNSTREAM of this one and is absent from T-501's depends_on (the board calls it "off the critical path"), so the milestone could verify end-to-end against a BFF still 404ing /cv. So a manual redeploy was baked into the plan and assigned to nobody — the hot-potato shape T-404 was filed for. Deploying T-201's code in the FIRST image removes that step and lets this task's one expensive apply verify /cv in the stage-4 run it is already paying for. Encoded as depends_on rather than prose per T-016's precedent ("this board has repeatedly lost gating conditions that lived only in prose"). REVERSIBLE IN ONE LINE: if H1 wants the BFF deployed sooner, drop this edge and file the redeploy as its own task — but do not simply drop it and leave the redeploy unowned again.
 risk: high
 security_review: true
 checkpoint:
-  stage: review   # round 1: 1 finding (BFF block before the backup setup), fix in progress by a fresh developer
+  stage: qa   # round 1 fixed (70148e5), round 2 clean; PR open. NEXT: save the July image, build+push both images, state backup, plan, apply (replaces the app host), stage 4
   note: "NOT a fresh todo. Stage 0 refinement completed 2026-08-14 and the seven DoR rulings below are written up (this said 'six' until 2026-08-17 — ruling 7 was added by QA during the same refinement and the count was never updated); whoever picks this up starts at IMPLEMENTATION, not refinement. Deliberately left status:todo with no owner — an H1-complete task with an owner set reads as in-flight and blocks re-pickup under board rule 1. Same pattern T-018 used successfully."
   repo: cv-infra
-  commit: cad12dd
+  commit: 70148e5
+  pr: https://github.com/erfeamor/cv-infra/pull/32
   branch: feat/deploy-bff-node
   worktree: none   # main cv-infra checkout (the original reason, a local backend, is gone: state is in S3 since T-004)
   developer: infrastructure-engineer
   reviewers: [code-review, infrastructure-engineer, security-review, quality-assurance]
   risk: high
   security_review: true
-  review_round: 1
-  open_findings: 1
+  review_round: 2
+  open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
   premises_reverified: "2026-10-01 against cv-infra@431990e, cv-bff-node@889a82f, cv-domain-service@63f75b0, cv-database master, and the live account (read-only). See the premise re-check section: rulings 1-3, 5-7 hold; ruling 4 changed; three new findings (stale domain-service image, user_data size, memory baseline)."
@@ -68,7 +69,7 @@ checkpoint:
 
 - **Developer** (fresh infrastructure-engineer, ~206k tokens): **cad12dd** — ECR repo + lifecycle; a dedicated `bff_node` SG (3000 from the CloudFront prefix list only); the `/bff/*` origin + behavior (unstripped, TTL 0, forwarding `Authorization`/`Content-Type`/`Accept` + query string, like `/api/*`); the BFF container (`AUTH_ENABLED=true`, issuer from SSM, `CORS_ALLOWED_ORIGINS=https://<cloudfront>`); the `spa-router` exclusion; Flyway `13.7.0`; corrected claims in `compute.tf:1`, `README.md:14` and `CLAUDE.md`. Offline assertions red-first; **rendered user_data 13,629 bytes** (guard ≤ 15,500). Logging left unwired: the domain service has none either (no awslogs driver, no `logs:*` grant); the `bff_node` log group stays unused.
 - **Driver-verified:** diff read; full offline gate re-run green (`terraform test` 17/17).
-- **Round 1 finding (fix in progress):** the BFF's pull-retry loop ran **before** the T-001 backup setup, so a missing BFF image would silently prevent the backup timer from being installed. Fix: move the BFF block to the end of the script, with an ordering assertion.
+- **Round 1 finding — FIXED in 70148e5** (a fresh developer, ~52k tokens; red-first ordering assertion; driver re-ran the gate green; round 2 clean): the BFF's pull-retry loop ran **before** the T-001 backup setup, so a missing BFF image would silently prevent the backup timer from being installed. Fix: move the BFF block to the end of the script, with an ordering assertion.
 - **Carried to H2 (T-025's decision):** origin port 3000, like 8080, is reachable by *any* CloudFront distribution (the shared prefix list), so the BFF's `/metrics` is readable that way. Its non-public routes still need a JWT.
 - **Live-step note:** the domain-service ECR lifecycle keeps the 2 most recent images (any tag), so pushing a new `:latest` may expire the July digest. **Save the July image locally before the push**, as the rollback.
 
