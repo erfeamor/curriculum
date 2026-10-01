@@ -10,7 +10,7 @@ depends_on: [T-014, T-211]
 risk: high   # a new credential (client secret), a cross-repo change, and the public path's first live 200
 security_review: true   # a new Cognito client + secret in SSM; the BFF holds a credential that can read the domain service — adapter §5 auth + secrets paths
 checkpoint:
-  stage: qa   # review round 1 clean; PR open. NEXT: push the BFF image (7d34e7d, built locally), state backup, plan, apply (replaces the app host), stage 4
+  stage: h2   # applied 2026-10-01 from the branch; stage 4 passed — the public CV is 200; awaiting human acceptance
   repo: cv-infra
   branch: feat/bff-service-token
   worktree: none   # main cv-infra checkout
@@ -67,6 +67,16 @@ Stage 0 facts: the pool is on the **Essentials** tier; its domain prefix is `cv-
 2. **cv-bff-node:** fetch a token from the Cognito token endpoint (client credentials, the scope above), **cache it until shortly before expiry**, and send `Authorization: Bearer …` on every upstream call (the public routes, and the protected ones if they don't already forward the caller's token — decide at stage 0 which wins). Fails closed: no token → the upstream call isn't made, 502. Unit tests with the token endpoint mocked: cache hit, refresh before expiry, token-endpoint failure → 502, the header is present on all five aggregate calls.
 3. **Deploy:** push the new BFF image, apply (this replaces the app host again: user_data changes), verify.
 
+## Live stage — 2026-10-01, applied from the branch (cv-infra#33 @ 0d00740)
+
+- **Before:** the BFF image from master (7d34e7d) pushed to ECR `:latest` at 13:57:41Z; state backed up (`pre-t043.tfstate`); row baseline person 1, experience 1, skill 1, person_skill 1, education 0, project 0.
+- **Apply** (14:09–14:10Z): 9 added, 0 changed, 3 destroyed (the resource server, the client, four SSM parameters; the instance, EIP association and volume attachment replaced). New instance `i-05c43f3c2d30991fc`; cloud-init done 14:13:06 with all three containers up.
+- **The public path through CloudFront:** `/bff/api/v1/people/1` → **200** and `/cv` → **200** (ready ~10 s after boot). `/cv` carries all four sections (1 experience, 1 skill, 0 education, 0 projects, matching the DB). **No `id`, `personId`, `skillId` or `email`** in either payload. Unknown person → 404; bad id → 400; protected `/people` → 401; `/api/v1/people/1` → 401; `/admin/` → 200; `/metrics` → 403.
+- **Host:** row counts identical; backup timer enabled; domain-service 63f75b0, bff-node 7d34e7d; the four env vars present on bff-node (names checked only); **the client secret is absent from the instance user_data** (compared in-process, never printed); BFF log clean.
+- **Memory on the real aggregate path** (for T-035): 200 `/cv` requests in batches of 20 (~1,000 domain calls): swap in/out ~1,250/800 for a second or two, memory pressure "some avg10" 4.07% / "full" 0.49%, 180 MB available afterwards, domain-service 285 MiB, bff 50 MiB, mysql 56 MiB; `/cv` still 200. **The `t3.micro` holds at demo load, with mild swap pressure.**
+- **Not provable live:** "one token request per 24 h". Cognito's token endpoint isn't in CloudTrail; caching is proven by T-211's unit tests, and live there are no token errors.
+- The branch plans **No changes**.
+
 ## Implement + review — 2026-10-01 (0d00740, cv-infra#33)
 
 - Developer (fresh infrastructure-engineer, ~51k tokens): the resource server `cv-domain` (scope `read`), the client `bff_service` (client_credentials only, `cv-domain/read` only, secret, 24 h), four SSM parameters under `/cv-project/dev/bff/` (the secret is a SecureString), the bootstrap reads them at runtime and passes them to `bff-node`, `compute.tf` depends_on, check-static 1b (no output references a client secret). Red-first `bff_service_token` run.
@@ -75,13 +85,13 @@ Stage 0 facts: the pool is on the **Essentials** tier; its domain prefix is `cv-
 
 ## Acceptance criteria
 
-- [ ] **(moved from T-014)** `GET /bff/api/v1/people/1` and `GET /bff/api/v1/people/1/cv` return **200 through the CloudFront domain**; `/cv` has all four sections in upstream order, and no `id`, `personId`, `skillId` or `email` in either payload.
-- [ ] **(moved from T-014)** Memory measured under a burst on the **real** aggregate path (five upstream calls + MySQL per request): swap in/out, `/proc/pressure/memory`, `docker stats`. The numbers recorded here for [T-035](T-035-app-host-to-graviton.md).
-- [ ] Protected BFF routes still answer 401 without a user token; the admin still works through `/api/*`.
-- [ ] The client secret is only in SSM (never in a committed file, never printed); the Cognito client has **only** the client-credentials flow and the one read scope.
-- [ ] The token is cached: one token request per expiry window, not per request (shown by test, and by the BFF's logs or metrics live).
+- [x] **(moved from T-014)** `GET /bff/api/v1/people/1` and `GET /bff/api/v1/people/1/cv` return **200 through the CloudFront domain**; `/cv` has all four sections in upstream order, and no `id`, `personId`, `skillId` or `email` in either payload.
+- [x] **(moved from T-014)** Memory measured under a burst on the **real** aggregate path (five upstream calls + MySQL per request): swap in/out, `/proc/pressure/memory`, `docker stats`. The numbers recorded here for [T-035](T-035-app-host-to-graviton.md).
+- [x] Protected BFF routes still answer 401 without a user token; the admin still works through `/api/*`.
+- [x] The client secret is only in SSM (never in a committed file, never printed); the Cognito client has **only** the client-credentials flow and the one read scope.
+- [x] The token is cached: one token request per expiry window, not per request (shown by test, and by the BFF's logs or metrics live). *(By T-211's tests; live, no token errors. The token endpoint isn't observable in CloudTrail.)*
 - [x] The Cognito pricing for machine clients and token requests is checked and recorded at H1 *($0.00225 per token response, no per-client charge; 24 h validity → ~$0.07/month)*.
-- [ ] Offline gates in both repos green; `/security-review` clean.
+- [x] Offline gates in both repos green; `/security-review` clean.
 
 ## Watch-outs
 
