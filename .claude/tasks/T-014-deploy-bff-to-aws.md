@@ -23,9 +23,35 @@ checkpoint:
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
-  premises_reverified: "2026-08-14 against cv-infra@774a9fc and cv-bff-node@b63eae2. Every original claim in this task still holds: no BFF ECR repo, no BFF container in user_data, exactly one ordered_cache_behavior (/api/* → domain-service-api), bff_node log group still empty, and compute.tf:1 still falsely claims the box runs the BFF."
+  premises_reverified: "2026-10-01 against cv-infra@431990e, cv-bff-node@889a82f, cv-domain-service@63f75b0, cv-database master, and the live account (read-only). See the premise re-check section: rulings 1-3, 5-7 hold; ruling 4 changed; three new findings (stale domain-service image, user_data size, memory baseline)."
   budget_note: "2026-08-14: stopped at H1 by the old 400-turn ceiling. Superseded: size this by plan windows and the human's /usage (~2 windows), not by the probe."
 ---
+
+## Premise re-check — 2026-10-01 (driver, read-only against code and the live account)
+
+**Holds:**
+- **Original claims:** no BFF ECR repo (`registry.tf` has only `domain_service`); no BFF container in `templates/domain-service-user-data.sh`; one `ordered_cache_behavior` (`/api/*` → `domain-service-api`); `observability.tf:10`'s `bff_node` log group exists, unused; `compute.tf:1` and `README.md:14` still claim the BFF runs.
+- **Ruling 1:** 8080 is prefix-list-scoped since T-022. The CloudFront origin-facing list (`pl-75b1541c`) still has **46 entries**, so port 3000 still needs **its own security group**.
+- **Rulings 2, 3:** `/bff/*` and `/api/*` are disjoint; the origin is `aws_eip.domain_service.public_dns`, `http_port = 8080`, `http-only`; the EIP still exists.
+- **Ruling 5:** the BFF installs auth only when `AUTH_ENABLED === 'true'`; `/cv-project/dev/cognito/issuer-uri` exists; `/api/v1/people/1` through the edge answers **401** today (the domain service's auth is on).
+- **Ruling 6:** `CORS_ALLOWED_ORIGINS` is a comma list (default `http://localhost:4173`).
+- **Ruling 7:** `GET /people/:id/cv` exists (T-201); base path `/bff/api/v1`; `PUBLIC_ROUTES` in `src/middleware/auth.ts`. Image `node:20-alpine` (multi-arch base), `USER node`, `EXPOSE 3000`.
+- **Open question:** the domain service runs as `--name domain-service --network cv`, so `http://domain-service:8080` resolves.
+- **T-018:** `/var/lib/cv-mysql` is mounted from `/dev/nvme1n1`; `user_data_replace_on_change = true` is still set.
+- **ECR pull:** the app host's role has `AmazonEC2ContainerRegistryReadOnly` (all repos), so pulling a BFF repo needs no IAM change.
+- **Flyway:** line 181 still pins `flyway/flyway:10` (the 13.7.0 AC stands). cv-database has only `V1__init_schema.sql`, and the live `flyway_schema_history` has V1 applied: **no schema gap**.
+
+**Changed:**
+- **Ruling 4 — the defect is dormant, and its AC can't be met as written.** `/metrics` and `/health` through the edge answer **403 application/xml**, not 200: the function still rewrites them to `/index.html`, but the bucket has no root `index.html` (only `admin/`; the vanilla site is T-403). The 200-SPA-shell defect appears only once T-403 publishes one. And an excluded path still reaches S3, which answers **403** for a missing key, so "404 at the edge" isn't what the fix produces.
+- **Docs:** `cv-infra/CLAUDE.md` says CloudFront serves a 403/404 → `/index.html` fallback; `frontend.tf` has **no** `custom_error_response`. The SPA routing is the function's job. Correct the doc in this task's PR, since it touches the edge.
+
+**New:**
+- **N1 — the live domain-service image is from 2026-07-18; 13 merges since were never deployed** (ECR `:latest` = the running digest `sha256:92f8b8de…`). Missing live: the section resources T-101–T-104 (the experience resource merged 2026-08-09), and the T-106/T-107 security fixes, plus T-105/T-108/T-109/T-111/T-114/T-115. Consequences:
+  - **The BFF's `/cv` would 502** on deploy: it calls `/experiences`, `/educations`, `/skills` and `/projects` upstream.
+  - **The live admin's section editing is already broken**: its bundle (deployed 2026-09-29) calls `/experiences`, `/educations` and `/projects`.
+  - **Nobody owns the fix.** T-112 automates the deploy but comes after T-014. The cheapest fix is pushing a current `:latest` before this task's apply, since the instance replacement pulls `:latest` anyway.
+- **N2 — user_data size.** `templates/domain-service-user-data.sh` is **12,593 bytes** against EC2's **16,384-byte** limit, with no size guard (T-009 hit the same wall on the CI host). The BFF block adds roughly 1–1.5 KB.
+- **N3 — memory baseline (idle, 2026-10-01):** 916 MB total, **302 MB available**, **497 MB of the 2 GB swap in use**; domain-service 284 MiB, mysql 54 MiB; idle (no swap in/out, memory pressure about 0). A Node BFF needs roughly 60–90 MB: it fits at idle. Stage 4 must measure under a request burst (swap in/out, `/proc/pressure/memory`).
 
 ## Board review 2026-10-01 — re-verify before implementing, then a short H1
 
