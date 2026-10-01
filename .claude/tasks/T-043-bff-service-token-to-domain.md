@@ -1,12 +1,12 @@
 ---
 id: T-043
 title: "The deployed BFF can't read the domain service: its public routes call it with no credentials and get 401 — give the BFF a Cognito service token"
-repo: cv-infra + cv-bff-node
+repo: cv-infra   # narrowed at H1 2026-10-01: the BFF code is T-211
 status: todo
 owner:
 branch: feat/bff-service-token
 pr:
-depends_on: [T-014]
+depends_on: [T-014, T-211]
 risk: high   # a new credential (client secret), a cross-repo change, and the public path's first live 200
 security_review: true   # a new Cognito client + secret in SSM; the BFF holds a credential that can read the domain service — adapter §5 auth + secrets paths
 ---
@@ -28,7 +28,16 @@ The domain service in AWS runs `AUTH_ENABLED=true` and permits only `/actuator/h
 
 The domain service validates **only the issuer** (`spring.security.oauth2.resourceserver.jwt.issuer-uri`; no audience or client check), so a client-credentials token from the same pool is accepted **with no domain-service change**.
 
-## Scope — split at stage 0 into dependency-ordered single-repo tasks (adapter §2)
+## H1 — decided by the human, 2026-10-01
+
+Stage 0 facts: the pool is on the **Essentials** tier; its domain prefix is `cv-project-dev`, so the token endpoint is `https://cv-project-dev.auth.eu-west-3.amazoncognito.com/oauth2/token`. **Cognito charges $0.00225 per machine-token response, with no per-client charge** (pricing page, read 2026-10-01).
+
+1. **Split:** [T-211](T-211-bff-service-token-provider.md) (cv-bff-node: the token provider, the header, upstream 401/403 → 502) first; **this task keeps the cv-infra half** plus the deploy and the live verification.
+2. **Access-token validity: 24 hours** (`access_token_validity = 24`, `token_validity_units { access_token = "hours" }`): ~30 token requests a month, **~$0.07/month** (1 h would be ~730, ~$1.64/month).
+3. **Write scoping is a follow-up:** [T-116](T-116-domain-service-scope-enforcement.md) makes the BFF's read-scoped token GET-only in the domain service. Not in this task.
+4. **Budget:** `/usage` under ~40%: T-211 to merge, then this task through implementation and review; checkpoint before the apply unless there's clear room.
+
+## Scope — split at H1 (2026-10-01): the BFF code is T-211; this task is items 1 and 3
 
 1. **cv-infra:** an `aws_cognito_resource_server` (e.g. identifier `cv-domain`, scope `read`) and an `aws_cognito_user_pool_client` for the BFF with `generate_secret = true`, `allowed_oauth_flows = ["client_credentials"]`, and only that scope. The client id and secret go to SSM (`/cv-project/dev/bff/…`, SecureString for the secret). The BFF container gets them at boot (`param()` in `templates/domain-service-user-data.sh`, as the issuer is read), plus the token endpoint (the existing `aws_cognito_user_pool_domain`). Keep the user_data size guard green.
 2. **cv-bff-node:** fetch a token from the Cognito token endpoint (client credentials, the scope above), **cache it until shortly before expiry**, and send `Authorization: Bearer …` on every upstream call (the public routes, and the protected ones if they don't already forward the caller's token — decide at stage 0 which wins). Fails closed: no token → the upstream call isn't made, 502. Unit tests with the token endpoint mocked: cache hit, refresh before expiry, token-endpoint failure → 502, the header is present on all five aggregate calls.
@@ -41,7 +50,7 @@ The domain service validates **only the issuer** (`spring.security.oauth2.resour
 - [ ] Protected BFF routes still answer 401 without a user token; the admin still works through `/api/*`.
 - [ ] The client secret is only in SSM (never in a committed file, never printed); the Cognito client has **only** the client-credentials flow and the one read scope.
 - [ ] The token is cached: one token request per expiry window, not per request (shown by test, and by the BFF's logs or metrics live).
-- [ ] The Cognito pricing for machine clients and token requests is checked and recorded at H1 (expected: ~720 token requests a month with hourly caching).
+- [x] The Cognito pricing for machine clients and token requests is checked and recorded at H1 *($0.00225 per token response, no per-client charge; 24 h validity → ~$0.07/month)*.
 - [ ] Offline gates in both repos green; `/security-review` clean.
 
 ## Watch-outs
