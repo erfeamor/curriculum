@@ -2,13 +2,37 @@
 id: T-043
 title: "The deployed BFF can't read the domain service: its public routes call it with no credentials and get 401 — give the BFF a Cognito service token"
 repo: cv-infra   # narrowed at H1 2026-10-01: the BFF code is T-211
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: feat/bff-service-token
 pr:
 depends_on: [T-014, T-211]
 risk: high   # a new credential (client secret), a cross-repo change, and the public path's first live 200
 security_review: true   # a new Cognito client + secret in SSM; the BFF holds a credential that can read the domain service — adapter §5 auth + secrets paths
+checkpoint:
+  stage: implement   # H1 decided 2026-10-01; T-211 merged; cv-infra developer running
+  repo: cv-infra
+  branch: feat/bff-service-token
+  worktree: none   # main cv-infra checkout
+  commit:
+  pr:
+  developer: infrastructure-engineer
+  reviewers: [code-review, security-review]
+  risk: high
+  security_review: true
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a   # live app host
+  updated: 2026-10-01T15:15:00+02:00
+  budget:
+    turns: 0
+    total_tokens: 0
+    subagent_tokens: 0
+    spawns: 0
+    status: ok   # human-reported /usage under ~40%
+    checked: 2026-10-01T15:15:00+02:00
 ---
 
 ## Why this exists

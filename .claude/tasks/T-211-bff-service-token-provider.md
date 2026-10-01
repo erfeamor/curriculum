@@ -2,7 +2,7 @@
 id: T-211
 title: "BFF: call the domain service with a Cognito service token (client credentials, cached, fail-closed when configured)"
 repo: cv-bff-node
-status: in_review
+status: done
 owner: tech-product-owner
 branch: feat/service-token
 pr: https://github.com/erfeamor/cv-bff-node/pull/12
@@ -10,11 +10,11 @@ depends_on: []
 risk: normal
 security_review: true   # handles a client secret and an upstream credential — adapter §5 auth + secrets paths
 checkpoint:
-  stage: h2   # review round 1 clean; GitHub Actions green (test, docker); live proof is T-043's stage 4
+  stage: done   # merged 7d34e7d (squash of cv-bff-node#12), 2026-10-01 — H2 accepted; live proof in T-043's stage 4
   repo: cv-bff-node
   branch: feat/service-token
   worktree: none   # main cv-bff-node checkout
-  commit: 2bad6bf
+  commit: 7d34e7d
   pr: https://github.com/erfeamor/cv-bff-node/pull/12
   developer: fullstack-developer
   reviewers: [code-review, security-review]
