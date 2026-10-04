@@ -2,25 +2,25 @@
 id: T-404
 title: "Public site (React): point Vercel's BFF_URL at the deployed BFF"
 repo: cv-public-react
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: chore/vercel-bff-url
-pr:
+pr: https://github.com/erfeamor/cv-public-react/pull/9
 depends_on: [T-014, T-043]   # T-043 added 2026-10-01: the deployed BFF can't serve the public routes until it has a service token
 risk: normal
 security_review: false
 checkpoint:
-  stage: implement   # live check done 2026-10-04; small code change for the missing-BFF_URL decision
+  stage: h2   # review round 1 clean; Vercel preview build green
   repo: cv-public-react
   branch: chore/vercel-bff-url
   worktree: none   # main cv-public-react checkout
-  commit:
-  pr:
+  commit: 3098e88
+  pr: https://github.com/erfeamor/cv-public-react/pull/9
   developer: fullstack-developer
   reviewers: [code-review]
   risk: normal
   security_review: false
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -29,8 +29,8 @@ checkpoint:
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 33555
+    spawns: 1   # fullstack-developer (fresh)
     status: ok
     checked: 2026-10-04T12:00:00+02:00
 ---
@@ -47,6 +47,13 @@ checkpoint:
 
 - **A missing `BFF_URL` fails the production build** (`VERCEL_ENV=production`) instead of silently shipping a page that fetches `localhost:3000`. Local dev keeps the localhost default; previews may keep it too (decide at implementation, with the reasoning).
 - **Record the value** in the repo's CLAUDE.md Vercel section (AC 2).
+
+## Implement + review — 2026-10-04 (3098e88, cv-public-react#9)
+
+- Developer (fresh fullstack-developer, ~34k tokens): `resolveBffUrl(env)` + `BffConfigError` in `src/composition/container.ts`. Production with `BFF_URL` unset or blank throws; a trailing slash or a `/bff…` path throws anywhere; otherwise the localhost default. `app/page.tsx` rethrows `BffConfigError` (its catch-all otherwise rendered the alert), so `next build` fails at prerender. **Previews keep the default** (a preview build is the PR's CI gate). CLAUDE.md records the value.
+- Red first (22 failing incl. the end-to-end page test) → 172/172. `VERCEL_ENV=production` without `BFF_URL` → `next build` exit 1; with the real value → exit 0, live data, no alert.
+- Driver-verified: diff read; lint, typecheck, 172 tests, build green; **Vercel preview green**.
+- **Review round 1 (driver): clean.** Only `BffConfigError` is rethrown, so real upstream failures keep the graceful alert; the suffix regex doesn't misfire on a `bff.` hostname.
 
 ## Why this exists
 
@@ -74,9 +81,9 @@ Probably one Vercel environment variable — but *probably* is the reason this n
 ## Acceptance criteria
 
 - [x] The deployed Vercel site renders real person data fetched from the **deployed** BFF — verified by loading the production URL, not by inspecting configuration.
-- [ ] The `BFF_URL` value is recorded somewhere durable (repo README or `docs/`), because a Vercel project setting is invisible to Terraform, to git, and to every other check in this project.
+- [x] The `BFF_URL` value is recorded somewhere durable (repo README or `docs/`), because a Vercel project setting is invisible to Terraform, to git, and to every other check in this project.
 - [x] No `CORS_ALLOWED_ORIGINS` entry was added for the Vercel domain, or the PR explains what changed to make one necessary.
-- [ ] If a missing/misconfigured `BFF_URL` currently degrades silently, it either fails the build or is recorded as an accepted behaviour with its reasoning.
+- [x] If a missing/misconfigured `BFF_URL` currently degrades silently, it either fails the build or is recorded as an accepted behaviour with its reasoning.
 - [ ] **A trailing slash on `BFF_URL` must not silently 404.** `BffCvRepository` concatenates without normalizing (`src/infrastructure/BffCvRepository.ts:64`), so `https://host/` yields `https://host//bff/api/v1/...`, which CloudFront and the BFF both reject. Either trim the slash in the composition root or assert its absence — a Vercel project setting is typed by hand into a web form, which is exactly where a trailing slash gets added. Found by `/code-review` during [T-406](T-406-public-react-bff-path-missing-prefix.md), 2026-09-22; pre-existing and deliberately not fixed there (board rule 3), recorded here because this task is the one that sets the value.
 - [ ] `npm test`, `npm run typecheck`, `npm run lint`, `npm run build` pass if any code changed.
 
