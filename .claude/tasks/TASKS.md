@@ -210,7 +210,6 @@ Personas and risk for the open rows (assigned per the adapter's capability→rep
 | T-014 | infrastructure-engineer | **high** | **true** — SG ingress, published ports, CORS |
 | T-403 | fullstack-developer | normal | **true** — `.github/workflows/**` + AWS deploy creds |
 | T-203 | infrastructure-engineer | normal | **true** — CI config + AWS creds; read T-005 first |
-| T-404 | fullstack-developer | normal | false — a base URL for a public anonymous read; no credentials |
 
 - **T-014 is the expensive one** (adapter §7: real apply + stage-4 AWS verification = budget for the full ceiling, never run it in a wave). It replaces the instance via `user_data_replace_on_change`; since [T-018](T-018-mysql-on-dedicated-ebs-volume.md) the MySQL datadir survives on its own volume, so confirm `/var/lib/cv-mysql` is mounted from it (`findmnt`) before applying.
 - **A trap arrived with T-018**, filed as **[T-021](T-021-mysql-password-rotation-persistent-datadir.md)**: because the datadir now survives, `mysql:8.4` skips initialization and keeps its original credentials, so rotating `var.db_password` makes Flyway fail auth, aborts the bootstrap under `set -e`, and leaves the box with **no domain-service container at all**. Anyone editing `db_password` before T-021 lands should expect that.
