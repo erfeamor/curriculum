@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: chore/deploy-and-bff-url
 pr:
-depends_on: [T-014, T-408, T-043]   # T-043 added 2026-10-01: the BFF's public routes 401/502 until it has a service token. T-408 added 2026-09-23 — FILE-LEVEL: this task edits `src/main.js:3` (the localhost fallback) and T-408 fixes `main.js:10`; and a deploy of the pre-T-408 bundle would publish a page whose only request 404s.
+depends_on: [T-014, T-408, T-043, T-045]   # T-043 added 2026-10-01: the BFF's public routes 401/502 until it has a service token. T-408 added 2026-09-23 — FILE-LEVEL: this task edits `src/main.js:3` (the localhost fallback) and T-408 fixes `main.js:10`; and a deploy of the pre-T-408 bundle would publish a page whose only request 404s.
 risk: normal
 security_review: true
 ---
@@ -34,6 +34,13 @@ With no `VITE_BFF_URL` baked at build time, a deployed bundle fetches from **the
 
 Together these are why the public path shows nothing in AWS even once T-014 lands: no BFF **and** no site.
 
+## H1 — decided by the human, 2026-10-04
+
+1. **Credential: GitHub OIDC**, split out as [T-045](T-045-github-oidc-deploy-role-public-vanilla.md) (cv-infra), which goes first. The workflow assumes the role (ARN from a repo variable) via `aws-actions/configure-aws-credentials` with `permissions: id-token: write`, on `master` pushes only.
+2. **Same-origin, relative BFF calls:** production builds call `/bff/api/v1/…` on the page's own origin; local dev keeps `http://localhost:3000`. That needs a small `src/main.js` change (an unset `VITE_BFF_URL` in a production build → `''`, not localhost). A CI grep fails the build if `localhost:3000` is in `dist/`.
+3. **The site deploys to the bucket ROOT** (the edge sends every non-admin path to `/index.html`, and `default_root_object = index.html`). **`aws s3 sync … --delete` must carry `--exclude "admin/*"`**, so the live admin is never deleted. T-045's role also denies writes under `admin/`, as a second guard.
+4. **Budget:** `/usage` 40–75%: T-045 first to merge, then checkpoint; this task starts in a later window.
+
 ## Board review 2026-10-04 — an unowned cv-infra dependency: the deploy credential
 
 The deploy job runs in **GitHub Actions** and needs AWS credentials (S3 sync to the site's prefix plus a CloudFront invalidation). cv-infra has **no GitHub OIDC provider**; the only deploy credential is the `drone_deploy` IAM user's static key (T-008), which [T-005](T-005-ci-secret-blast-radius.md) warns against reusing. **Decide the GitHub → AWS credential model at this task's H1**, not later at T-112/T-203's: the recommended shape is an `aws_iam_openid_connect_provider` for `token.actions.githubusercontent.com` plus a role per repo, trusted only for that repo's `master`, allowed only its own bucket prefix and the invalidation. That's a cv-infra piece, so **split it at stage 0** (adapter §2): a cv-infra task first, then this one. [T-203](T-203-bff-ci-deploy-stage.md) (also GitHub Actions) reuses the same provider.
@@ -51,7 +58,7 @@ The deploy job runs in **GitHub Actions** and needs AWS credentials (S3 sync to 
 - [ ] A `master` push publishes the built site and invalidates its prefix; PR builds do not deploy.
 - [ ] The deployed bundle contains **no** `localhost:3000` — grep the built output in CI and fail on a hit. This is the whole point of the task; a convention is not enough.
 - [ ] Loading the site through the CloudFront domain renders person data fetched from the deployed BFF (end-to-end, real request).
-- [ ] The admin at `/admin/` still works — the two apps share a bucket and a distribution.
+- [ ] The admin at `/admin/` still works — the two apps share a bucket and a distribution. **(H1 2026-10-04)** The deploy's `sync --delete` excludes `admin/*`, verified by listing `admin/` before and after the first deploy (same object count and ETags).
 - [ ] **A trailing slash on `VITE_BFF_URL` must not produce `//bff/api/v1/…`.** `src/main.js` concatenates `${BFF_URL}/bff/api/v1/…` without normalising (since T-408), and this task is the one that sets the value — a hand-typed deploy variable is exactly where a trailing slash appears. Trim it in `main.js` or fail the build on it. Mirrors the AC [T-404](T-404-public-react-point-at-deployed-bff.md) carries for the React site; raised by `frontend-architect` in T-408's review, 2026-09-24.
 - [ ] `npm run lint`, `npm test`, `npm run build` pass.
 
