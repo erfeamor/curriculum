@@ -9,6 +9,8 @@ pr:
 depends_on: [T-101, T-102, T-103, T-104, T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-043, T-403, T-404]
 ---
 
+> **Found 2026-10-04 (T-404's live check), decide here:** the **production** CV content is T-018's durability-probe rows (person "T018 Survival Probe", experience "T018 Testing Co" / "Durability Probe", skill `t018-probe-skill`), written in August to prove the MySQL volume survives a host replacement. Both public sites now render it. Before the milestone demo, decide whose CV production shows and enter it through the admin (`/admin/`), replacing the probe rows. Dev seeds are dev-only (`cv-database/sql/dev-seeds/`) and never reach production.
+
 > **Board review 2026-09-28**: this task's PR **also carries [T-015](T-015-docs-reflect-deployed-bff.md)'s doc corrections** *(absorbed formally 2026-10-01: its criteria are in Deliverables below)* (same files, same live verification). Tick T-015's criteria in the same PR and close both together.
 
 ## Goal
