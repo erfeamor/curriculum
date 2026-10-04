@@ -2,25 +2,25 @@
 id: T-403
 title: "Public site (vanilla): deploy to S3/CloudFront and point it at the deployed BFF"
 repo: cv-public-vanilla
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: chore/deploy-and-bff-url
-pr:
+pr: https://github.com/erfeamor/cv-public-vanilla/pull/5
 depends_on: [T-014, T-408, T-043, T-045]   # T-043 added 2026-10-01: the BFF's public routes 401/502 until it has a service token. T-408 added 2026-09-23 — FILE-LEVEL: this task edits `src/main.js:3` (the localhost fallback) and T-408 fixes `main.js:10`; and a deploy of the pre-T-408 bundle would publish a page whose only request 404s.
 risk: normal
 security_review: true
 checkpoint:
-  stage: implement   # wave with T-113, 2026-10-04; H1 decided earlier the same day
+  stage: h2   # review round 1 clean; Actions green (test; deploy skipped on PR as designed); live deploy happens ON MERGE
   repo: cv-public-vanilla
   branch: chore/deploy-and-bff-url
   worktree: none   # main cv-public-vanilla checkout
-  commit:
-  pr:
+  commit: ef57aa6
+  pr: https://github.com/erfeamor/cv-public-vanilla/pull/5
   developer: fullstack-developer
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -29,8 +29,8 @@ checkpoint:
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 38622
+    spawns: 1   # fullstack-developer (fresh)
     status: ok   # human-reported /usage under ~40%
     checked: 2026-10-04T15:00:00+02:00
 ---
@@ -59,6 +59,13 @@ const BFF_URL = import.meta.env.VITE_BFF_URL || 'http://localhost:3000';
 With no `VITE_BFF_URL` baked at build time, a deployed bundle fetches from **the visitor's own machine**. `cv-admin-react/.drone.yml` carries a comment about precisely this trap — Drone silently drops empty-string env values, which *"let the localhost fallback into a deployed bundle once."* The same footgun, unfixed here, in a repo that has never deployed so has never been caught by it.
 
 Together these are why the public path shows nothing in AWS even once T-014 lands: no BFF **and** no site.
+
+## Implement + review — 2026-10-04 (ef57aa6, cv-public-vanilla#5)
+
+- Developer (fresh fullstack-developer, ~39k tokens): `src/bffUrl.js` (production + unset → relative `''`; dev → localhost, stripped from prod bundles; an explicit value is trimmed and loses trailing slashes); the CI localhost grep in `test`; a `deploy` job on a master push only (OIDC, concurrency group). Two-pass sync: hashed assets immutable first, then `index.html` no-cache with `--delete`, **both `--exclude "admin/*"`**. Invalidation only `/index.html` and `/` (not `/*`, to spare the admin's cache). Constants in the workflow `env:` (changing them needs a PR); the role from `vars.AWS_DEPLOY_ROLE_ARN`.
+- Red first → 61/61. Driver-verified: lint, tests, build; **no `localhost:3000` in `dist/`**; the bundle calls the relative `/bff/api/v1/people/…/cv`. **Actions green** on the PR (test ✓; deploy skipped, as designed).
+- **Review round 1 (code + security): clean.** Non-blocking: third-party actions pinned by major tag (`@v4`), not by SHA.
+- The repo variable `AWS_DEPLOY_ROLE_ARN` is set by the driver. **Bucket baseline before the first deploy:** 3 objects, all under `admin/`, none at the root (saved for the after-deploy comparison).
 
 ## H1 — decided by the human, 2026-10-04
 
