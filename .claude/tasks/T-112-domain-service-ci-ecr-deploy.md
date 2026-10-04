@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: chore/ci-ecr-deploy-stage
 pr:
-depends_on: [T-111]   # REPOINTED 2026-09-23 from T-110, which was absorbed into T-111 — exactly the case the caveat below anticipated (and T-201's review finding F8 flagged). T-111 now lands the `master` gate, so the reasoning is unchanged: landing this first would implement a stage that can never run. Original comment: SCHEDULING, not file-level: T-110 fixes `when { branch 'main' }`. Landing this first would implement a stage that can never run. CAVEAT (review round, 2026-08-27): T-110's own H1 may BUNDLE it into T-111 under T-153's recommended option (a), in which case T-110 closes with no PR of its own and this edge points at an absorbed task. If that happens, repoint this to whichever task actually lands the `master` gate -- do not read a closed T-110 as an unmet dependency.
+depends_on: [T-111, T-044]   # T-044 added 2026-10-04: "roll the container" uses its `cv-redeploy`, so the pipeline never duplicates the run arguments (secrets included) that live only in the bootstrap. REPOINTED 2026-09-23 from T-110, which was absorbed into T-111 — exactly the case the caveat below anticipated (and T-201's review finding F8 flagged). T-111 now lands the `master` gate, so the reasoning is unchanged: landing this first would implement a stage that can never run. Original comment: SCHEDULING, not file-level: T-110 fixes `when { branch 'main' }`. Landing this first would implement a stage that can never run. CAVEAT (review round, 2026-08-27): T-110's own H1 may BUNDLE it into T-111 under T-153's recommended option (a), in which case T-110 closes with no PR of its own and this edge points at an absorbed task. If that happens, repoint this to whichever task actually lands the `master` gate -- do not read a closed T-110 as an unmet dependency.
 risk: normal
 security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /security-review path, and this diff introduces registry credentials into CI
 ---
@@ -40,7 +40,7 @@ stage('Deploy') {
 }
 ```
 
-**The deploy target it waits for already exists.** `cv-infra/registry.tf:5` defines `aws_ecr_repository.domain_service`, and `cv-infra/compute.tf:46` already points the instance at `${aws_ecr_repository.domain_service.repository_url}:latest`. What is missing is the push and the roll — nothing else.
+**The deploy target it waits for already exists.** `cv-infra/registry.tf:5` defines `aws_ecr_repository.domain_service`, and `cv-infra/compute.tf:50` *(was :46 before T-014; board review 2026-10-04)* already points the instance at `${aws_ecr_repository.domain_service.repository_url}:latest`. What is missing is the push and the roll — nothing else.
 
 **Today's deploy is manual and the user-data says so in terms.** `cv-infra/templates/domain-service-user-data.sh:188` reads *"The image is pushed manually/by CI after this instance first boots"*, and the boot path is `aws ecr get-login-password` → `until docker pull "${image}"; do … retry 60s` → `docker run -d --name domain-service`. So a new image reaches production **only when the instance reboots**, and only if someone pushed `:latest` by hand first. `README.md:273` records this as backlog: *"backend services still deployed manually."*
 
@@ -58,7 +58,7 @@ T-203 is **GitHub Actions**; this is **Jenkins on our own EC2 host**. The creden
 
 - Push the built image to `aws_ecr_repository.domain_service`, on `master` only, never on PRs.
 - Roll the running container on the domain-service instance. **SSM `send-command` is the mechanism the account already supports** — there is no SSH anywhere in this estate. Scope the permission to that one instance ARN.
-- **Decide the tag contract, and say why.** The build already produces `$IMAGE_NAME:$GIT_COMMIT`, but `compute.tf:46` pins `:latest`, which T-152's security review flagged as a mutable-tag NOTE. Options are to push both (immutable SHA for provenance, `:latest` for the boot path) or to move the instance off `:latest` — the second touches `cv-infra` and is a cross-repo change, so **price it at H1 rather than assuming it**.
+- **Decide the tag contract, and say why.** The build already produces `$IMAGE_NAME:$GIT_COMMIT`, but `compute.tf:50` pins `:latest`, which T-152's security review flagged as a mutable-tag NOTE. Options are to push both (immutable SHA for provenance, `:latest` for the boot path) or to move the instance off `:latest` — the second touches `cv-infra` and is a cross-repo change, so **price it at H1 rather than assuming it**.
 - **Check the ECR lifecycle policy against the chosen tag scheme.** `registry.tf:16` keeps only the **two most recent images** because Free-Tier private ECR storage is 500 MB. A per-commit tag scheme churns that window fast; confirm the rollback story survives it.
 
 **Out of scope:** the dead `branch 'main'` gate ([T-110](T-110-domain-service-jenkins-deploy-dead-gate.md)) and the missing `timeout {}` ([T-111](T-111-domain-service-jenkins-pipeline-timeout.md)). This task depends on ~~T-110~~ **T-111** (which absorbed T-110 on 2026-09-23 and now carries both) precisely so it is not also fixing either.

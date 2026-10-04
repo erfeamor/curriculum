@@ -19,7 +19,7 @@ Filed 2026-10-01 at [T-043](T-043-bff-service-token-to-domain.md)'s H1 (the huma
 
 - Requests whose token carries the BFF's read scope (or its `client_id`) are **GET-only**: any other method → 403. Admin (user) tokens are unaffected.
 - Tests for both branches (read-scoped token: GET 200, PUT 403; user token: PUT still allowed).
-- Deploy: the next domain-service image push (manual until T-112).
+- Deploy: **batched with [T-113](T-113-optimistic-locking-lost-update.md)** into one domain-service image, rolled with [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)'s `cv-redeploy domain-service` (board review 2026-10-04). Manual until T-112.
 
 ## Acceptance criteria
 

@@ -1,0 +1,45 @@
+---
+id: T-044
+title: "App host: move the bootstrap to S3 (user_data is at ~14.6/15.5 KB) and add a `cv-redeploy <service>` command — today a new image only reaches the host by replacing it"
+repo: cv-infra
+status: todo
+owner:
+branch: feat/app-host-bootstrap-s3-redeploy
+pr:
+depends_on: [T-043]   # builds on the bootstrap as T-043 left it (the BFF block last, the service-token env)
+risk: high   # replaces the app host (user_data changes) and changes how every container on it is (re)started
+security_review: true   # the redeploy path recreates containers carrying secrets (DB password, BFF client secret) — adapter §5 secrets path
+---
+
+## Why this exists
+
+Filed 2026-10-04 by the board review. Two problems with one fix:
+
+1. **user_data is nearly full.** The app host's rendered user_data is ~14,644 bytes (T-043) against the 15,500-byte guard T-014 added (EC2's limit is 16,384). The next bootstrap addition fails the guard. [T-009](T-009-user-data-size-ceiling.md) solved the same wall on the CI host: user_data fetches the real script from a private S3 object, checked against a hash in SSM.
+2. **There is no way to deploy a new image without replacing the host.** Images are pushed to ECR `:latest` by hand (T-014, T-043), and the containers' `docker run` arguments, secrets included, exist **only** in the bootstrap script, which runs once at boot. So deploying a new domain-service or BFF image means a full instance replacement (3–5 minutes of admin/API downtime; done twice on 2026-10-01). And [T-112](T-112-domain-service-ci-ecr-deploy.md) and [T-203](T-203-bff-ci-deploy-stage.md) ("roll the container on master") would each have to duplicate those arguments in a pipeline. Nothing in `cv-infra/docs/runbooks/` describes any of this.
+
+## Scope
+
+- **Bootstrap to S3 (T-009's pattern):** the app host's provisioning script becomes a private S3 object with its SHA-256 in SSM; user_data shrinks to a small fetch-verify-run stub. Keep `user_data_replace_on_change`. Keep every current behavior: MySQL on its volume (T-018), Flyway, the backup timer (T-001), the domain service, and the BFF last (T-014 round 1).
+- **A host-side `cv-redeploy <service>`** (`domain-service` | `bff-node`): re-read the service's parameters from SSM, `docker pull` its `:latest`, then recreate **only that container** with the **same arguments the bootstrap uses**, from one definition shared by both (no duplicated `docker run` lines). Print the old and new image digests; never print secrets.
+- **How it's invoked:** by an operator via `aws ssm send-command`, and later by T-112/T-203's pipelines. The IAM to allow that is T-112/T-203's decision, not this task's.
+- **A runbook** `docs/runbooks/app-host-deploy.md`:
+  - build, push, `cv-redeploy`, verify;
+  - rollback to a previous digest;
+  - the ECR lifecycle caveat (only the 2 most recent images are kept);
+  - when an instance replacement is still needed (bootstrap changes only).
+
+## Acceptance criteria
+
+- [ ] The rendered user_data is a small stub (the size guard is updated and records the new size); the full script is in S3, verified by hash before it runs.
+- [ ] Applied: the host is replaced once by this task; afterwards every container runs as before (the public CV 200 through CloudFront, the admin works, row counts unchanged, the backup timer enabled).
+- [ ] `cv-redeploy bff-node` and `cv-redeploy domain-service` each recreate only their container, from a freshly pushed image, with no host replacement and under a minute of that service's downtime. Verified live by digest before and after.
+- [ ] The run arguments have one source: an offline test fails if the bootstrap and `cv-redeploy` diverge.
+- [ ] No secret in user_data, the S3 object, logs or command output (the S3 script reads secrets from SSM at run time, as today).
+- [ ] The runbook exists and is linked from `cv-infra/CLAUDE.md`.
+
+## Watch-outs
+
+- **Don't change `db_password`** (T-021).
+- This replaces the app host; **save the current images' digests** first, as T-014 did, because the ECR lifecycle keeps only 2 images.
+- Unblocks: the T-113 + T-116 domain-service deploy (one image, via `cv-redeploy` rather than a host replacement), [T-112](T-112-domain-service-ci-ecr-deploy.md), [T-203](T-203-bff-ci-deploy-stage.md). [T-035](T-035-app-host-to-graviton.md) still replaces the host, but inherits the S3 bootstrap.

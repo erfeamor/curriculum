@@ -11,6 +11,8 @@ risk: normal
 security_review: true
 ---
 
+> **Board review 2026-10-04 — the premise moved; decide at H1 whether to close.** The leak this task was filed for (`/v3/api-docs` answering through any CloudFront distribution) is **closed live**: T-106's fix has been deployed since 2026-10-01 (T-014 put current domain-service master on the host). What's still reachable through a foreign distribution: the domain service's `/actuator/health` (anonymous by design), the BFF's two public routes (public by design), and the **BFF's `/metrics`** (Prometheus counters, route labels bucketed since T-208, no data). This task's own recommendation (below) was already *documented accepted risk*. Options at H1: close as accepted risk; or close plus a one-line BFF change that stops serving `/metrics` outside dev; or implement the shared-secret header as scoped.
+
 > **T-014's H2, 2026-10-01: kept as its own task, after [T-043](T-043-bff-service-token-to-domain.md).** The BFF is now live on origin port **3000**, behind the same shared CloudFront prefix list as 8080, so this task now covers both ports. Concretely, the BFF's `/metrics` (Prometheus counters, route labels bucketed since T-208) is readable through any CloudFront distribution; its non-public routes still need a JWT.
 
 ## Why this exists

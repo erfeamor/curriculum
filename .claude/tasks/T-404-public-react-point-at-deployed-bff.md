@@ -11,6 +11,8 @@ risk: normal
 security_review: false
 ---
 
+> **Board review 2026-10-04 — this is a human step first.** There's no Vercel CLI or linked Vercel project on the driver's machine, so setting `BFF_URL` in the Vercel project is the **human's action** (dashboard). The driver then verifies the deployed page renders real data from the deployed BFF (`https://dvdlxl0zqepqi.cloudfront.net`, whose `/bff/api/v1/people/1/cv` answers 200 since T-043) and records the value durably in the repo (AC 2). If the page shows the `role="alert"` path, ISR may be serving a cached failure for up to `revalidate = 60` s; reload after a minute before concluding.
+
 ## Why this exists
 
 **A hot potato with no landing spot.** Filed 2026-08-17 during a board consistency sweep.
