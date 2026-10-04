@@ -2,7 +2,7 @@
 id: T-404
 title: "Public site (React): point Vercel's BFF_URL at the deployed BFF"
 repo: cv-public-react
-status: in_review
+status: done
 owner: tech-product-owner
 branch: chore/vercel-bff-url
 pr: https://github.com/erfeamor/cv-public-react/pull/9
@@ -10,11 +10,11 @@ depends_on: [T-014, T-043]   # T-043 added 2026-10-01: the deployed BFF can't se
 risk: normal
 security_review: false
 checkpoint:
-  stage: h2   # review round 1 clean; Vercel preview build green
+  stage: done   # merged 2c785cb (squash of cv-public-react#9), 2026-10-04 — H2 accepted; the production build from master passed with the guard and the live page renders the CV
   repo: cv-public-react
   branch: chore/vercel-bff-url
   worktree: none   # main cv-public-react checkout
-  commit: 3098e88
+  commit: 2c785cb
   pr: https://github.com/erfeamor/cv-public-react/pull/9
   developer: fullstack-developer
   reviewers: [code-review]

@@ -11,7 +11,6 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
-- **[T-404](T-404-public-react-point-at-deployed-bff.md): live since 2026-10-04** (`cv-public-react.vercel.app` renders the deployed BFF's CV); a small PR records the value and makes a production build fail without `BFF_URL`.
 - **[T-403](T-403-public-vanilla-deploy.md)** (~1 window): its H1 **decides the GitHub → AWS credential model** (OIDC provider + a per-repo role; a cv-infra task split out at stage 0), which T-203 reuses later.
 - **[T-113](T-113-optimistic-locking-lost-update.md)** in parallel (cv-domain-service; contract PR first). Merge it, but **hold its deploy** for T-044 and batch it with T-116.
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**). Independent.
@@ -194,7 +193,7 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed — **absorbed into T-501** (2026-10-01) | cv-project (meta) | done | tech-product-owner | T-014, T-403, T-404 | none |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 ✔, T-044 | |
 | — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call (adopts T-201's shared guard) | cv-bff-node | done | fullstack-developer | T-202 ✔, **T-201 ✔** | [#8](https://github.com/erfeamor/cv-bff-node/pull/8) |
-| — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF — **live since 2026-10-04**; a small guard PR closes it | cv-public-react | in_review | tech-product-owner | T-014 ✔, **T-043** ✔ | [cv-public-react#9](https://github.com/erfeamor/cv-public-react/pull/9) |
+| — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF — **done 2026-10-04**: live, and a production build fails without it | cv-public-react | done | tech-product-owner | T-014 ✔, **T-043** ✔ | [cv-public-react#9](https://github.com/erfeamor/cv-public-react/pull/9) |
 
 **[T-014](T-014-deploy-bff-to-aws.md) is claimable and heads the chain** — its `depends_on` (T-013, T-202, T-201) is fully satisfied. T-201 is there as a *sequencing* decision: the first deployed image must already serve the aggregate. When a dependency changes, the task file and every prose reference to it move together — the paragraph this replaces went stale about T-201 four times (see HISTORY.md).
 
