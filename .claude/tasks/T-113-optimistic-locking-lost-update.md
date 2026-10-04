@@ -11,6 +11,8 @@ risk: normal
 security_review: false
 ---
 
+> **Board review 2026-10-04 — ship with T-116 as one domain-service deploy.** [T-116](T-116-domain-service-scope-enforcement.md) also changes cv-domain-service and also needs a deploy. Merge both, then build and push **one** image, and deploy it with [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)'s `cv-redeploy domain-service` (no host replacement). If T-044 hasn't landed, the deploy waits for it rather than replacing the host again.
+
 > **Board review 2026-09-28**: was missing from the lane. It is now scheduled **right after [T-014](T-014-deploy-bff-to-aws.md)** (session 4), when the migration freeze lifts. Its contract PR (the 409 shape) can be drafted earlier.
 
 ## Goal

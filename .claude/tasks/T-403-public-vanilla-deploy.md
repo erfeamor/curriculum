@@ -34,6 +34,10 @@ With no `VITE_BFF_URL` baked at build time, a deployed bundle fetches from **the
 
 Together these are why the public path shows nothing in AWS even once T-014 lands: no BFF **and** no site.
 
+## Board review 2026-10-04 — an unowned cv-infra dependency: the deploy credential
+
+The deploy job runs in **GitHub Actions** and needs AWS credentials (S3 sync to the site's prefix plus a CloudFront invalidation). cv-infra has **no GitHub OIDC provider**; the only deploy credential is the `drone_deploy` IAM user's static key (T-008), which [T-005](T-005-ci-secret-blast-radius.md) warns against reusing. **Decide the GitHub → AWS credential model at this task's H1**, not later at T-112/T-203's: the recommended shape is an `aws_iam_openid_connect_provider` for `token.actions.githubusercontent.com` plus a role per repo, trusted only for that repo's `master`, allowed only its own bucket prefix and the invalidation. That's a cv-infra piece, so **split it at stage 0** (adapter §2): a cv-infra task first, then this one. [T-203](T-203-bff-ci-deploy-stage.md) (also GitHub Actions) reuses the same provider.
+
 ## Scope
 
 - Replace the placeholder with a real deploy job: build, `aws s3 sync dist/` to the site's own prefix of the shared bucket, invalidate that prefix. Follow `cv-admin-react/.drone.yml`'s deploy step as the working reference — same bucket, same distribution, different prefix.

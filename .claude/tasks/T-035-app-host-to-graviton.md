@@ -11,6 +11,8 @@ risk: high   # replaces the production app host and changes its CPU architecture
 security_review: false   # instance type and AMI only; re-checked at A1 against the real diff
 ---
 
+> **Board review 2026-10-04:** run this **after [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)**, so the Graviton replacement inherits the S3 bootstrap (no user_data size pressure) and its images can be rolled with `cv-redeploy` if an arm64 build needs a fix after the swap.
+
 ## Why this exists
 
 Filed 2026-09-24 from the cost review behind [T-012](T-012-aws-endgame-decision.md)'s decision **A**. The app host is the largest line on the bill: `EUW3-BoxUsage:t3.micro`, **$8.61/month, 41%**. AWS Pricing API, EU (Paris), Linux on-demand, read the same day:

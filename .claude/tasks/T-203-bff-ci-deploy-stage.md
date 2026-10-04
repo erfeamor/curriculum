@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: chore/ci-ecr-deploy-stage
 pr:
-depends_on: [T-014]
+depends_on: [T-014, T-044]   # T-044 added 2026-10-04: rolling the container uses its `cv-redeploy bff-node`; the GitHub → AWS credential (OIDC) is decided at T-403's H1 and reused here
 risk: normal
 security_review: true
 ---

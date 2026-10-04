@@ -4,24 +4,27 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-10-01 (T-043 merged: the public CV is live through CloudFront; next the public sites)
+## Now / Next / Later — refreshed 2026-10-04 (board review: T-044 filed; T-403's credential decision moved forward; T-404 is a human step; T-113 + T-116 ship as one deploy; T-025's premise moved)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
-- In parallel, two repos: [T-403](T-403-public-vanilla-deploy.md) (vanilla deploy) and [T-404](T-404-public-react-point-at-deployed-bff.md) (Vercel `BFF_URL`). **The public path works since 2026-10-01**: T-014 (the BFF live), T-211 + T-043 (its service token); `/bff/api/v1/people/1/cv` answers 200 through CloudFront.
-- **[T-113](T-113-optimistic-locking-lost-update.md)** in parallel (cv-domain-service; the migration freeze is lifted): `@Version`/409, contract PR first.
+- **[T-404](T-404-public-react-point-at-deployed-bff.md) — human first:** set `BFF_URL` in the Vercel project; the driver then verifies the live page and records the value. Minutes.
+- **[T-403](T-403-public-vanilla-deploy.md)** (~1 window): its H1 **decides the GitHub → AWS credential model** (OIDC provider + a per-repo role; a cv-infra task split out at stage 0), which T-203 reuses later.
+- **[T-113](T-113-optimistic-locking-lost-update.md)** in parallel (cv-domain-service; contract PR first). Merge it, but **hold its deploy** for T-044 and batch it with T-116.
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**). Independent.
 
-**Next**
-- Security follow-ups on the new public path: [T-116](T-116-domain-service-scope-enforcement.md) (make the BFF's read token GET-only in the domain service; rides the next domain-service image) and [T-025](T-025-verify-requests-come-from-our-cloudfront.md) (origin ports 3000 and 8080 behind the shared CloudFront prefix list).
-- [T-035](T-035-app-host-to-graviton.md) as its own apply: app host to Graviton, plus the app host's IMDSv2 hardening (from T-005). **T-043's real-path memory numbers say the 1 GiB box holds at demo load with mild swap pressure.** **The app-host user_data is at ~14.6 / 15.5 KB**: the next bootstrap addition should move to T-009's S3 pattern.
+**Next** (~1–2 windows)
+- **[T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)**: the app-host bootstrap to S3 and `cv-redeploy <service>`, plus the deploy runbook. It replaces the host once; after it, a deploy is a container restart, not a host replacement.
+- **One domain-service deploy** carrying [T-113](T-113-optimistic-locking-lost-update.md) + [T-116](T-116-domain-service-scope-enforcement.md) (implement T-116, merge, build one image, `cv-redeploy domain-service`).
+- **Decide [T-025](T-025-verify-requests-come-from-our-cloudfront.md)** at its H1 (likely close as accepted risk; minutes).
 
-**Then** (~1–2 windows)
-- [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-005](T-005-ci-secret-blast-radius.md)'s remainder: **one H1** for the credential model, with T-005 as its input. Multi-arch images are decided at their H1 (T-014 declined them for its one-off builds; T-035 does the arm64 rebuild).
-- → **[T-501](T-501-e2e-cv-milestone.md)** (~1 window), which **absorbed [T-015](T-015-docs-reflect-deployed-bff.md)** on 2026-10-01: milestone M2 done.
+**Then** (~2 windows)
+- [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-005](T-005-ci-secret-blast-radius.md)'s remainder: **one H1** for the pipelines' AWS permissions. GitHub Actions reuses T-403's OIDC; Jenkins uses its instance role, narrowed per T-005. Both roll containers with `cv-redeploy`.
+- [T-035](T-035-app-host-to-graviton.md) (after T-044): app host to Graviton, plus the IMDSv2 hardening; arm64 builds of both images.
+- → **[T-501](T-501-e2e-cv-milestone.md)** (~1 window, absorbs T-015): **milestone M2**.
 
 **Anytime**
 - [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), from **2026-10-12**. Small; slot it into any window.
@@ -87,7 +90,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-113](T-113-optimistic-locking-lost-update.md) | Two concurrent PUTs silently lose one write — no `@Version`, no 409 (T-108's declined half) | cv-domain-service | todo | | T-108, T-014 | |
-| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔ | |
+| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔, T-044 | |
 | [T-116](T-116-domain-service-scope-enforcement.md) | The domain service accepts any pool token for any method — make the BFF's read-only service token GET-only (T-043 follow-up) | cv-domain-service | todo | | T-043 ✔ | |
 
 <details>
@@ -121,10 +124,11 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 |----|-------|------|--------|-------|------------|----|
 | [T-005](T-005-ci-secret-blast-radius.md) | CI secret blast radius — the remainder: the docker.sock/host-network IMDS gap, split parameter paths, narrow the app-host SSM read (CI-host IMDSv2 done in T-007; app host's moved to T-035) | cv-infra | todo | | T-002, T-007 | |
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
-| [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator: prove requests come from OUR distribution (cross-repo: split at stage 0 if implemented) | cv-infra + cv-domain-service | todo | | T-022, T-043 ✔ | |
+| [T-025](T-025-verify-requests-come-from-our-cloudfront.md) | The edge is not an authenticator — **premise moved 2026-10-04** (the api-docs leak is closed live; only the BFF's `/metrics` remains): decide at H1 whether to close as accepted risk | cv-infra + cv-domain-service | todo | | T-022, T-043 ✔ | |
 | [T-035](T-035-app-host-to-graviton.md) | App host to Graviton (arm64 images first) **+ its IMDSv2 hardening (from T-005)** — −$1.75/mo, **after** T-014; size follows T-014's memory numbers | cv-infra | todo | | T-014 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
+| [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md) | App host: bootstrap to S3 (user_data ~14.6/15.5 KB) + a `cv-redeploy <service>` command and a deploy runbook — today a new image only lands by replacing the host | cv-infra | todo | | T-043 ✔ | |
 
 <details>
 <summary>Infra & ops — 37 done</summary>
@@ -186,11 +190,11 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 | 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** — done; the public 200 moved to T-043 | cv-infra | done | tech-product-owner | T-013, T-202, **T-201**, **T-156** | [cv-infra#32](https://github.com/erfeamor/cv-infra/pull/32) |
 | 3a | [T-211](T-211-bff-service-token-provider.md) | BFF: call the domain service with a Cognito service token (split from T-043) | cv-bff-node | done | tech-product-owner | — | [cv-bff-node#12](https://github.com/erfeamor/cv-bff-node/pull/12) |
 | 3b | [T-043](T-043-bff-service-token-to-domain.md) | **The BFF reads the domain service with a Cognito service token** — the public CV is 200 live | cv-infra | done | tech-product-owner | T-014 ✔, T-211 ✔ | [cv-infra#33](https://github.com/erfeamor/cv-infra/pull/33) |
-| 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF | cv-public-vanilla | todo | | T-014 ✔, **T-408** ✔, **T-043** ✔ | |
+| 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF — **needs a GitHub OIDC credential in cv-infra (split at stage 0)** | cv-public-vanilla | todo | | T-014 ✔, **T-408** ✔, **T-043** ✔ | |
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed — **absorbed into T-501** (2026-10-01) | cv-project (meta) | done | tech-product-owner | T-014, T-403, T-404 | none |
-| — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 | |
+| — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 ✔, T-044 | |
 | — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call (adopts T-201's shared guard) | cv-bff-node | done | fullstack-developer | T-202 ✔, **T-201 ✔** | [#8](https://github.com/erfeamor/cv-bff-node/pull/8) |
-| — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF | cv-public-react | todo | | T-014 ✔, **T-043** ✔ | |
+| — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF — **human step (Vercel dashboard), then the driver verifies** | cv-public-react | todo | | T-014 ✔, **T-043** ✔ | |
 
 **[T-014](T-014-deploy-bff-to-aws.md) is claimable and heads the chain** — its `depends_on` (T-013, T-202, T-201) is fully satisfied. T-201 is there as a *sequencing* decision: the first deployed image must already serve the aggregate. When a dependency changes, the task file and every prose reference to it move together — the paragraph this replaces went stale about T-201 four times (see HISTORY.md).
 
