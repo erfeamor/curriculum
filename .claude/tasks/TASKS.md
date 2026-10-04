@@ -128,7 +128,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
 | [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md) | App host: bootstrap to S3 (user_data ~14.6/15.5 KB) + a `cv-redeploy <service>` command and a deploy runbook — today a new image only lands by replacing the host | cv-infra | todo | | T-043 ✔ | |
-| [T-045](T-045-github-oidc-deploy-role-public-vanilla.md) | GitHub Actions OIDC provider + a deploy role for cv-public-vanilla (bucket root, explicit deny on `admin/*`); split from T-403 | cv-infra | in_progress | tech-product-owner | — | |
+| [T-045](T-045-github-oidc-deploy-role-public-vanilla.md) | GitHub Actions OIDC provider + a deploy role for cv-public-vanilla (bucket root, explicit deny on `admin/*`); split from T-403 | cv-infra | in_review | tech-product-owner | — | [cv-infra#34](https://github.com/erfeamor/cv-infra/pull/34) |
 
 <details>
 <summary>Infra & ops — 37 done</summary>
