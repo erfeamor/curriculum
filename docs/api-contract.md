@@ -1,14 +1,14 @@
 # API contract — CV section resources (v1)
 
-Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF public edge path, anonymous reads, `/metrics` exposure) · **2026-08-13 — T-006** (collection ordering) · **2026-08-20 — T-024** (skill-assignment PUT: request body split from response body) · **2026-08-28 — T-209** (optional fields: `null`, key always present). Changes require a PR to this file plus sign-off in the task that consumes it. All tasks in `.claude/tasks/` targeting the domain model implement *this* document — when in doubt, this file wins over any task prose.
+Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF public edge path, anonymous reads, `/metrics` exposure) · **2026-08-13 — T-006** (collection ordering) · **2026-08-20 — T-024** (skill-assignment PUT: request body split from response body) · **2026-08-28 — T-209** (optional fields: `null`, key always present) · **2026-10-04 — T-046** (optimistic concurrency: `version` on person + sections, `409` on a stale `PUT`). Changes require a PR to this file plus sign-off in the task that consumes it. All tasks in `.claude/tasks/` targeting the domain model implement *this* document — when in doubt, this file wins over any task prose.
 
 ## Design rules
 
 1. Every section resource is **person-scoped**: nested under `/api/v1/people/{personId}`. A request for a section of a nonexistent person returns `404`.
 2. Skills are the exception: the **catalog** is global (`/api/v1/skills`), the **assignment** (skill + proficiency) is person-scoped.
 3. Dates are ISO-8601 (`YYYY-MM-DD`). `endDate: null` means "current".
-4. Validation errors return `400` with Spring's default problem body; unknown IDs return `404`; success on `DELETE` is `204`. A dated section (experience, education, project) whose `startDate` and `endDate` are **both** non-null must have `endDate` ≥ `startDate` (equal is allowed); an inverted period is a validation error, `400` on `POST` and `PUT`. A `null` on either side is not checked by this rule: `null` `endDate` means "current" (rule 3), and a project may omit either date.
-5. The domain service exposes internal `id`s; the BFF **strips ids and emails** from public payloads (same rule as the existing `people/:id` normalization).
+4. Validation errors return `400` with Spring's default problem body; unknown IDs return `404`; success on `DELETE` is `204`; a stale `PUT` on a versioned resource returns `409` (rule 8). A dated section (experience, education, project) whose `startDate` and `endDate` are **both** non-null must have `endDate` ≥ `startDate` (equal is allowed); an inverted period is a validation error, `400` on `POST` and `PUT`. A `null` on either side is not checked by this rule: `null` `endDate` means "current" (rule 3), and a project may omit either date.
+5. The domain service exposes internal `id`s **and `version`s** (rule 8); the BFF **strips ids, versions and emails** from public payloads (same rule as the existing `people/:id` normalization).
 6. Every collection response is **explicitly ordered** — see § Ordering. An endpoint returning rows in the database's natural order does not satisfy this contract.
 7. **Optional fields are always present; `null` is the empty value.** Every field this contract declares in a **response** body — section resources, the person head, and the BFF's payloads alike — is a key in that response whether or not it has a value. An optional field with no value serializes as `"fieldOfStudy": null`, never as a missing key. A consumer may assume the key exists and must handle `null`; it must not treat a missing key as the empty case.
 
@@ -21,6 +21,13 @@ Status: **ratified v1** (2026-07-12). Amendments: **2026-08-13 — T-013** (BFF 
    **End-to-end by inheritance, not by enforcement.** The BFF's public routes (§ BFF) rebuild each payload field by field and copy these values **verbatim**, so a consumer of `/bff/api/v1/people/:id` or `/bff/api/v1/people/:id/cv` sees whatever shape the domain service produced. The BFF adds no nulls and removes none — it does **not** coerce an absent upstream key into a `null`, and rule 5's id/email stripping removes those keys outright rather than nulling them. **The guarantee therefore rests on the producer honouring it, not on a BFF check**: a consumer relying on key-presence is relying on this rule, and a producer that ever stopped emitting a key would propagate that straight through to the public payload.
 
    *Added 2026-08-28 (T-209). This is an **amendment to a silence**, not a correction — the document had never stated the rule either way. The producer has behaved this way since v1 and its tests assert it, but three consumers each had to guess and guessed differently. No consumer was in violation; there was nothing to violate.*
+
+8. **Optimistic concurrency on person, experience, education and project** *(added 2026-10-04, T-046)*. Each of these resources carries an integer **`version`** in every response body (GET, POST, PUT): `0` when created, incremented by the server on each successful update. Clients never set it on `POST`.
+   - On `PUT`, `version` is **optional**. If the request carries it and it **differs** from the stored value, the update is rejected with **`409`** and Spring's default problem body (the same family as rule 4's `400`), and nothing is written. If it matches, the update applies and the response carries the new `version`. If the request **omits** it, the update applies unconditionally (last write wins): the v1 behavior, kept so a client that predates this rule keeps working.
+   - A client that edits what a user saw must send the `version` it read, so a concurrent change surfaces as a `409` instead of being silently overwritten. The admin (cv-admin-react) does so (T-303).
+   - `409` means "reload and retry", never "retry blindly with the new version": that would reintroduce the lost update this rule exists to prevent.
+   - Skill-catalog entries and person-skill assignments are **not** versioned (§ Skills).
+   - The BFF's public payloads **never** carry `version` (rule 5); its normalizers are allowlists (T-205), so an upstream `version` is dropped, not passed through.
 
 ## Ordering
 
@@ -70,11 +77,11 @@ Ordering is **not** pagination — § Non-goals rules out the latter for v1 and 
 |---|---|---|
 | GET | `/` | 200, array |
 | POST | `/` | 201, created entity |
-| PUT | `/{id}` | 200, updated entity |
+| PUT | `/{id}` | 200, updated entity (`409` if `version` is stale — rule 8) |
 | DELETE | `/{id}` | 204 |
 
 ```json
-{ "id": 1, "company": "ACME", "role": "Backend Engineer", "location": "Remote",
+{ "id": 1, "version": 0, "company": "ACME", "role": "Backend Engineer", "location": "Remote",
   "startDate": "2022-01-01", "endDate": null, "description": "..." }
 ```
 Required: `company`, `role`, `startDate`.
@@ -84,7 +91,7 @@ Required: `company`, `role`, `startDate`.
 Same verb table as Experience.
 
 ```json
-{ "id": 1, "institution": "UNED", "degree": "BSc", "fieldOfStudy": "Computer Science",
+{ "id": 1, "version": 0, "institution": "UNED", "degree": "BSc", "fieldOfStudy": "Computer Science",
   "startDate": "2015-09-01", "endDate": "2019-06-30" }
 ```
 Required: `institution`, `degree`, `startDate`.
@@ -94,7 +101,7 @@ Required: `institution`, `degree`, `startDate`.
 Same verb table as Experience.
 
 ```json
-{ "id": 1, "name": "cv-project", "description": "...", "repoUrl": "https://github.com/...",
+{ "id": 1, "version": 0, "name": "cv-project", "description": "...", "repoUrl": "https://github.com/...",
   "startDate": "2026-07-01", "endDate": null }
 ```
 Required: `name`.
