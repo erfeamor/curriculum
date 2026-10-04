@@ -2,8 +2,8 @@
 id: T-113
 title: "Two concurrent PUTs to the same section row silently lose one write — no `@Version`, no 409"
 repo: cv-domain-service
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: fix/optimistic-locking-sections
 pr:
 depends_on: [T-108, T-014, T-046, T-157]   # T-108 puts the read and write in one transaction first; T-014 lifts the migration freeze (production Flyway is still 10 until then, and the board allows no new cv-database migration before it)

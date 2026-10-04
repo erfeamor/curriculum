@@ -2,7 +2,7 @@
 id: T-157
 title: "cv-database: V2 migration — an additive `version` column on person, experience, education and project, backfilled"
 repo: cv-database
-status: in_review
+status: done
 owner: tech-product-owner
 branch: feat/v2-version-columns
 pr: https://github.com/erfeamor/cv-database/pull/7
@@ -29,6 +29,8 @@ Hibernate runs `ddl-auto=validate`: a domain image expecting `version` **won't s
 - Developer (fresh backend-developer, ~28k tokens): `V2__add_version_columns.sql`, four additive `ADD COLUMN version BIGINT NOT NULL DEFAULT 0` (person, experience, education, project). Verified locally on mysql:8.4 + Flyway 13.7.0: a fresh DB migrates to v2; **the upgrade path V1 (rows present) → V2 backfills `version = 0`**; the dev-seed callback still runs.
 - Driver-verified: the file read. **Jenkins migration gate: success** on the PR.
 - **Review round 1: clean.** Note: once merged, the **next app-host boot applies V2 to production** (the bootstrap clones cv-database master and runs Flyway); the current domain image tolerates the extra column (Hibernate `validate`).
+
+**Merged a0c3f74 (squash of cv-database#7), 2026-10-04; H2 accepted.** Not yet applied to production: the next app-host boot or T-044's `cv-redeploy migrate` applies it.
 
 ## Acceptance criteria
 
