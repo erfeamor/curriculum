@@ -2,13 +2,37 @@
 id: T-403
 title: "Public site (vanilla): deploy to S3/CloudFront and point it at the deployed BFF"
 repo: cv-public-vanilla
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: chore/deploy-and-bff-url
-pr:
+pr: https://github.com/erfeamor/cv-public-vanilla/pull/5
 depends_on: [T-014, T-408, T-043, T-045]   # T-043 added 2026-10-01: the BFF's public routes 401/502 until it has a service token. T-408 added 2026-09-23 — FILE-LEVEL: this task edits `src/main.js:3` (the localhost fallback) and T-408 fixes `main.js:10`; and a deploy of the pre-T-408 bundle would publish a page whose only request 404s.
 risk: normal
 security_review: true
+checkpoint:
+  stage: done   # merged 609342d (squash of cv-public-vanilla#5), 2026-10-04 — H2 accepted; first master deploy succeeded and was verified live
+  repo: cv-public-vanilla
+  branch: chore/deploy-and-bff-url
+  worktree: none   # main cv-public-vanilla checkout
+  commit: 609342d
+  pr: https://github.com/erfeamor/cv-public-vanilla/pull/5
+  developer: fullstack-developer
+  reviewers: [code-review, security-review]
+  risk: normal
+  security_review: true
+  review_round: 1
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a   # live: the shared bucket root
+  updated: 2026-10-04T15:00:00+02:00
+  budget:
+    turns: 0
+    total_tokens: 0
+    subagent_tokens: 38622
+    spawns: 1   # fullstack-developer (fresh)
+    status: ok   # human-reported /usage under ~40%
+    checked: 2026-10-04T15:00:00+02:00
 ---
 
 > **Ready to start (2026-10-04):** [T-045](T-045-github-oidc-deploy-role-public-vanilla.md) is merged and live. The role is `arn:aws:iam::760904708057:role/cv-project-public-vanilla-deploy` (Terraform output `public_vanilla_deploy_role_arn`); the driver sets it as a GitHub **repo variable** on cv-public-vanilla before the first `master` deploy. Bucket `cv-project-frontend-dev` (root, never `admin/`), distribution `E2AV0INGJW1UO2`, region `eu-west-3`.
@@ -36,6 +60,21 @@ With no `VITE_BFF_URL` baked at build time, a deployed bundle fetches from **the
 
 Together these are why the public path shows nothing in AWS even once T-014 lands: no BFF **and** no site.
 
+## Live — the first deploy, 2026-10-04 (merged 609342d)
+
+- **The `deploy` job succeeded** on the merge commit (OIDC role assumed; two-pass sync; invalidation).
+- **`admin/` byte-identical:** 3 objects, the same ETags as the pre-deploy baseline. The root now holds exactly `index.html` (`Cache-Control: no-cache`), `assets/index-*.css`, `assets/index-*.js`.
+- **The edge:** `/`, `/index.html` and a deep route → the vanilla shell; `/admin/` → the admin shell; **`/metrics` and `/health` → 403 (S3), not the SPA shell** (T-014's carry-over check); `/bff/api/v1/people/1/cv` → 200.
+- **The live bundle** calls the relative `/bff/api/v1/people/${id}/cv`; `localhost:3000` occurrences: 0.
+- **Rendered in headless Chromium** against the CloudFront domain: the person, experience and skills appear (T-018's probe data, noted on T-501), no `role="alert"`.
+
+## Implement + review — 2026-10-04 (ef57aa6, cv-public-vanilla#5)
+
+- Developer (fresh fullstack-developer, ~39k tokens): `src/bffUrl.js` (production + unset → relative `''`; dev → localhost, stripped from prod bundles; an explicit value is trimmed and loses trailing slashes); the CI localhost grep in `test`; a `deploy` job on a master push only (OIDC, concurrency group). Two-pass sync: hashed assets immutable first, then `index.html` no-cache with `--delete`, **both `--exclude "admin/*"`**. Invalidation only `/index.html` and `/` (not `/*`, to spare the admin's cache). Constants in the workflow `env:` (changing them needs a PR); the role from `vars.AWS_DEPLOY_ROLE_ARN`.
+- Red first → 61/61. Driver-verified: lint, tests, build; **no `localhost:3000` in `dist/`**; the bundle calls the relative `/bff/api/v1/people/…/cv`. **Actions green** on the PR (test ✓; deploy skipped, as designed).
+- **Review round 1 (code + security): clean.** Non-blocking: third-party actions pinned by major tag (`@v4`), not by SHA.
+- The repo variable `AWS_DEPLOY_ROLE_ARN` is set by the driver. **Bucket baseline before the first deploy:** 3 objects, all under `admin/`, none at the root (saved for the after-deploy comparison).
+
 ## H1 — decided by the human, 2026-10-04
 
 1. **Credential: GitHub OIDC**, split out as [T-045](T-045-github-oidc-deploy-role-public-vanilla.md) (cv-infra), which goes first. The workflow assumes the role (ARN from a repo variable) via `aws-actions/configure-aws-credentials` with `permissions: id-token: write`, on `master` pushes only.
@@ -55,14 +94,14 @@ The deploy job runs in **GitHub Actions** and needs AWS credentials (S3 sync to 
 - Remove or guard the `localhost:3000` fallback so a missing env var **fails the build** rather than shipping a bundle that fetches from the visitor's laptop.
 
 ## Acceptance criteria
-- [ ] **(from T-014's H1 refresh, 2026-10-01)** Once this task publishes a root `index.html`, `/metrics` and `/health` through the CloudFront domain still do **not** return the SPA shell (T-014 excluded them from `spa-router.js` while the defect was dormant). Verify by request.
+- [x] **(from T-014's H1 refresh, 2026-10-01)** Once this task publishes a root `index.html`, `/metrics` and `/health` through the CloudFront domain still do **not** return the SPA shell (T-014 excluded them from `spa-router.js` while the defect was dormant). Verify by request.
 
-- [ ] A `master` push publishes the built site and invalidates its prefix; PR builds do not deploy.
-- [ ] The deployed bundle contains **no** `localhost:3000` — grep the built output in CI and fail on a hit. This is the whole point of the task; a convention is not enough.
-- [ ] Loading the site through the CloudFront domain renders person data fetched from the deployed BFF (end-to-end, real request).
-- [ ] The admin at `/admin/` still works — the two apps share a bucket and a distribution. **(H1 2026-10-04)** The deploy's `sync --delete` excludes `admin/*`, verified by listing `admin/` before and after the first deploy (same object count and ETags).
-- [ ] **A trailing slash on `VITE_BFF_URL` must not produce `//bff/api/v1/…`.** `src/main.js` concatenates `${BFF_URL}/bff/api/v1/…` without normalising (since T-408), and this task is the one that sets the value — a hand-typed deploy variable is exactly where a trailing slash appears. Trim it in `main.js` or fail the build on it. Mirrors the AC [T-404](T-404-public-react-point-at-deployed-bff.md) carries for the React site; raised by `frontend-architect` in T-408's review, 2026-09-24.
-- [ ] `npm run lint`, `npm test`, `npm run build` pass.
+- [x] A `master` push publishes the built site and invalidates its prefix; PR builds do not deploy.
+- [x] The deployed bundle contains **no** `localhost:3000` — grep the built output in CI and fail on a hit. This is the whole point of the task; a convention is not enough.
+- [x] Loading the site through the CloudFront domain renders person data fetched from the deployed BFF (end-to-end, real request).
+- [x] The admin at `/admin/` still works — the two apps share a bucket and a distribution. **(H1 2026-10-04)** The deploy's `sync --delete` excludes `admin/*`, verified by listing `admin/` before and after the first deploy (same object count and ETags).
+- [x] **A trailing slash on `VITE_BFF_URL` must not produce `//bff/api/v1/…`.** `src/main.js` concatenates `${BFF_URL}/bff/api/v1/…` without normalising (since T-408), and this task is the one that sets the value — a hand-typed deploy variable is exactly where a trailing slash appears. Trim it in `main.js` or fail the build on it. Mirrors the AC [T-404](T-404-public-react-point-at-deployed-bff.md) carries for the React site; raised by `frontend-architect` in T-408's review, 2026-09-24.
+- [x] `npm run lint`, `npm test`, `npm run build` pass.
 
 ## Definition of done
 
