@@ -2,8 +2,8 @@
 id: T-157
 title: "cv-database: V2 migration — an additive `version` column on person, experience, education and project, backfilled"
 repo: cv-database
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: feat/v2-version-columns
 pr:
 depends_on: [T-046]
