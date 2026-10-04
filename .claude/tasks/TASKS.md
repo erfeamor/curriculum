@@ -194,7 +194,7 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed — **absorbed into T-501** (2026-10-01) | cv-project (meta) | done | tech-product-owner | T-014, T-403, T-404 | none |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 ✔, T-044 | |
 | — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call (adopts T-201's shared guard) | cv-bff-node | done | fullstack-developer | T-202 ✔, **T-201 ✔** | [#8](https://github.com/erfeamor/cv-bff-node/pull/8) |
-| — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF — **live since 2026-10-04**; a small guard PR closes it | cv-public-react | in_progress | tech-product-owner | T-014 ✔, **T-043** ✔ | |
+| — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF — **live since 2026-10-04**; a small guard PR closes it | cv-public-react | in_review | tech-product-owner | T-014 ✔, **T-043** ✔ | [cv-public-react#9](https://github.com/erfeamor/cv-public-react/pull/9) |
 
 **[T-014](T-014-deploy-bff-to-aws.md) is claimable and heads the chain** — its `depends_on` (T-013, T-202, T-201) is fully satisfied. T-201 is there as a *sequencing* decision: the first deployed image must already serve the aggregate. When a dependency changes, the task file and every prose reference to it move together — the paragraph this replaces went stale about T-201 four times (see HISTORY.md).
 
