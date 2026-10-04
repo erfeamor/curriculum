@@ -2,7 +2,7 @@
 id: T-113
 title: "Two concurrent PUTs to the same section row silently lose one write — no `@Version`, no 409"
 repo: cv-domain-service
-status: in_review
+status: done
 owner: tech-product-owner
 branch: fix/optimistic-locking-sections
 pr: https://github.com/erfeamor/cv-domain-service/pull/15
@@ -21,6 +21,11 @@ security_review: false
 2. **Scope: person + experience, education and project.** Person-skill assignments stay as T-108 left them.
 3. **Split (adapter §2):** [T-046](T-046-contract-section-version-409.md) contract (driver) → [T-157](T-157-migration-version-columns.md) V2 migration → **this task: the domain service** (`@Version`, the 409 handler, `version` in responses) → T-303 admin.
 4. **Deploy:** batched with [T-116](T-116-domain-service-scope-enforcement.md) into one image, after T-157's migration has run, via [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)'s `cv-redeploy` (which gains a `migrate` step). Hibernate validates the schema, so the image must not start before V2.
+
+## ✅ H2 — 2026-10-04: merged 28b948d (cv-domain-service#15); NOT YET DEPLOYED
+
+- **Merged.** The image built from master now **requires cv-database V2** (`ddl-auto: validate`). Images are pushed by hand, so nothing deploys automatically. **Deploy with T-116 via [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md):** `cv-redeploy migrate` (V2) → `cv-redeploy domain-service`. **Never push this image to ECR `:latest` before V2 is live**: a host replacement would pull it and the domain service would fail to start.
+- **Contract nuance resolved by amendment** (the human's choice): rule 8 now says an omitted version can still get 409 on a genuine concurrent write (curriculum#108, 0fcfc70).
 
 ## Implement + review — 2026-10-04 (d366a1c, cv-domain-service#15)
 

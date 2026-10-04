@@ -11,6 +11,8 @@ risk: high   # replaces the app host (user_data changes) and changes how every c
 security_review: true   # the redeploy path recreates containers carrying secrets (DB password, BFF client secret) — adapter §5 secrets path
 ---
 
+> **2026-10-04 — a pending deploy waits on this task.** cv-database **V2** (T-157) and the domain service's `@Version` (T-113, merged 28b948d) are both on master but **not in production**. This task's first live run of `cv-redeploy migrate` then `cv-redeploy domain-service` deploys them (with T-116 if it's ready). Until then, **don't push a domain-service image built from current master to ECR `:latest`**: this task's own host replacement would pull it, and it can only start once V2 has run. (The bootstrap runs Flyway before starting the domain service, so a replacement applies V2 first anyway, but keep the order explicit and verified.)
+
 ## Why this exists
 
 Filed 2026-10-04 by the board review. Two problems with one fix:
