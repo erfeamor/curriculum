@@ -2,7 +2,7 @@
 id: T-045
 title: "cv-infra: a GitHub Actions OIDC provider and a deploy role for cv-public-vanilla (bucket root, never admin/)"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: feat/github-oidc-public-vanilla
 pr: https://github.com/erfeamor/cv-infra/pull/34
@@ -10,11 +10,11 @@ depends_on: []
 risk: normal   # IAM only: no host or edge change
 security_review: true   # a new trust relationship (GitHub → AWS) and a write role on the frontend bucket — adapter §5 IAM + CI-credential paths
 checkpoint:
-  stage: h2   # applied 2026-10-04 from the branch (IAM only); simulator 10/10 as designed; awaiting human acceptance
+  stage: done   # merged b0aa6ed (squash of cv-infra#34), 2026-10-04 — applied from the branch first; H2 accepted; master plans No changes
   repo: cv-infra
   branch: feat/github-oidc-public-vanilla
   worktree: none   # main cv-infra checkout
-  commit: 7aaa1f8
+  commit: b0aa6ed
   pr: https://github.com/erfeamor/cv-infra/pull/34
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
