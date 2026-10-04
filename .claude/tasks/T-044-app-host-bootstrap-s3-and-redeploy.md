@@ -23,6 +23,7 @@ Filed 2026-10-04 by the board review. Two problems with one fix:
 - **Bootstrap to S3 (T-009's pattern):** the app host's provisioning script becomes a private S3 object with its SHA-256 in SSM; user_data shrinks to a small fetch-verify-run stub. Keep `user_data_replace_on_change`. Keep every current behavior: MySQL on its volume (T-018), Flyway, the backup timer (T-001), the domain service, and the BFF last (T-014 round 1).
 - **A host-side `cv-redeploy <service>`** (`domain-service` | `bff-node`): re-read the service's parameters from SSM, `docker pull` its `:latest`, then recreate **only that container** with the **same arguments the bootstrap uses**, from one definition shared by both (no duplicated `docker run` lines). Print the old and new image digests; never print secrets.
 - **How it's invoked:** by an operator via `aws ssm send-command`, and later by T-112/T-203's pipelines. The IAM to allow that is T-112/T-203's decision, not this task's.
+- **`cv-redeploy migrate`** (added 2026-10-04, T-113's H1): run Flyway exactly as the bootstrap does (same image, same flags, migrations from `cv-database` master), so a new migration reaches production **without a host replacement**. The order for a schema change becomes migrate → redeploy domain-service, since Hibernate validates the schema at startup.
 - **A runbook** `docs/runbooks/app-host-deploy.md`:
   - build, push, `cv-redeploy`, verify;
   - rollback to a previous digest;
@@ -36,6 +37,7 @@ Filed 2026-10-04 by the board review. Two problems with one fix:
 - [ ] `cv-redeploy bff-node` and `cv-redeploy domain-service` each recreate only their container, from a freshly pushed image, with no host replacement and under a minute of that service's downtime. Verified live by digest before and after.
 - [ ] The run arguments have one source: an offline test fails if the bootstrap and `cv-redeploy` diverge.
 - [ ] No secret in user_data, the S3 object, logs or command output (the S3 script reads secrets from SSM at run time, as today).
+- [ ] `cv-redeploy migrate` applies a pending migration live (proven with T-157's V2) and is a no-op when the schema is current.
 - [ ] The runbook exists and is linked from `cv-infra/CLAUDE.md`.
 
 ## Watch-outs

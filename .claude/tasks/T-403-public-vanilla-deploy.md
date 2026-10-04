@@ -2,13 +2,37 @@
 id: T-403
 title: "Public site (vanilla): deploy to S3/CloudFront and point it at the deployed BFF"
 repo: cv-public-vanilla
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: chore/deploy-and-bff-url
 pr:
 depends_on: [T-014, T-408, T-043, T-045]   # T-043 added 2026-10-01: the BFF's public routes 401/502 until it has a service token. T-408 added 2026-09-23 — FILE-LEVEL: this task edits `src/main.js:3` (the localhost fallback) and T-408 fixes `main.js:10`; and a deploy of the pre-T-408 bundle would publish a page whose only request 404s.
 risk: normal
 security_review: true
+checkpoint:
+  stage: implement   # wave with T-113, 2026-10-04; H1 decided earlier the same day
+  repo: cv-public-vanilla
+  branch: chore/deploy-and-bff-url
+  worktree: none   # main cv-public-vanilla checkout
+  commit:
+  pr:
+  developer: fullstack-developer
+  reviewers: [code-review, security-review]
+  risk: normal
+  security_review: true
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a   # live: the shared bucket root
+  updated: 2026-10-04T15:00:00+02:00
+  budget:
+    turns: 0
+    total_tokens: 0
+    subagent_tokens: 0
+    spawns: 0
+    status: ok   # human-reported /usage under ~40%
+    checked: 2026-10-04T15:00:00+02:00
 ---
 
 > **Ready to start (2026-10-04):** [T-045](T-045-github-oidc-deploy-role-public-vanilla.md) is merged and live. The role is `arn:aws:iam::760904708057:role/cv-project-public-vanilla-deploy` (Terraform output `public_vanilla_deploy_role_arn`); the driver sets it as a GitHub **repo variable** on cv-public-vanilla before the first `master` deploy. Bucket `cv-project-frontend-dev` (root, never `admin/`), distribution `E2AV0INGJW1UO2`, region `eu-west-3`.

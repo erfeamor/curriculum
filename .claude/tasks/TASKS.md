@@ -12,7 +12,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 
 **Now**
 - **[T-403](T-403-public-vanilla-deploy.md)** (~1 window; H1 decided 2026-10-04; **[T-045](T-045-github-oidc-deploy-role-public-vanilla.md)'s OIDC deploy role is live**, and T-203 reuses the provider): the vanilla site at the bucket root via same-origin `/bff/api/v1`, never touching `admin/`.
-- **[T-113](T-113-optimistic-locking-lost-update.md)** in parallel (cv-domain-service; contract PR first). Merge it, but **hold its deploy** for T-044 and batch it with T-116.
+- **T-113, split at H1 (2026-10-04)** into [T-046](T-046-contract-section-version-409.md) contract → [T-157](T-157-migration-version-columns.md) V2 migration → [T-113](T-113-optimistic-locking-lost-update.md) domain → [T-303](T-303-admin-send-version-handle-409.md) admin (`version` optional on PUT, stale → 409; person + three sections). Merge in that order; **deploy later**: V2 via T-044's `cv-redeploy migrate`, then one domain image with T-116.
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**). Independent.
 
 **Next** (~1–2 windows)
@@ -88,7 +88,8 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-113](T-113-optimistic-locking-lost-update.md) | Two concurrent PUTs silently lose one write — no `@Version`, no 409 (T-108's declined half) | cv-domain-service | todo | | T-108, T-014 | |
+| [T-113](T-113-optimistic-locking-lost-update.md) | Two concurrent PUTs silently lose one write — no `@Version`, no 409 (T-108's declined half) | cv-domain-service | todo | | T-108 ✔, T-014 ✔, T-046, T-157 | |
+| [T-303](T-303-admin-send-version-handle-409.md) | Admin: keep each row's `version`, send it on PUT, handle a 409 (split from T-113) | cv-admin-react | todo | | T-046 | |
 | [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔, T-044 | |
 | [T-116](T-116-domain-service-scope-enforcement.md) | The domain service accepts any pool token for any method — make the BFF's read-only service token GET-only (T-043 follow-up) | cv-domain-service | todo | | T-043 ✔ | |
 
@@ -129,6 +130,8 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
 | [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md) | App host: bootstrap to S3 (user_data ~14.6/15.5 KB) + a `cv-redeploy <service>` command and a deploy runbook — today a new image only lands by replacing the host | cv-infra | todo | | T-043 ✔ | |
 | [T-045](T-045-github-oidc-deploy-role-public-vanilla.md) | GitHub Actions OIDC provider + a deploy role for cv-public-vanilla (bucket root, explicit deny on `admin/*`); split from T-403 | cv-infra | done | tech-product-owner | — | [cv-infra#34](https://github.com/erfeamor/cv-infra/pull/34) |
+| [T-046](T-046-contract-section-version-409.md) | Contract: optional `version` on person + sections, 409 on a stale PUT (split from T-113) | cv-project (meta) | in_progress | tech-product-owner | — | |
+| [T-157](T-157-migration-version-columns.md) | cv-database V2: additive `version` columns on person + sections (split from T-113); reaches production via T-044's `cv-redeploy migrate` | cv-database | todo | | T-046 | |
 
 <details>
 <summary>Infra & ops — 37 done</summary>
@@ -190,7 +193,7 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 | 3 | [T-014](T-014-deploy-bff-to-aws.md) | **Deploy cv-bff-node to AWS — registry, container, edge route** — done; the public 200 moved to T-043 | cv-infra | done | tech-product-owner | T-013, T-202, **T-201**, **T-156** | [cv-infra#32](https://github.com/erfeamor/cv-infra/pull/32) |
 | 3a | [T-211](T-211-bff-service-token-provider.md) | BFF: call the domain service with a Cognito service token (split from T-043) | cv-bff-node | done | tech-product-owner | — | [cv-bff-node#12](https://github.com/erfeamor/cv-bff-node/pull/12) |
 | 3b | [T-043](T-043-bff-service-token-to-domain.md) | **The BFF reads the domain service with a Cognito service token** — the public CV is 200 live | cv-infra | done | tech-product-owner | T-014 ✔, T-211 ✔ | [cv-infra#33](https://github.com/erfeamor/cv-infra/pull/33) |
-| 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF — H1 2026-10-04: OIDC (T-045 first), same-origin calls, root deploy excluding `admin/*` | cv-public-vanilla | todo | | T-014 ✔, **T-408** ✔, **T-043** ✔, **T-045** ✔ | |
+| 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF — H1 2026-10-04: OIDC (T-045 first), same-origin calls, root deploy excluding `admin/*` | cv-public-vanilla | in_progress | tech-product-owner | T-014 ✔, **T-408** ✔, **T-043** ✔, **T-045** ✔ | |
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed — **absorbed into T-501** (2026-10-01) | cv-project (meta) | done | tech-product-owner | T-014, T-403, T-404 | none |
 | — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 ✔, T-044 | |
 | — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call (adopts T-201's shared guard) | cv-bff-node | done | fullstack-developer | T-202 ✔, **T-201 ✔** | [#8](https://github.com/erfeamor/cv-bff-node/pull/8) |

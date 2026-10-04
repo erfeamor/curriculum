@@ -6,7 +6,7 @@ status: todo
 owner:
 branch: fix/optimistic-locking-sections
 pr:
-depends_on: [T-108, T-014]   # T-108 puts the read and write in one transaction first; T-014 lifts the migration freeze (production Flyway is still 10 until then, and the board allows no new cv-database migration before it)
+depends_on: [T-108, T-014, T-046, T-157]   # T-108 puts the read and write in one transaction first; T-014 lifts the migration freeze (production Flyway is still 10 until then, and the board allows no new cv-database migration before it)
 risk: normal
 security_review: false
 ---
@@ -14,6 +14,13 @@ security_review: false
 > **Board review 2026-10-04 — ship with T-116 as one domain-service deploy.** [T-116](T-116-domain-service-scope-enforcement.md) also changes cv-domain-service and also needs a deploy. Merge both, then build and push **one** image, and deploy it with [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)'s `cv-redeploy domain-service` (no host replacement). If T-044 hasn't landed, the deploy waits for it rather than replacing the host again.
 
 > **Board review 2026-09-28**: was missing from the lane. It is now scheduled **right after [T-014](T-014-deploy-bff-to-aws.md)** (session 4), when the migration freeze lifts. Its contract PR (the 409 shape) can be drafted earlier.
+
+## H1 — decided by the human, 2026-10-04
+
+1. **`version` is optional on PUT:** present and stale → **409**; absent → the write wins as today. The admin always sends it ([T-303](T-303-admin-send-version-handle-409.md)).
+2. **Scope: person + experience, education and project.** Person-skill assignments stay as T-108 left them.
+3. **Split (adapter §2):** [T-046](T-046-contract-section-version-409.md) contract (driver) → [T-157](T-157-migration-version-columns.md) V2 migration → **this task: the domain service** (`@Version`, the 409 handler, `version` in responses) → T-303 admin.
+4. **Deploy:** batched with [T-116](T-116-domain-service-scope-enforcement.md) into one image, after T-157's migration has run, via [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)'s `cv-redeploy` (which gains a `migrate` step). Hibernate validates the schema, so the image must not start before V2.
 
 ## Goal
 
