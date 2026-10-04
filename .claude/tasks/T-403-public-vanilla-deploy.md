@@ -11,6 +11,8 @@ risk: normal
 security_review: true
 ---
 
+> **Ready to start (2026-10-04):** [T-045](T-045-github-oidc-deploy-role-public-vanilla.md) is merged and live. The role is `arn:aws:iam::760904708057:role/cv-project-public-vanilla-deploy` (Terraform output `public_vanilla_deploy_role_arn`); the driver sets it as a GitHub **repo variable** on cv-public-vanilla before the first `master` deploy. Bucket `cv-project-frontend-dev` (root, never `admin/`), distribution `E2AV0INGJW1UO2`, region `eu-west-3`.
+
 ## Why this exists
 
 **Found while filing T-013/T-014, and worth stating plainly: `cv-public-vanilla` is not deployed either.** Verified on the live account — `aws s3 ls s3://cv-project-frontend-dev/` returns exactly one prefix, `admin/`. The public site has never been published.
