@@ -2,7 +2,7 @@
 id: T-035
 title: "Move the app host from t3.micro to t4g.micro (Graviton, same 1 GB) — −$1.75/month, 20% of the instance line"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: feat/app-host-t4g-micro
 pr: https://github.com/erfeamor/cv-infra/pull/36
@@ -10,11 +10,11 @@ depends_on: [T-014]   # deliberately AFTER, not bundled: T-014 replaces the same
 risk: high   # replaces the production app host and changes its CPU architecture; every image it runs must exist for arm64
 security_review: false   # instance type and AMI only; re-checked at A1 against the real diff
 checkpoint:
-  stage: h2   # applied 2026-10-05 from the branch; the arm64 host verified live; awaiting human acceptance
+  stage: done   # merged 972afb3 (squash of cv-infra#36), 2026-10-05 — applied from the branch first; H2 accepted; master plans No changes
   repo: cv-infra
   branch: feat/app-host-graviton
   worktree: none
-  commit: 17ff6f4
+  commit: 972afb3
   pr: https://github.com/erfeamor/cv-infra/pull/36
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
