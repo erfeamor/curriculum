@@ -2,25 +2,25 @@
 id: T-044
 title: "App host: move the bootstrap to S3 (user_data is at ~14.6/15.5 KB) and add a `cv-redeploy <service>` command — today a new image only reaches the host by replacing it"
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: feat/app-host-bootstrap-s3-redeploy
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/35
 depends_on: [T-043]   # builds on the bootstrap as T-043 left it (the BFF block last, the service-token env)
 risk: high   # replaces the app host (user_data changes) and changes how every container on it is (re)started
 security_review: true   # the redeploy path recreates containers carrying secrets (DB password, BFF client secret) — adapter §5 secrets path
 checkpoint:
-  stage: implement   # H1 decided 2026-10-05 (wave with T-303); usage 40–75% → checkpoint BEFORE the apply
+  stage: qa   # review round 1 clean; PR open. NEXT (next window, usage 40–75%): save ECR digests, state backup, plan, apply (replaces the app host; boot applies V2), push the T-113 image, cv-redeploy domain-service, verify
   repo: cv-infra
   branch: feat/app-host-bootstrap-s3-redeploy
   worktree: none
-  commit:
-  pr:
+  commit: a245998
+  pr: https://github.com/erfeamor/cv-infra/pull/35
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: high
   security_review: true
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -29,8 +29,8 @@ checkpoint:
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 93248
+    spawns: 1   # infrastructure-engineer (fresh)
     status: ok   # human-reported /usage 40–75%
     checked: 2026-10-05T00:30:00+02:00
 ---
@@ -43,6 +43,13 @@ checkpoint:
 4. **Budget:** `/usage` 40–75%: implement and review, then **checkpoint before the apply**.
 
 > **2026-10-04 — a pending deploy waits on this task.** cv-database **V2** (T-157) and the domain service's `@Version` (T-113, merged 28b948d) are both on master but **not in production**. This task's first live run of `cv-redeploy migrate` then `cv-redeploy domain-service` deploys them (with T-116 if it's ready). Until then, **don't push a domain-service image built from current master to ECR `:latest`**: this task's own host replacement would pull it, and it can only start once V2 has run. (The bootstrap runs Flyway before starting the domain service, so a replacement applies V2 first anyway, but keep the order explicit and verified.)
+
+## Implement + review — 2026-10-05 (a245998, cv-infra#35)
+
+- Developer (fresh infrastructure-engineer, ~93k tokens): `app-host-provision.tf` (S3 object `app-host/provision.sh`, SSM `/…/app/provision-sha256`, `s3:GetObject` on that one key); the stub `templates/domain-service-bootstrap.sh` (≈1.4 KB; double hash check, embedded + SSM; `exec`); the script renamed `domain-service-provision.sh` with a shared library `/usr/local/lib/cv-app.sh` (`cv_run_*`); `/usr/local/bin/cv-redeploy migrate|domain-service|bff-node`; runbook `docs/runbooks/app-host-deploy.md`; harness `run-cv-redeploy-tests.sh` (28 checks).
+- Driver-verified: no secret among the template vars (all secrets are still read from SSM at run time); the IAM grant is one object ARN; full offline gate green (`terraform test` 21/21 in 19 s, scoped).
+- **Review round 1 (code + security): clean.**
+- **Unverified offline, to check live:** the S3 fetch and hash at boot; `docker image inspect` ids; `git pull --ff-only` on the shallow clone (the first `migrate`); the runbook's `aws ecr put-image` rollback (not exercised).
 
 ## Why this exists
 
