@@ -72,7 +72,7 @@ Separating Drone and Jenkins onto different hosts — that is the only *complete
 
 ## Acceptance criteria
 
-- [ ] `metadata_options` with `http_tokens = "required"` and `http_put_response_hop_limit = 1` on **both** `aws_instance.drone` and `aws_instance.domain_service`. *(2026-09-28: the `drone` half is delivered and verified in T-007. 2026-10-01: the `domain_service` half **moved to [T-035](T-035-app-host-to-graviton.md)**; this criterion closes when T-035 merges.)*
+- [x] `metadata_options` with `http_tokens = "required"` and `http_put_response_hop_limit = 1` on **both** `aws_instance.drone` and `aws_instance.domain_service`. *(2026-09-28: the `drone` half is delivered and verified in T-007. 2026-10-01: the `domain_service` half **moved to [T-035](T-035-app-host-to-graviton.md)**. **2026-10-05: done** — T-035 merged; live, a bridge container on the app host gets no IMDS token.)*
 - [ ] Verified: a container on the CI host **cannot** retrieve instance credentials (`curl` to `169.254.169.254` from inside a container times out or is refused), while the host-side `param()` path still works.
 - [ ] Verified: SSM Session Manager still connects, and `null_resource.jenkins_provision`'s SSM path still runs. **This is the lock-yourself-out check — do it before trusting the change.**
 - [ ] Drone and Jenkins pipelines both still go green after the change.
