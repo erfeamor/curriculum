@@ -2,14 +2,45 @@
 id: T-044
 title: "App host: move the bootstrap to S3 (user_data is at ~14.6/15.5 KB) and add a `cv-redeploy <service>` command — today a new image only reaches the host by replacing it"
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: feat/app-host-bootstrap-s3-redeploy
 pr:
 depends_on: [T-043]   # builds on the bootstrap as T-043 left it (the BFF block last, the service-token env)
 risk: high   # replaces the app host (user_data changes) and changes how every container on it is (re)started
 security_review: true   # the redeploy path recreates containers carrying secrets (DB password, BFF client secret) — adapter §5 secrets path
+checkpoint:
+  stage: implement   # H1 decided 2026-10-05 (wave with T-303); usage 40–75% → checkpoint BEFORE the apply
+  repo: cv-infra
+  branch: feat/app-host-bootstrap-s3-redeploy
+  worktree: none
+  commit:
+  pr:
+  developer: infrastructure-engineer
+  reviewers: [code-review, security-review]
+  risk: high
+  security_review: true
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a
+  updated: 2026-10-05T00:30:00+02:00
+  budget:
+    turns: 0
+    total_tokens: 0
+    subagent_tokens: 0
+    spawns: 0
+    status: ok   # human-reported /usage 40–75%
+    checked: 2026-10-05T00:30:00+02:00
 ---
+
+## H1 — decided by the human, 2026-10-05
+
+1. **Bootstrap to S3, T-009's pattern:** the script under its own key in the existing private `ci_artifacts` bucket, its SHA-256 in SSM, the app host's role allowed `s3:GetObject` on **that key only** plus the SSM read. **The user_data stub embeds the script's SHA-256**, so a script change replaces the host (today's deterministic behavior; `user_data_replace_on_change` stays).
+2. **`cv-redeploy migrate | domain-service | bff-node`** on the host: one shared definition of each container's run arguments (written by the bootstrap and sourced by both, never duplicated); pulls `:latest` and recreates only that container; `migrate` runs Flyway exactly as the bootstrap does. New images and migrations never need a host replacement; run-argument changes still go through one.
+3. **First live use deploys the pending domain change now** (T-116 not awaited): `cv-redeploy migrate` (V2) → push current domain-service master → `cv-redeploy domain-service` → verify (`version` in responses, a stale PUT → 409, the public CV still 200).
+4. **Budget:** `/usage` 40–75%: implement and review, then **checkpoint before the apply**.
 
 > **2026-10-04 — a pending deploy waits on this task.** cv-database **V2** (T-157) and the domain service's `@Version` (T-113, merged 28b948d) are both on master but **not in production**. This task's first live run of `cv-redeploy migrate` then `cv-redeploy domain-service` deploys them (with T-116 if it's ready). Until then, **don't push a domain-service image built from current master to ECR `:latest`**: this task's own host replacement would pull it, and it can only start once V2 has run. (The bootstrap runs Flyway before starting the domain service, so a replacement applies V2 first anyway, but keep the order explicit and verified.)
 

@@ -90,7 +90,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-113](T-113-optimistic-locking-lost-update.md) | Lost updates on concurrent PUTs — **fixed (`@Version`, 409); merged, NOT yet deployed** (needs V2 live; ships via T-044) | cv-domain-service | done | tech-product-owner | T-108 ✔, T-014 ✔, T-046, T-157 | [cv-domain-service#15](https://github.com/erfeamor/cv-domain-service/pull/15) |
-| [T-303](T-303-admin-send-version-handle-409.md) | Admin: keep each row's `version`, send it on PUT, handle a 409 (split from T-113) | cv-admin-react | todo | | T-046 ✔ (T-113 ✔) | |
+| [T-303](T-303-admin-send-version-handle-409.md) | Admin: keep each row's `version`, send it on PUT, handle a 409 (split from T-113) | cv-admin-react | in_progress | tech-product-owner | T-046 ✔ (T-113 ✔) | |
 | [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔, T-044 | |
 | [T-116](T-116-domain-service-scope-enforcement.md) | The domain service accepts any pool token for any method — make the BFF's read-only service token GET-only (T-043 follow-up) | cv-domain-service | todo | | T-043 ✔ | |
 
@@ -129,7 +129,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-035](T-035-app-host-to-graviton.md) | App host to Graviton (arm64 images first) **+ its IMDSv2 hardening (from T-005)** — −$1.75/mo, **after** T-014; size follows T-014's memory numbers | cv-infra | todo | | T-014 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
-| [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md) | App host: bootstrap to S3 (user_data ~14.6/15.5 KB) + a `cv-redeploy <service>` command and a deploy runbook — today a new image only lands by replacing the host | cv-infra | todo | | T-043 ✔ | |
+| [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md) | App host: bootstrap to S3 (user_data ~14.6/15.5 KB) + a `cv-redeploy <service>` command and a deploy runbook — today a new image only lands by replacing the host | cv-infra | in_progress | tech-product-owner | T-043 ✔ | |
 | [T-045](T-045-github-oidc-deploy-role-public-vanilla.md) | GitHub Actions OIDC provider + a deploy role for cv-public-vanilla (bucket root, explicit deny on `admin/*`); split from T-403 | cv-infra | done | tech-product-owner | — | [cv-infra#34](https://github.com/erfeamor/cv-infra/pull/34) |
 | [T-046](T-046-contract-section-version-409.md) | Contract: optional `version` on person + sections, 409 on a stale PUT (split from T-113) | cv-project (meta) | done | tech-product-owner | — | [#107](https://github.com/erfeamor/curriculum/pull/107) |
 | [T-157](T-157-migration-version-columns.md) | cv-database V2: additive `version` columns on person + sections (split from T-113); reaches production via T-044's `cv-redeploy migrate` | cv-database | done | tech-product-owner | T-046 ✔ | [cv-database#7](https://github.com/erfeamor/cv-database/pull/7) |
