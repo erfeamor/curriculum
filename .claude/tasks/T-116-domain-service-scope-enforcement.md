@@ -2,25 +2,25 @@
 id: T-116
 title: "The domain service accepts any token from the pool for any method — make the BFF's read-only service token GET-only"
 repo: cv-domain-service
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: fix/read-scope-get-only
-pr:
+pr: https://github.com/erfeamor/cv-domain-service/pull/16
 depends_on: [T-043]
 risk: normal
 security_review: true   # authorization rules — adapter §5
 checkpoint:
-  stage: implement   # H1 decided 2026-10-05
+  stage: h2   # branch image live via cv-redeploy; machine token read-only proven; awaiting the human's admin-edit check + H2
   repo: cv-domain-service
   branch: fix/read-scope-get-only
   worktree: none
-  commit:
-  pr:
+  commit: 9c989b0
+  pr: https://github.com/erfeamor/cv-domain-service/pull/16
   developer: backend-developer
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -29,8 +29,8 @@ checkpoint:
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 47142
+    spawns: 1   # backend-developer (fresh)
     status: ok   # human-reported /usage under ~75%
     checked: 2026-10-05T11:30:00+02:00
 ---
@@ -41,6 +41,13 @@ checkpoint:
 - **Rule (allowlist): POST/PUT/DELETE require the token's `scope` to contain `openid`; GET/HEAD/OPTIONS accept any pool token.** Every machine token (the BFF's, or any future client-credentials client) is therefore read-only by construction. A write without `openid` → **403**. `/actuator/health` stays anonymous. `AUTH_ENABLED=false` (local) is unchanged.
 - **No infra change**: code only. Deploy: push the image, then `cv-redeploy domain-service` (T-044).
 - **Live proof:** the BFF token → GET 200 and PUT **403**; the public CV still 200; the human confirms an admin edit still saves.
+
+## Implement, review and live — 2026-10-05 (9c989b0, cv-domain-service#16)
+
+- Developer (fresh backend-developer, ~47k tokens): POST/PUT/PATCH/DELETE → `hasAuthority("SCOPE_openid")`; other requests authenticated; health anonymous. **CSRF disabled** in the auth branch (unrequested; accepted at review: a stateless bearer API, and the resource server already skipped CSRF for bearer requests; the only effect was token-less writes getting 403 instead of 401). `WriteScopeEnforcementTest` (10) uses real Bearer headers with only `JwtDecoder` mocked, so the production converter decides. Red: machine-token writes got 201/200/204; no-token PUT got 403.
+- Driver-verified: checkstyle 0, **237/237**; **Jenkins green**. **Review round 1 (code + security): clean.**
+- **Live:** the T-113 image saved as a rollback (`domain-service-28b948d.tar.gz`); the branch image pushed and `cv-redeploy domain-service` (only that container). **With the BFF's token:** GET person and experiences 200; **PUT person (correct version) 403; POST project 403**; no-token PUT **401**; nothing written (version 1, person identical, projects 0). The public CV, `/` and `/admin/` are 200.
+- Pending: the human confirms an admin edit still saves (a user token with `openid`).
 
 ## Why
 
