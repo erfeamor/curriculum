@@ -2,25 +2,25 @@
 id: T-303
 title: "Admin: keep each row's `version`, send it on PUT, and handle a 409 (changed elsewhere — reload)"
 repo: cv-admin-react
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: feat/version-409
-pr:
+pr: https://github.com/erfeamor/cv-admin-react/pull/17
 depends_on: [T-046]
 risk: normal
 security_review: false
 checkpoint:
-  stage: implement   # H1 decided 2026-10-05 (wave with T-044)
+  stage: h2   # review round 1 clean; Drone green (push + pr)
   repo: cv-admin-react
   branch: feat/version-409
   worktree: none
-  commit:
-  pr:
+  commit: 720beaa
+  pr: https://github.com/erfeamor/cv-admin-react/pull/17
   developer: fullstack-developer
   reviewers: [code-review]
   risk: normal
   security_review: false
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -29,8 +29,8 @@ checkpoint:
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 94710
+    spawns: 1   # fullstack-developer (fresh)
     status: ok   # human-reported /usage 40–75%
     checked: 2026-10-05T00:30:00+02:00
 ---
@@ -41,6 +41,12 @@ checkpoint:
 - **Always replace the stored `version` with the one in each PUT response** (every successful PUT bumps it, even a no-op).
 - Ships before T-113 is deployed: the live server ignores an unknown `version` (Spring Boot's default), and its GETs don't return one yet, so the admin sends none. Confirm in a test that `undefined` is omitted from the JSON body.
 - **Budget:** merge and Drone-deploy this window.
+
+## Implement + review — 2026-10-05 (720beaa, cv-admin-react#17)
+
+- Developer (fresh fullstack-developer, ~95k tokens). `version?` on the four domain types; `*Input` omits it (POST never sends one). **The PUT sends the version captured when the edit started** (better than the brief's "the row's version at save": a mid-edit list refresh can't silently overwrite). `withVersion` adds the key only when known. After a PUT the store keeps the response row (the new version). On 409, `ConflictAlert` keeps the edits and offers "Reload and discard my edits" (sections via `sectionStore.reload`, person via `selectPerson`). A 404 drops the row or person, with the existing "no longer exists" wording (kept over the brief's literal text, for consistency). `isChangedElsewhere` = update + 409 only, so the skill-name 409 (a create) stays distinct.
+- Red first (23 tests / 8 suites) → 274/274. Driver-verified: lint, typecheck, 274 tests, build; **Drone green** (push + pr).
+- **Review round 1: clean.**
 
 ## Why
 
@@ -54,6 +60,6 @@ Split out of [T-113](T-113-optimistic-locking-lost-update.md) at its H1 (2026-10
 
 ## Acceptance criteria
 
-- [ ] Every PUT for person and the three sections carries the row's `version`.
-- [ ] A 409 renders the notice; tests cover both paths.
+- [x] Every PUT for person and the three sections carries the row's `version`.
+- [x] A 409 renders the notice; tests cover both paths.
 - [ ] Gates green; Drone green; deployed.
