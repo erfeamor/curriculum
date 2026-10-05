@@ -2,25 +2,25 @@
 id: T-035
 title: "Move the app host from t3.micro to t4g.micro (Graviton, same 1 GB) — −$1.75/month, 20% of the instance line"
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: feat/app-host-t4g-micro
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/36
 depends_on: [T-014]   # deliberately AFTER, not bundled: T-014 replaces the same instance, but three changes in one high-risk apply (first BFF deploy, new CPU architecture, Flyway bump) make a failure hard to attribute. A replacement costs no money — only minutes of downtime on a demo with no users. Decided 2026-09-24.
 risk: high   # replaces the production app host and changes its CPU architecture; every image it runs must exist for arm64
 security_review: false   # instance type and AMI only; re-checked at A1 against the real diff
 checkpoint:
-  stage: implement   # H1 decided 2026-10-05; usage 40–75% → images built/pushed + dev + review, then checkpoint BEFORE the apply
+  stage: qa   # review clean, PR open, multi-arch builds proven (not pushed). NEXT: the apply window (see 'Resume here')
   repo: cv-infra
   branch: feat/app-host-graviton
   worktree: none
-  commit:
-  pr:
+  commit: 17ff6f4
+  pr: https://github.com/erfeamor/cv-infra/pull/36
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: high
   security_review: true
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -29,8 +29,8 @@ checkpoint:
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 55623
+    spawns: 1   # infrastructure-engineer (fresh)
     status: ok   # human-reported /usage 40–75%
     checked: 2026-10-05T13:00:00+02:00
 ---
@@ -48,6 +48,14 @@ checkpoint:
 7. **Budget:** `/usage` 40–75%: images built and pushed (harmless to the running x86 host), developer and review, then **checkpoint before the apply**. The apply also needs `domain_service_instance_type = "t4g.micro"` in the gitignored `terraform.tfvars` (the driver edits it at apply time).
 
 > **Board review 2026-10-04:** run this **after [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)**, so the Graviton replacement inherits the S3 bootstrap (no user_data size pressure) and its images can be rolled with `cv-redeploy` if an arm64 build needs a fix after the swap.
+
+## Implement + review — 2026-10-05 (17ff6f4, cv-infra#36)
+
+- Developer (fresh infrastructure-engineer, ~56k tokens): `data.aws_ami.al2023_arm64` for the app host (the CI host keeps x86 `al2023`); `t4g.micro` default; a **plan-time precondition** (arm64 AMI ⇔ Graviton type); IMDSv2 (`http_tokens = required`, hop limit 1); the ECR lifecycle on both repos is **`untagged` > 20 → expire**, never tagged (a multi-arch `:latest`'s children are safe); docs and runbook (buildx multi-arch). The provisioning script has no arch assumptions.
+- Driver-verified: the diff; full offline gate (`terraform test` 23/23 in 16 s, scoped). **Review round 1 (code + security): clean.** Trade-off noted: a superseded untagged image survives ~4 more pushes (local rollback tarballs cover it).
+- **Images:** arm64 emulation registered locally (tonistiigi/binfmt) and a buildx builder `cvbuilder`. **Both multi-arch builds succeeded, not pushed**: bff 7d34e7d (431 s), domain 6da4732 (210 s). Pushing waits for the lifecycle fix to be applied.
+
+**Resume here (the apply window):** save the ECR digests; back up state; set `domain_service_instance_type = "t4g.micro"` in `terraform.tfvars`; `terraform plan -replace=aws_instance.domain_service` (expect: the instance replaced; the EIP association and volume attachment re-created; 2 lifecycle policies updated in place); apply; **immediately** `docker buildx build --builder cvbuilder --platform linux/amd64,linux/arm64 --push` both images to `:latest` (the bootstrap's pull loop waits); then stage 4: `docker image inspect` Architecture arm64 for all three containers; data, Flyway and the backup timer intact; the public path and admin; IMDS (a bridge container gets no token; host `param()` works); memory under a `/cv` burst on Graviton; `cv-redeploy domain-service` still works. Then H2.
 
 ## Why this exists
 
