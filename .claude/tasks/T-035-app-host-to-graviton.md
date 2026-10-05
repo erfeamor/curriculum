@@ -10,7 +10,7 @@ depends_on: [T-014]   # deliberately AFTER, not bundled: T-014 replaces the same
 risk: high   # replaces the production app host and changes its CPU architecture; every image it runs must exist for arm64
 security_review: false   # instance type and AMI only; re-checked at A1 against the real diff
 checkpoint:
-  stage: qa   # review clean, PR open, multi-arch builds proven (not pushed). NEXT: the apply window (see 'Resume here')
+  stage: h2   # applied 2026-10-05 from the branch; the arm64 host verified live; awaiting human acceptance
   repo: cv-infra
   branch: feat/app-host-graviton
   worktree: none
@@ -49,6 +49,14 @@ checkpoint:
 
 > **Board review 2026-10-04:** run this **after [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)**, so the Graviton replacement inherits the S3 bootstrap (no user_data size pressure) and its images can be rolled with `cv-redeploy` if an arm64 build needs a fix after the swap.
 
+## Live — 2026-10-05, applied from the branch (cv-infra#36 @ 17ff6f4)
+
+- **Before:** ECR `:latest` digests saved (domain `sha256:992a4862…` 9c989b0, bff `sha256:0be74fab…` 7d34e7d; both amd64 single-arch); state backed up (`pre-t035.tfstate`); rows person 1 (version 1), experience 1, skill 1, person_skill 1; Flyway V2. **`terraform.tfvars` (gitignored) switched to `domain_service_instance_type = "t4g.micro"`.**
+- **Plan** (`-replace=aws_instance.domain_service`): 5 add / 5 destroy (the instance `t3.micro` → `t4g.micro`, AMI `al2023-ami-2023.12.20260930.0-kernel-6.18-arm64` (arm64), hop limit 2 → 1; the EIP association and volume attachment; both ECR lifecycle policies `any`/2 → `untagged`/20).
+- **Apply** 20:55–20:57Z. New instance **`i-0ae1377c04594b2b0` (t4g.micro)**. Both images pushed **multi-arch** right after (bff 20:57:20, domain 20:57:39; each index carries linux/amd64 + linux/arm64 + 2 attestations). Boot done 20:59:46 (about 2 minutes).
+- **Stage 4:** host `aarch64`; **mysql, domain-service (6da4732) and bff-node (7d34e7d) all arm64**; rows identical, person version 1, Flyway V2, volume `nvme1n1`, backup timer enabled. **IMDS:** host token OK (56 chars), IMDSv1 → 401, **bridge container → no token (000)**. **Memory (Graviton):** a 200-request `/cv` burst → brief swap (si/so 144/340), pressure some avg10 1.80 / full 0.60, 171 MB available afterwards (domain 320 MiB, bff 58, mysql 64), `/cv` still 200; on par with t3.micro's 4.07 / 180 MB. `cv-redeploy bff-node` works on arm64. The edge: `/cv`, `/` and `/admin/` 200; `/api` 401. The branch plans **No changes**.
+- **Cost:** the app-host line goes **$8.61 → $6.86/month (−$1.75)** (T-020's model; confirm on the bill after a week, with no `CPUCredits` surplus line).
+
 ## Implement + review — 2026-10-05 (17ff6f4, cv-infra#36)
 
 - Developer (fresh infrastructure-engineer, ~56k tokens): `data.aws_ami.al2023_arm64` for the app host (the CI host keeps x86 `al2023`); `t4g.micro` default; a **plan-time precondition** (arm64 AMI ⇔ Graviton type); IMDSv2 (`http_tokens = required`, hop limit 1); the ECR lifecycle on both repos is **`untagged` > 20 → expire**, never tagged (a multi-arch `:latest`'s children are safe); docs and runbook (buildx multi-arch). The provisioning script has no arch assumptions.
@@ -84,13 +92,13 @@ Per adapter §2, stage 0 splits this into dependency-ordered single-repo tasks (
 
 ## Acceptance criteria
 
-- [ ] `aws_instance.domain_service` is `t4g.micro` on an arm64 AMI; the MySQL datadir on `vol-092113db466c84bc1` survives the replacement (T-018's guarantee — confirm with `findmnt` before and after).
-- [ ] Every container on the box runs its arm64 variant — verified by `docker image inspect … Architecture` on the live host, not by reading the Dockerfile.
-- [ ] The public path works end to end after the swap: `/bff/api/v1/people/1/cv` through CloudFront, the admin through `/api/*`.
-- [ ] Memory headroom measured under a warm JVM and compared with T-014's numbers on `t3.micro` — the same 1 GiB, but not assumed to behave the same.
-- [ ] The saving recorded against [T-020](T-020-cost-model-correction.md)'s model.
-- [ ] **(moved from [T-005](T-005-ci-secret-blast-radius.md), board review 2026-10-01)** `aws_instance.domain_service` gets `metadata_options` `http_tokens = "required"` and `http_put_response_hop_limit = 1`; verified on the live host that no container on it (domain service, MySQL, Flyway, BFF) needs the instance role through IMDS, that a bridge container cannot obtain credentials, and that SSM and the host's own `param()` reads still work.
-- [ ] **The target size follows [T-014](T-014-deploy-bff-to-aws.md)'s memory measurement:** if T-014 shows the 1 GiB box can't carry JVM + MySQL + BFF, the target is `t4g.small`, and the saving is re-derived rather than assumed.
+- [x] `aws_instance.domain_service` is `t4g.micro` on an arm64 AMI; the MySQL datadir on `vol-092113db466c84bc1` survives the replacement (T-018's guarantee — confirm with `findmnt` before and after).
+- [x] Every container on the box runs its arm64 variant — verified by `docker image inspect … Architecture` on the live host, not by reading the Dockerfile.
+- [x] The public path works end to end after the swap: `/bff/api/v1/people/1/cv` through CloudFront, the admin through `/api/*`.
+- [x] Memory headroom measured under a warm JVM and compared with T-014's numbers on `t3.micro` — the same 1 GiB, but not assumed to behave the same.
+- [x] The saving recorded against [T-020](T-020-cost-model-correction.md)'s model.
+- [x] **(moved from [T-005](T-005-ci-secret-blast-radius.md), board review 2026-10-01)** `aws_instance.domain_service` gets `metadata_options` `http_tokens = "required"` and `http_put_response_hop_limit = 1`; verified on the live host that no container on it (domain service, MySQL, Flyway, BFF) needs the instance role through IMDS, that a bridge container cannot obtain credentials, and that SSM and the host's own `param()` reads still work.
+- [x] **The target size follows [T-014](T-014-deploy-bff-to-aws.md)'s memory measurement:** if T-014 shows the 1 GiB box can't carry JVM + MySQL + BFF, the target is `t4g.small`, and the saving is re-derived rather than assumed.
 
 ## Watch-outs
 
