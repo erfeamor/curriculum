@@ -2,7 +2,7 @@
 id: T-044
 title: "App host: move the bootstrap to S3 (user_data is at ~14.6/15.5 KB) and add a `cv-redeploy <service>` command — today a new image only reaches the host by replacing it"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: feat/app-host-bootstrap-s3-redeploy
 pr: https://github.com/erfeamor/cv-infra/pull/35
@@ -10,11 +10,11 @@ depends_on: [T-043]   # builds on the bootstrap as T-043 left it (the BFF block 
 risk: high   # replaces the app host (user_data changes) and changes how every container on it is (re)started
 security_review: true   # the redeploy path recreates containers carrying secrets (DB password, BFF client secret) — adapter §5 secrets path
 checkpoint:
-  stage: h2   # applied 2026-10-05 from the branch; S3 boot, V2, cv-redeploy (domain-service, migrate) and versioning all proven live; awaiting human acceptance
+  stage: done   # merged 82fb620 (squash of cv-infra#35), 2026-10-05 — applied from the branch first; H2 accepted; master plans No changes
   repo: cv-infra
   branch: feat/app-host-bootstrap-s3-redeploy
   worktree: none
-  commit: a245998
+  commit: 82fb620
   pr: https://github.com/erfeamor/cv-infra/pull/35
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
