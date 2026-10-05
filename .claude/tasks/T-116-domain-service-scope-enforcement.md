@@ -2,7 +2,7 @@
 id: T-116
 title: "The domain service accepts any token from the pool for any method — make the BFF's read-only service token GET-only"
 repo: cv-domain-service
-status: in_review
+status: done
 owner: tech-product-owner
 branch: fix/read-scope-get-only
 pr: https://github.com/erfeamor/cv-domain-service/pull/16
@@ -10,11 +10,11 @@ depends_on: [T-043]
 risk: normal
 security_review: true   # authorization rules — adapter §5
 checkpoint:
-  stage: h2   # branch image live via cv-redeploy; machine token read-only proven; awaiting the human's admin-edit check + H2
+  stage: done   # merged 6da4732 (squash of cv-domain-service#16), 2026-10-05 — live before merge; the human confirmed an admin edit still saves; H2 accepted
   repo: cv-domain-service
   branch: fix/read-scope-get-only
   worktree: none
-  commit: 9c989b0
+  commit: 6da4732
   pr: https://github.com/erfeamor/cv-domain-service/pull/16
   developer: backend-developer
   reviewers: [code-review, security-review]
@@ -47,7 +47,7 @@ checkpoint:
 - Developer (fresh backend-developer, ~47k tokens): POST/PUT/PATCH/DELETE → `hasAuthority("SCOPE_openid")`; other requests authenticated; health anonymous. **CSRF disabled** in the auth branch (unrequested; accepted at review: a stateless bearer API, and the resource server already skipped CSRF for bearer requests; the only effect was token-less writes getting 403 instead of 401). `WriteScopeEnforcementTest` (10) uses real Bearer headers with only `JwtDecoder` mocked, so the production converter decides. Red: machine-token writes got 201/200/204; no-token PUT got 403.
 - Driver-verified: checkstyle 0, **237/237**; **Jenkins green**. **Review round 1 (code + security): clean.**
 - **Live:** the T-113 image saved as a rollback (`domain-service-28b948d.tar.gz`); the branch image pushed and `cv-redeploy domain-service` (only that container). **With the BFF's token:** GET person and experiences 200; **PUT person (correct version) 403; POST project 403**; no-token PUT **401**; nothing written (version 1, person identical, projects 0). The public CV, `/` and `/admin/` are 200.
-- Pending: the human confirms an admin edit still saves (a user token with `openid`).
+- **The human confirmed an admin edit still saves** (a user token with `openid`), 2026-10-05.
 
 ## Why
 
@@ -61,6 +61,6 @@ Filed 2026-10-01 at [T-043](T-043-bff-service-token-to-domain.md)'s H1 (the huma
 
 ## Acceptance criteria
 
-- [ ] A read-scoped service token gets 403 on every non-GET; a user token still writes.
-- [ ] Verified live after deploy (the BFF's public routes still 200).
-- [ ] `mvn -B checkstyle:check`, `mvn -B test` green; `/security-review` clean.
+- [x] A read-scoped service token gets 403 on every non-GET; a user token still writes.
+- [x] Verified live after deploy (the BFF's public routes still 200).
+- [x] `mvn -B checkstyle:check`, `mvn -B test` green; `/security-review` clean.

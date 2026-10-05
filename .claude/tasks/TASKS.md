@@ -4,23 +4,18 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-10-05 (T-044 merged: deploys are a cv-redeploy away; versioning live end to end)
+## Now / Next / Later — refreshed 2026-10-05 (T-116 merged: machine tokens read-only; next T-025's decision, T-035, then the CI deploy stages)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
-- **[T-116](T-116-domain-service-scope-enforcement.md)** (cv-domain-service): make the BFF's read-scoped token GET-only. Deploy is now one `cv-redeploy domain-service` (~15 s; runbook `cv-infra/docs/runbooks/app-host-deploy.md`). Live today, that token **can still write** (it was used to prove T-113's 409), which is exactly the gap this closes.
+- **Decide [T-025](T-025-verify-requests-come-from-our-cloudfront.md)** at its H1 (minutes; likely close as accepted risk — the api-docs leak is closed live, only the BFF's `/metrics` remains).
+- [T-035](T-035-app-host-to-graviton.md): app host to Graviton + the app host's IMDSv2 hardening (from T-005); arm64 builds of both images. Deploys now go through `cv-redeploy` (T-044).
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**).
 
-**Done 2026-10-05:** **[T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)** (the app host boots from S3 behind a hash-checked 1.5 KB stub; `cv-redeploy migrate|domain-service|bff-node`; runbook), which deployed **V2 ([T-157](T-157-migration-version-columns.md)) and [T-113](T-113-optimistic-locking-lost-update.md)**: optimistic locking is live, and a stale PUT gets 409. [T-303](T-303-admin-send-version-handle-409.md) (the admin sends `version`, handles 409/404) is live too.
-
-**Next**
-- **Decide [T-025](T-025-verify-requests-come-from-our-cloudfront.md)** at its H1 (likely close as accepted risk; minutes).
-- [T-035](T-035-app-host-to-graviton.md) (after T-044): app host to Graviton + its IMDSv2 hardening.
-
-**Done 2026-10-04:** [T-404](T-404-public-react-point-at-deployed-bff.md) (Vercel), [T-045](T-045-github-oidc-deploy-role-public-vanilla.md) (OIDC role), **[T-403](T-403-public-vanilla-deploy.md) (vanilla site live)**, [T-046](T-046-contract-section-version-409.md) (contract rule 8), [T-157](T-157-migration-version-columns.md) (V2, merged), [T-113](T-113-optimistic-locking-lost-update.md) (merged, not deployed). **Both public sites are live** (they show T-018's probe data; see T-501).
+**Done 2026-10-05:** **[T-116](T-116-domain-service-scope-enforcement.md)** (machine tokens are read-only: writes need a user token's `openid` scope; live), **[T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)** (the app host boots from S3 behind a hash-checked 1.5 KB stub; `cv-redeploy migrate|domain-service|bff-node`; runbook), which deployed **V2 ([T-157](T-157-migration-version-columns.md)) and [T-113](T-113-optimistic-locking-lost-update.md)**: optimistic locking is live, and a stale PUT gets 409. [T-303](T-303-admin-send-version-handle-409.md) (the admin sends `version`, handles 409/404) is live too.
 
 **Then** (~2 windows)
 - [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-005](T-005-ci-secret-blast-radius.md)'s remainder: **one H1** for the pipelines' AWS permissions. GitHub Actions reuses T-403's OIDC; Jenkins uses its instance role, narrowed per T-005. Both roll containers with `cv-redeploy`.
@@ -92,7 +87,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-113](T-113-optimistic-locking-lost-update.md) | Lost updates on concurrent PUTs — **fixed (`@Version`, 409); deployed 2026-10-05** via T-044's `cv-redeploy` | cv-domain-service | done | tech-product-owner | T-108 ✔, T-014 ✔, T-046, T-157 | [cv-domain-service#15](https://github.com/erfeamor/cv-domain-service/pull/15) |
 | [T-303](T-303-admin-send-version-handle-409.md) | Admin: keep each row's `version`, send it on PUT, handle a 409 (split from T-113) | cv-admin-react | done | tech-product-owner | T-046 ✔ (T-113 ✔) | [cv-admin-react#17](https://github.com/erfeamor/cv-admin-react/pull/17) |
 | [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔, T-044 ✔ | |
-| [T-116](T-116-domain-service-scope-enforcement.md) | The domain service accepts any pool token for any method — make the BFF's read-only service token GET-only (T-043 follow-up) | cv-domain-service | in_review | tech-product-owner | T-043 ✔ | [cv-domain-service#16](https://github.com/erfeamor/cv-domain-service/pull/16) |
+| [T-116](T-116-domain-service-scope-enforcement.md) | The domain service accepts any pool token for any method — make the BFF's read-only service token GET-only (T-043 follow-up) | cv-domain-service | done | tech-product-owner | T-043 ✔ | [cv-domain-service#16](https://github.com/erfeamor/cv-domain-service/pull/16) |
 
 <details>
 <summary>Defects, hygiene & hardening — 15 done</summary>
