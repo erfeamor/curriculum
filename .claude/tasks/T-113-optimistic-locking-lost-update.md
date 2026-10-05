@@ -22,7 +22,9 @@ security_review: false
 3. **Split (adapter §2):** [T-046](T-046-contract-section-version-409.md) contract (driver) → [T-157](T-157-migration-version-columns.md) V2 migration → **this task: the domain service** (`@Version`, the 409 handler, `version` in responses) → T-303 admin.
 4. **Deploy:** batched with [T-116](T-116-domain-service-scope-enforcement.md) into one image, after T-157's migration has run, via [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)'s `cv-redeploy` (which gains a `migrate` step). Hibernate validates the schema, so the image must not start before V2.
 
-## ✅ H2 — 2026-10-04: merged 28b948d (cv-domain-service#15); NOT YET DEPLOYED
+## ✅ DEPLOYED 2026-10-05 via T-044's `cv-redeploy domain-service`: a stale PUT gets 409 live, nothing written; the correct PUT bumps the version
+
+## ✅ H2 — 2026-10-04: merged 28b948d (cv-domain-service#15)
 
 - **Merged.** The image built from master now **requires cv-database V2** (`ddl-auto: validate`). Images are pushed by hand, so nothing deploys automatically. **Deploy with T-116 via [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md):** `cv-redeploy migrate` (V2) → `cv-redeploy domain-service`. **Never push this image to ECR `:latest` before V2 is live**: a host replacement would pull it and the domain service would fail to start.
 - **Contract nuance resolved by amendment** (the human's choice): rule 8 now says an omitted version can still get 409 on a genuine concurrent write (curriculum#108, 0fcfc70).

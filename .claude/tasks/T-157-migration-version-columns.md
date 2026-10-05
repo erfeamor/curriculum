@@ -35,4 +35,4 @@ Hibernate runs `ddl-auto=validate`: a domain image expecting `version` **won't s
 ## Acceptance criteria
 
 - [x] V2 is additive; existing rows get `version = 0`; Jenkins' migration gate green.
-- [ ] Applied to production before T-113's image, and the live `flyway_schema_history` shows V2 success.
+- [x] Applied to production before T-113's image, and the live `flyway_schema_history` shows V2 success. *(2026-10-05, by T-044's new host's boot; then T-113's image via `cv-redeploy`.)*
