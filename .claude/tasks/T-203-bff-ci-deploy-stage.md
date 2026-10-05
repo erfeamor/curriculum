@@ -2,10 +2,10 @@
 id: T-203
 title: "BFF CI: push the image to ECR and roll the container on master"
 repo: cv-bff-node
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: chore/ci-ecr-deploy-stage
-pr:
+pr: https://github.com/erfeamor/cv-bff-node/pull/13
 depends_on: [T-014, T-044, T-047]   # T-044 added 2026-10-04: rolling the container uses its `cv-redeploy bff-node`; the GitHub → AWS credential (OIDC) is decided at T-403's H1 and reused here
 risk: normal
 security_review: true
@@ -26,6 +26,12 @@ security_review: true
 ## Shared decision (added 2026-09-25, board review)
 
 Decide the credential model **together with [T-112](T-112-domain-service-ci-ecr-deploy.md)** (the Jenkins twin), with [T-005](T-005-ci-secret-blast-radius.md) as the input. See T-112's note. Both need an IAM principal in **cv-infra**, so both run in the serial cv-infra chain after T-014.
+
+## Implement + review — 2026-10-06 (e232297)
+
+- Developer (fresh fullstack-developer, ~28k tokens: a `deploy` job (`needs: [test, docker]`, master push only), OIDC, multi-arch QEMU build + push `:latest` + `:<sha>`, `send-command` **by tag**, bounded poll of `list-command-invocations --details` (exactly one, `Success`), a CloudFront smoke on `/cv`.
+- Driver-verified: the workflow read; YAML parses; Actions green on the PR (`test` ✓, `docker` ✓, `deploy` skipped as designed). **Review round 1: clean.** Non-blocking: `:<sha>` tags never expire under the untagged-only lifecycle (T-035), so they accumulate (~100 MB per deploy, cents); worth a tagged-image retention rule later.
+- **Checkpoint (usage 40–75%): not merged.** The merge to master **is the first live deploy**, so H2 = merge, then watch the run.
 
 ## Why this exists
 
