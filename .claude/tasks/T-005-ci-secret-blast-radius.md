@@ -11,6 +11,8 @@ risk: high
 security_review: true
 ---
 
+> **2026-10-06 (T-112/T-203 H1):** the CI deploy credentials were deliberately placed **off** the CI host (GitHub Actions OIDC + per-service SSM documents, T-047), so this task's docker.sock gap no longer guards any deploy path. What remains here: the docker.sock/host-network IMDS gap itself (the CI host's role still has its own grants), the parameter-path split, and narrowing the app-host SSM read.
+
 > **Board review 2026-10-01 — what's left here.** The CI host's IMDSv2 + hop limit 1 shipped in T-007. The **app host's** `metadata_options` moved to [T-035](T-035-app-host-to-graviton.md), which replaces that host and re-verifies every container on it anyway. This task keeps: the docker.sock/host-network gap (below), the parameter-path split, and narrowing the app-host role's SSM read. Its H1 is shared with [T-112](T-112-domain-service-ci-ecr-deploy.md)/[T-203](T-203-bff-ci-deploy-stage.md) (one credential model).
 
 > **Added 2026-09-29, from T-007's review: hop limit 1 does not close the CI host's IMDS path.** `drone-runner` and Jenkins both mount `/var/run/docker.sock`, so any build step can `docker run --network host …` and read the instance role's credentials. A host-network container shares the host's network namespace, and the hop limit never applies to it. T-007 ships `http_tokens = "required"` with hop limit 1, which stops *bridge* containers only. **What remains here:** either remove docker.sock from the build path, or make the instance role worthless to a build: a minimal role, with secrets fetched once at boot and never needed again. Decide at this task's H1.

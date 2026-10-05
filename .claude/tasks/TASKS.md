@@ -82,7 +82,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔, T-044 ✔ | |
+| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | in_progress | tech-product-owner | T-111 ✔, T-044 ✔, T-047 | |
 
 <details>
 <summary>Defects, hygiene & hardening — 18 done</summary>
@@ -120,6 +120,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
+| [T-047](T-047-ci-deploy-roles-and-ssm-documents.md) | GitHub OIDC deploy roles for the domain service and BFF + one SSM document per service (`cv-redeploy <svc>` only); for T-112/T-203 | cv-infra | in_progress | tech-product-owner | T-044 ✔, T-045 ✔ | |
 
 <details>
 <summary>Infra & ops — 43 done</summary>
@@ -189,7 +190,7 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 | 3b | [T-043](T-043-bff-service-token-to-domain.md) | **The BFF reads the domain service with a Cognito service token** — the public CV is 200 live | cv-infra | done | tech-product-owner | T-014 ✔, T-211 ✔ | [cv-infra#33](https://github.com/erfeamor/cv-infra/pull/33) |
 | 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF — H1 2026-10-04: OIDC (T-045 first), same-origin calls, root deploy excluding `admin/*` | cv-public-vanilla | done | tech-product-owner | T-014 ✔, **T-408** ✔, **T-043** ✔, **T-045** ✔ | [cv-public-vanilla#5](https://github.com/erfeamor/cv-public-vanilla/pull/5) |
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed — **absorbed into T-501** (2026-10-01) | cv-project (meta) | done | tech-product-owner | T-014, T-403, T-404 | none |
-| — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | todo | | T-014 ✔, T-044 ✔ | |
+| — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | in_progress | tech-product-owner | T-014 ✔, T-044 ✔, T-047 | |
 | — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call (adopts T-201's shared guard) | cv-bff-node | done | fullstack-developer | T-202 ✔, **T-201 ✔** | [#8](https://github.com/erfeamor/cv-bff-node/pull/8) |
 | — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF — **done 2026-10-04**: live, and a production build fails without it | cv-public-react | done | tech-product-owner | T-014 ✔, **T-043** ✔ | [cv-public-react#9](https://github.com/erfeamor/cv-public-react/pull/9) |
 
