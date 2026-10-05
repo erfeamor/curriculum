@@ -2,7 +2,7 @@
 id: T-303
 title: "Admin: keep each row's `version`, send it on PUT, and handle a 409 (changed elsewhere — reload)"
 repo: cv-admin-react
-status: in_review
+status: done
 owner: tech-product-owner
 branch: feat/version-409
 pr: https://github.com/erfeamor/cv-admin-react/pull/17
@@ -10,11 +10,11 @@ depends_on: [T-046]
 risk: normal
 security_review: false
 checkpoint:
-  stage: h2   # review round 1 clean; Drone green (push + pr)
+  stage: done   # merged 22ea9a4 (squash of cv-admin-react#17), 2026-10-05 — H2 accepted; Drone deployed /admin/ (bundle carries the conflict UI)
   repo: cv-admin-react
   branch: feat/version-409
   worktree: none
-  commit: 720beaa
+  commit: 22ea9a4
   pr: https://github.com/erfeamor/cv-admin-react/pull/17
   developer: fullstack-developer
   reviewers: [code-review]
@@ -62,4 +62,4 @@ Split out of [T-113](T-113-optimistic-locking-lost-update.md) at its H1 (2026-10
 
 - [x] Every PUT for person and the three sections carries the row's `version`.
 - [x] A 409 renders the notice; tests cover both paths.
-- [ ] Gates green; Drone green; deployed.
+- [x] Gates green; Drone green; deployed. *(2026-10-05: the live `/admin/` bundle `index-CpV62ryg.js` carries the conflict UI; the vanilla root files are untouched.)*

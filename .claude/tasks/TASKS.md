@@ -11,8 +11,8 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
-- **[T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)** (~1–2 windows): the app-host bootstrap to S3, `cv-redeploy <service>` + **`cv-redeploy migrate`**, and the deploy runbook. Its first live use deploys the **pending domain change**: V2 (T-157) → the T-113 image (+ T-116 if ready). **Don't push a domain-service image from current master to `:latest` before then.**
-- **[T-303](T-303-admin-send-version-handle-409.md)** (cv-admin-react, in parallel): send `version` on every PUT and handle 409/404. Safe to ship before the domain deploy (the live server ignores an unknown field), so the admin is ready the moment T-113 goes live.
+- **[T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)** — **implemented and reviewed (cv-infra#35); NEXT: its apply** (replaces the app host; boot applies V2), then the T-113 deploy via `cv-redeploy domain-service`. Was: the app-host bootstrap to S3, `cv-redeploy <service>` + **`cv-redeploy migrate`**, and the deploy runbook. Its first live use deploys the **pending domain change**: V2 (T-157) → the T-113 image (+ T-116 if ready). **Don't push a domain-service image from current master to `:latest` before then.**
+- **[T-303](T-303-admin-send-version-handle-409.md): done and deployed 2026-10-05** (the admin sends `version` and handles 409/404; it's ready the moment T-113 goes live).
 - **[T-116](T-116-domain-service-scope-enforcement.md)** (cv-domain-service): make the BFF's read token GET-only, so it rides the same domain image as T-113.
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**).
 
@@ -90,7 +90,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-113](T-113-optimistic-locking-lost-update.md) | Lost updates on concurrent PUTs — **fixed (`@Version`, 409); merged, NOT yet deployed** (needs V2 live; ships via T-044) | cv-domain-service | done | tech-product-owner | T-108 ✔, T-014 ✔, T-046, T-157 | [cv-domain-service#15](https://github.com/erfeamor/cv-domain-service/pull/15) |
-| [T-303](T-303-admin-send-version-handle-409.md) | Admin: keep each row's `version`, send it on PUT, handle a 409 (split from T-113) | cv-admin-react | in_review | tech-product-owner | T-046 ✔ (T-113 ✔) | [cv-admin-react#17](https://github.com/erfeamor/cv-admin-react/pull/17) |
+| [T-303](T-303-admin-send-version-handle-409.md) | Admin: keep each row's `version`, send it on PUT, handle a 409 (split from T-113) | cv-admin-react | done | tech-product-owner | T-046 ✔ (T-113 ✔) | [cv-admin-react#17](https://github.com/erfeamor/cv-admin-react/pull/17) |
 | [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | todo | | T-111 ✔, T-044 | |
 | [T-116](T-116-domain-service-scope-enforcement.md) | The domain service accepts any pool token for any method — make the BFF's read-only service token GET-only (T-043 follow-up) | cv-domain-service | todo | | T-043 ✔ | |
 
