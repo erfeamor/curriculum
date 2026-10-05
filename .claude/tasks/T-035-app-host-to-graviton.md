@@ -2,14 +2,50 @@
 id: T-035
 title: "Move the app host from t3.micro to t4g.micro (Graviton, same 1 GB) — −$1.75/month, 20% of the instance line"
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: feat/app-host-t4g-micro
 pr:
 depends_on: [T-014]   # deliberately AFTER, not bundled: T-014 replaces the same instance, but three changes in one high-risk apply (first BFF deploy, new CPU architecture, Flyway bump) make a failure hard to attribute. A replacement costs no money — only minutes of downtime on a demo with no users. Decided 2026-09-24.
 risk: high   # replaces the production app host and changes its CPU architecture; every image it runs must exist for arm64
 security_review: false   # instance type and AMI only; re-checked at A1 against the real diff
+checkpoint:
+  stage: implement   # H1 decided 2026-10-05; usage 40–75% → images built/pushed + dev + review, then checkpoint BEFORE the apply
+  repo: cv-infra
+  branch: feat/app-host-graviton
+  worktree: none
+  commit:
+  pr:
+  developer: infrastructure-engineer
+  reviewers: [code-review, security-review]
+  risk: high
+  security_review: true
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a   # live app host
+  updated: 2026-10-05T13:00:00+02:00
+  budget:
+    turns: 0
+    total_tokens: 0
+    subagent_tokens: 0
+    spawns: 0
+    status: ok   # human-reported /usage 40–75%
+    checked: 2026-10-05T13:00:00+02:00
 ---
+
+## H1 — decided by the human, 2026-10-05
+
+**Stage-0 facts:** every upstream base image is multi-arch with arm64 (`mysql:8.4`, `flyway/flyway:13.7.0`, `node:20-alpine`, `eclipse-temurin:17-jre`, `maven:3.9-eclipse-temurin-17`), so **no Dockerfile or repo-code change** is needed; arm64 is a build step. This machine has buildx but no arm64 emulation. The app host's AMI lookup is pinned to `al2023-ami-2023.*-x86_64`, with `ignore_changes = [ami]` (so the swap is a deliberate `-replace`). Both image repos are public.
+
+1. **arm64 builds: local QEMU** (`docker run --privileged --rm tonistiigi/binfmt --install arm64`, one-time until reboot), then `docker buildx build --platform linux/amd64,linux/arm64 --push`. A driver step, so this task stays **single-repo (cv-infra)**: no split.
+2. **Multi-arch manifests on `:latest`** (amd64 + arm64): rollback to `t3.micro` stays a plain revert, and the x86 CI host can still run the images.
+3. **`t4g.micro` (1 GiB)**, as T-043's real-path burst held with mild swap: $8.61 → **$6.86/month (−$1.75)**. Stage 4 re-measures memory on Graviton.
+4. **IMDSv2 on the app host** (from T-005): `http_tokens = required`, hop limit 1. The containers never call AWS (secrets come from the host's `param()` reads), so prove that a bridge container gets no credentials.
+5. **A separate arm64 AMI data source** for the app host; the CI host keeps its x86 one.
+6. **The ECR lifecycle must keep a multi-arch `:latest` intact:** the current rule keeps the 2 most recent images of any kind, and a multi-arch push creates an index plus per-architecture manifests (plus attestations). Raise it so `:latest`'s children can't be expired (storage is ~$0.10/GB-month).
+7. **Budget:** `/usage` 40–75%: images built and pushed (harmless to the running x86 host), developer and review, then **checkpoint before the apply**. The apply also needs `domain_service_instance_type = "t4g.micro"` in the gitignored `terraform.tfvars` (the driver edits it at apply time).
 
 > **Board review 2026-10-04:** run this **after [T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)**, so the Graviton replacement inherits the S3 bootstrap (no user_data size pressure) and its images can be rolled with `cv-redeploy` if an arm64 build needs a fix after the swap.
 
