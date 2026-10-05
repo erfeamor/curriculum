@@ -2,14 +2,36 @@
 id: T-025
 title: "The edge is not an authenticator: prove requests come from OUR CloudFront distribution"
 repo: cv-infra + cv-domain-service
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: feat/origin-shared-secret-header
-pr:
+pr: none                  # closed 2026-10-05 at H1 as DOCUMENTED ACCEPTED RISK (the human's decision) — a decision task with no code; same sentinel as T-010/T-012/T-030
 depends_on: [T-022, T-043]   # T-043 added 2026-10-01: scheduled after the BFF's service token, per T-014's H2
 risk: normal
 security_review: true
 ---
+
+## ✅ CLOSED 2026-10-05 at H1 — documented accepted risk (the human's decision)
+
+**The exposure, measured live on 2026-10-05** (on the app host; the same requests a foreign CloudFront distribution can make, since the origin-facing prefix list is shared by every CloudFront customer):
+
+| Path, reached through a foreign distribution | Answer | Disclosure |
+|---|---|---|
+| domain `/v3/api-docs`, `/actuator/prometheus` (**the leak this task was filed for**) | **401** | none; closed since T-106 deployed (2026-10-01, T-014) |
+| domain `/actuator/health` | 200 | `{"status":"UP"}`, by design |
+| every other domain path | 401 / 403 | none without a token; writes need a user token (T-116) |
+| BFF `/bff/api/v1/people/:id`, `/cv` | 200 | the public CV, public by design (no ids/emails/versions) |
+| BFF `/health` | 200 | `{"status":"ok"}` |
+| BFF `/metrics` | 200 | Prometheus counters: per-route request counts and latencies (labels bucketed, T-208), Node event-loop and memory. **No data, no secrets, no identifiers.** |
+
+**Why accepting is defensible:** the only residual is mild operational information disclosure from the BFF's `/metrics`. No authenticated path is bypassable (the JWT checks live in the services, not at the edge), and **our edge carries no controls a bypass could skip** (no WAF, no rate limiting, no edge auth). The shared-secret header would cost three repos with a strict send-then-enforce ordering plus a rotation procedure, to protect counters.
+
+**Re-open this task if any of these becomes true:**
+1. Anything non-public becomes reachable **anonymously** on origin port 8080 or 3000 (a new unauthenticated route, an actuator endpoint opened, a debug flag).
+2. A **WAF, rate limit or other edge control** is added to our distribution: the bypass would then defeat it.
+3. The BFF's `/metrics` starts carrying anything beyond counters (e.g. labels with user input or identifiers).
+
+The design notes below are kept as the record of the shared-secret option, if it's ever needed.
 
 > **Board review 2026-10-04 — the premise moved; decide at H1 whether to close.** The leak this task was filed for (`/v3/api-docs` answering through any CloudFront distribution) is **closed live**: T-106's fix has been deployed since 2026-10-01 (T-014 put current domain-service master on the host). What's still reachable through a foreign distribution: the domain service's `/actuator/health` (anonymous by design), the BFF's two public routes (public by design), and the **BFF's `/metrics`** (Prometheus counters, route labels bucketed since T-208, no data). This task's own recommendation (below) was already *documented accepted risk*. Options at H1: close as accepted risk; or close plus a one-line BFF change that stops serving `/metrics` outside dev; or implement the shared-secret header as scoped.
 
@@ -72,12 +94,12 @@ Two PRs, one per repo, and **the order matters**: ship the origin sending the he
 
 ## Acceptance criteria
 
-- [ ] A request to `http://15.236.195.130:8080/v3/api-docs` **through a CloudFront distribution other than ours** is rejected — proven by actually standing one up, or by replaying the exact request without the header from an allowed source. Not by reading the config.
-- [ ] The live admin UI still loads its people list with a real Cognito JWT.
-- [ ] `/api/*` through our distribution is unaffected.
-- [ ] The secret is in SSM, never in a committed file, and the rotation procedure is written down.
-- [ ] `terraform fmt -check -recursive`, `terraform validate`, `terraform test` pass, with an assertion that the origin carries the header.
-- [ ] The Java side has tests for both branches: header present → served, header absent → rejected.
+- [ ] ~~A request to `http://15.236.195.130:8080/v3/api-docs` **through a CloudFront distribution other than ours** is rejected — proven by actually standing one up, or by replaying the exact request without the header from an allowed source. Not by reading the config.~~ *(N/A — closed as accepted risk, 2026-10-05)*
+- [ ] ~~The live admin UI still loads its people list with a real Cognito JWT.~~ *(N/A — closed as accepted risk, 2026-10-05)*
+- [ ] ~~`/api/*` through our distribution is unaffected.~~ *(N/A — closed as accepted risk, 2026-10-05)*
+- [ ] ~~The secret is in SSM, never in a committed file, and the rotation procedure is written down.~~ *(N/A — closed as accepted risk, 2026-10-05)*
+- [ ] ~~`terraform fmt -check -recursive`, `terraform validate`, `terraform test` pass, with an assertion that the origin carries the header.~~ *(N/A — closed as accepted risk, 2026-10-05)*
+- [ ] ~~The Java side has tests for both branches: header present → served, header absent → rejected.~~ *(N/A — closed as accepted risk, 2026-10-05)*
 
 ## Definition of done
 
