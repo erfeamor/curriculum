@@ -2,10 +2,10 @@
 id: T-112
 title: "cv-domain-service CI: push the image to ECR and roll the container on master"
 repo: cv-domain-service
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: chore/ci-ecr-deploy-stage
-pr:
+pr: https://github.com/erfeamor/cv-domain-service/pull/17
 depends_on: [T-111, T-044, T-047]   # T-044 added 2026-10-04: "roll the container" uses its `cv-redeploy`, so the pipeline never duplicates the run arguments (secrets included) that live only in the bootstrap. REPOINTED 2026-09-23 from T-110, which was absorbed into T-111 — exactly the case the caveat below anticipated (and T-201's review finding F8 flagged). T-111 now lands the `master` gate, so the reasoning is unchanged: landing this first would implement a stage that can never run. Original comment: SCHEDULING, not file-level: T-110 fixes `when { branch 'main' }`. Landing this first would implement a stage that can never run. CAVEAT (review round, 2026-08-27): T-110's own H1 may BUNDLE it into T-111 under T-153's recommended option (a), in which case T-110 closes with no PR of its own and this edge points at an absorbed task. If that happens, repoint this to whichever task actually lands the `master` gate -- do not read a closed T-110 as an unmet dependency.
 risk: normal
 security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /security-review path, and this diff introduces registry credentials into CI
@@ -28,6 +28,12 @@ security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /sec
 - **This is not CI-host-only work.** Its IAM principal (ECR push plus `ssm:SendCommand` on one instance) lives in **cv-infra**, so it needs a cv-infra apply. That puts it in the **strictly serial cv-infra chain**, not in a CI-host session. Run it **after [T-014](T-014-deploy-bff-to-aws.md)**: T-014 replaces the app host this task rolls, and T-014 is already the head of that chain.
 - **Take one credential-model decision for this task and [T-203](T-203-bff-ci-deploy-stage.md) together**, with [T-005](T-005-ci-secret-blast-radius.md) as the input. The two CI systems differ (Jenkins on our host vs GitHub Actions with OIDC), but both grant CI the power to change production, and T-005 has to be able to live with both answers. Deciding them at separate H1 gates is how the board ends up with two incompatible models.
 - The Jenkinsfile snippet below is from **before [T-111](T-111-domain-service-jenkins-pipeline-timeout.md)** (merged 2026-09-24). The Deploy gate is now `branch 'master'`, proven by master build #9 on 2026-09-25, and the placeholder now points here. The `Docker image` stage is unchanged: it still builds and discards.
+
+## Implement + review — 2026-10-06 (745b146)
+
+- Developer (fresh backend-developer, ~28k tokens: `.github/workflows/deploy.yml` (master push only): `wait-for-jenkins` (the newest `continuous-integration/jenkins/branch` status: success → deploy, red → stop, else poll ≤30 min) then `deploy` (OIDC, multi-arch, `send-command` by tag, invocation poll, smoke `/cv` 200 + `/api` 401). The Jenkinsfile `Deploy` stage points here.
+- Driver-verified: the workflow read; YAML parses; Jenkins green on the PR (`pr-merge` ✓); checkstyle clean, 237 tests. **Review round 1: clean.** Non-blocking: `:<sha>` tags never expire under the untagged-only lifecycle (T-035), so they accumulate (~100 MB per deploy, cents); worth a tagged-image retention rule later.
+- **Checkpoint (usage 40–75%): not merged.** The merge to master **is the first live deploy**, so H2 = merge, then watch the run.
 
 ## Why this exists
 
