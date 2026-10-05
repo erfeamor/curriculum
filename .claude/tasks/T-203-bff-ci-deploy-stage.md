@@ -2,14 +2,24 @@
 id: T-203
 title: "BFF CI: push the image to ECR and roll the container on master"
 repo: cv-bff-node
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: chore/ci-ecr-deploy-stage
 pr:
-depends_on: [T-014, T-044]   # T-044 added 2026-10-04: rolling the container uses its `cv-redeploy bff-node`; the GitHub → AWS credential (OIDC) is decided at T-403's H1 and reused here
+depends_on: [T-014, T-044, T-047]   # T-044 added 2026-10-04: rolling the container uses its `cv-redeploy bff-node`; the GitHub → AWS credential (OIDC) is decided at T-403's H1 and reused here
 risk: normal
 security_review: true
 ---
+
+## H1 — decided by the human, 2026-10-06 (shared with [T-112](T-112-domain-service-ci-ecr-deploy.md))
+
+- **No deploy credential on the CI host** (every build there is effectively root through `docker.sock`, T-005). **Both repos deploy from GitHub Actions via OIDC**, on a master push only.
+- **The deploy call** is `aws ssm send-command` with this service's **own SSM document** (`cv-redeploy-bff-node`, created by [T-047](T-047-ci-deploy-roles-and-ssm-documents.md)), which runs only `cv-redeploy bff-node` on the app host. Wait for the invocation's result and fail the job if it fails.
+- **Multi-arch** (`linux/amd64,linux/arm64`, since the app host is Graviton, T-035) via `docker/setup-qemu-action` + buildx on `ubuntu-latest`, pushed to ECR `:latest`.
+- **The role ARN comes from a repo variable** (`vars.AWS_DEPLOY_ROLE_ARN`, set by the driver after T-047's apply); the document name and region are workflow constants.
+- The deploy job **`needs`** the existing `test` and `docker` jobs (both green) in `ci.yml`.
+- **Budget:** `/usage` 40–75%: implement and review, **checkpoint before the merge** (the merge is the first live deploy).
+
 
 > **Board review 2026-09-28**: **one session, one H1** for T-112 + T-203, with [T-005](T-005-ci-secret-blast-radius.md)'s remainder decided at the same gate as their credential model's input. After H1 the two implementations run in parallel (different repos); their cv-infra IAM changes share one apply.
 

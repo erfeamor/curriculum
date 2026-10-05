@@ -2,14 +2,24 @@
 id: T-112
 title: "cv-domain-service CI: push the image to ECR and roll the container on master"
 repo: cv-domain-service
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: chore/ci-ecr-deploy-stage
 pr:
-depends_on: [T-111, T-044]   # T-044 added 2026-10-04: "roll the container" uses its `cv-redeploy`, so the pipeline never duplicates the run arguments (secrets included) that live only in the bootstrap. REPOINTED 2026-09-23 from T-110, which was absorbed into T-111 — exactly the case the caveat below anticipated (and T-201's review finding F8 flagged). T-111 now lands the `master` gate, so the reasoning is unchanged: landing this first would implement a stage that can never run. Original comment: SCHEDULING, not file-level: T-110 fixes `when { branch 'main' }`. Landing this first would implement a stage that can never run. CAVEAT (review round, 2026-08-27): T-110's own H1 may BUNDLE it into T-111 under T-153's recommended option (a), in which case T-110 closes with no PR of its own and this edge points at an absorbed task. If that happens, repoint this to whichever task actually lands the `master` gate -- do not read a closed T-110 as an unmet dependency.
+depends_on: [T-111, T-044, T-047]   # T-044 added 2026-10-04: "roll the container" uses its `cv-redeploy`, so the pipeline never duplicates the run arguments (secrets included) that live only in the bootstrap. REPOINTED 2026-09-23 from T-110, which was absorbed into T-111 — exactly the case the caveat below anticipated (and T-201's review finding F8 flagged). T-111 now lands the `master` gate, so the reasoning is unchanged: landing this first would implement a stage that can never run. Original comment: SCHEDULING, not file-level: T-110 fixes `when { branch 'main' }`. Landing this first would implement a stage that can never run. CAVEAT (review round, 2026-08-27): T-110's own H1 may BUNDLE it into T-111 under T-153's recommended option (a), in which case T-110 closes with no PR of its own and this edge points at an absorbed task. If that happens, repoint this to whichever task actually lands the `master` gate -- do not read a closed T-110 as an unmet dependency.
 risk: normal
 security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /security-review path, and this diff introduces registry credentials into CI
 ---
+
+## H1 — decided by the human, 2026-10-06 (shared with [T-203](T-203-bff-ci-deploy-stage.md))
+
+- **No deploy credential on the CI host** (every build there is effectively root through `docker.sock`, T-005). **Both repos deploy from GitHub Actions via OIDC**, on a master push only.
+- **The deploy call** is `aws ssm send-command` with this service's **own SSM document** (`cv-redeploy-domain-service`, created by [T-047](T-047-ci-deploy-roles-and-ssm-documents.md)), which runs only `cv-redeploy domain-service` on the app host. Wait for the invocation's result and fail the job if it fails.
+- **Multi-arch** (`linux/amd64,linux/arm64`, since the app host is Graviton, T-035) via `docker/setup-qemu-action` + buildx on `ubuntu-latest`, pushed to ECR `:latest`.
+- **The role ARN comes from a repo variable** (`vars.AWS_DEPLOY_ROLE_ARN`, set by the driver after T-047's apply); the document name and region are workflow constants.
+- **Jenkins stays the domain service's CI and test gate.** A new GitHub Actions workflow (`deploy.yml`) on a master push **waits for Jenkins' commit status (`continuous-integration/jenkins/branch`) on that commit to be `success`** (poll the statuses API with `GITHUB_TOKEN`, bounded), then builds, pushes and deploys. A red or missing Jenkins status → no deploy. The Jenkinsfile's `Deploy` placeholder points here.
+- **Budget:** `/usage` 40–75%: implement and review, **checkpoint before the merge** (the merge is the first live deploy).
+
 
 > **Board review 2026-09-28**: **one session, one H1** for T-112 + T-203, with [T-005](T-005-ci-secret-blast-radius.md)'s remainder decided at the same gate as their credential model's input. After H1 the two implementations run in parallel (different repos); their cv-infra IAM changes share one apply.
 
