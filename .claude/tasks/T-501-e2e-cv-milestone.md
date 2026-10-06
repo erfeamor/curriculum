@@ -9,7 +9,7 @@ pr:
 depends_on: [T-101, T-102, T-103, T-104, T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-043, T-403, T-404, T-503]
 ---
 
-> **Production content is now [T-503](T-503-production-cv-content.md)** (filed 2026-10-06, a dependency): found 2026-10-04 at T-404's live check, production's only person is T-018's durability probe ("T018 Survival Probe"), and both public sites render it. T-503 is the human entering the real CV through `/admin/` and removing the probe rows; step 6 below verifies against that content.
+> **Production content is now [T-503](T-503-production-cv-content.md)** (filed 2026-10-06, a dependency; **done 2026-10-06: the human's own CV is live, person 1**): found 2026-10-04 at T-404's live check, production's only person is T-018's durability probe ("T018 Survival Probe"), and both public sites render it. T-503 is the human entering the real CV through `/admin/` and removing the probe rows; step 6 below verifies against that content.
 
 > **Board review 2026-09-28**: this task's PR **also carries [T-015](T-015-docs-reflect-deployed-bff.md)'s doc corrections** *(absorbed formally 2026-10-01: its criteria are in Deliverables below)* (same files, same live verification). Tick T-015's criteria in the same PR and close both together.
 
