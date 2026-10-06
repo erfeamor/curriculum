@@ -2,26 +2,26 @@
 id: T-005
 title: "CI secret blast radius — the remainder: close the docker.sock/host-network IMDS path, split parameter paths, narrow the app-host SSM read"
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: feat/ci-secret-blast-radius
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/39
 depends_on: [T-002, T-007]   # T-007 added 2026-09-28: the CI host's metadata_options now land in T-007's replacement
 risk: normal   # rescoped at H1 2026-10-06: IAM-only change + a Drone settings check + a recorded risk
 security_review: true
 checkpoint:
-  stage: review   # round 1: BLOCKING finding (AmazonSSMManagedInstanceCore grants GetParameter on * to both hosts); fix in progress
+  stage: qa   # round 2 clean; PR open. NEXT (next window): plan (2 inline policies in place), apply, simulator, SSM runs on both hosts, cv-redeploy round trip, the Drone trusted check, H2
   repo: cv-infra
   branch: fix/app-host-ssm-least-privilege
   worktree: none
-  commit: 123693c
-  pr:
+  commit: 08f7f2c
+  pr: https://github.com/erfeamor/cv-infra/pull/39
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true
-  review_round: 1
-  open_findings: 1
+  review_round: 2
+  open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a
@@ -29,8 +29,8 @@ checkpoint:
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 42032
-    spawns: 1   # infrastructure-engineer (fresh); its hand-back was empty ("placeholder"), so the driver verified the branch directly
+    subagent_tokens: 86051
+    spawns: 2   # infrastructure-engineer ×2 (fresh each)
     status: ok   # human-reported /usage 40–75%
     checked: 2026-10-06T19:00:00+02:00
 ---
@@ -43,6 +43,8 @@ checkpoint:
   - **CI host** → `ci/github-pat` allowed (expected), but also **`deploy/drone-deploy/secret-access-key` allowed** (contradicting T-008's "readable by no instance role") and **`db/password` allowed**.
   - With "a Jenkins build is root on the CI host", a malicious collaborator build could read the deploy key and the DB password.
 - **The human's decision:** **explicit Deny with `NotResource` on both roles.** App host: Deny `ssm:GetParameter*` except its 7 ARNs. CI host: Deny `ssm:GetParameter*` except `/cv-project/dev/ci/*`. An explicit Deny overrides the managed Allow; the SSM agent, Session Manager, Run Command and `cv-redeploy` don't need GetParameter. Proven by the simulator and live SSM runs after the apply (the CI provisioning re-run, `cv-redeploy`).
+
+**Round 1 fix — 08f7f2c** (a fresh developer, ~44k tokens): the CI host's reads (7, **all under `ci/`**: drone-rpc-secret, drone/database-secret, github-client-id/secret, github-pat, jenkins-admin-password, jenkins-provision-sha256; the DNS scripts read no SSM) were verified independently by the driver. Deny `{GetParameter, GetParameters, GetParametersByPath, GetParameterHistory}` with `NotResource` = the app host's 7 ARNs / the CI host's `ci/*`. check-static 21 (mutation-checked ×5); `terraform test` 25/25. **Round 2 (driver): clean.** PR cv-infra#39.
 
 ## H1 — decided by the human, 2026-10-06: the lean rescope
 
