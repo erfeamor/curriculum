@@ -1,44 +1,41 @@
-# Board
-
-Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/api-contract.md) · History: [HISTORY.md](HISTORY.md)
-
-One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
-
-## Now / Next / Later — refreshed 2026-10-06 (T-005 merged: SSM least privilege on both hosts; next T-040 (human), then M2)
+## Now / Next / Later — refreshed 2026-10-06 (board review: deploy chain done; production migrations, cost re-measure and close-out filed)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
+- **[T-049](T-049-ci-migrate-role-and-ssm-document.md) → [T-158](T-158-cv-database-ci-migrate-on-master.md)**: production migrations by CI. Until they land, a domain-service change that needs a new migration must not merge before an operator runs `cv-redeploy migrate` (its automated deploy would fail Hibernate's `validate` and take the API down).
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**).
 
-**Done 2026-10-06:** **[T-005](T-005-ci-secret-blast-radius.md)** (each host reads only its own SSM parameters: explicit Deny-NotResource over AWS's managed GetParameter-on-*; the CI host can no longer read the deploy key or DB password; Drone confirmed untrusted; "Jenkins build = root on CI host" accepted with re-open triggers), **[T-048](T-048-jenkins-misses-push-when-ci-host-up.md)** (a push while the CI host is up now gets built: the doorbell tags `CILastPush`, the reaper holds 10 min for Jenkins' 5-min scan; proven live), **[T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-047](T-047-ci-deploy-roles-and-ssm-documents.md): automated deploys are live.** A master push → (Jenkins green, for the domain service) → native multi-arch build → ECR → the per-service SSM document `cv-redeploy <svc>` on the tagged app host → smoke. OIDC roles are master-only, with no credentials on the CI host. Both first deploys were proven green end to end.
-
-**Done 2026-10-05:** **[T-035](T-035-app-host-to-graviton.md)** (app host on Graviton `t4g.micro`, arm64, IMDSv2; −$1.75/month; images on ECR are now multi-arch), [T-025](T-025-verify-requests-come-from-our-cloudfront.md) (closed at H1 as documented accepted risk), **[T-116](T-116-domain-service-scope-enforcement.md)** (machine tokens are read-only: writes need a user token's `openid` scope; live), **[T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)** (the app host boots from S3 behind a hash-checked 1.5 KB stub; `cv-redeploy migrate|domain-service|bff-node`; runbook), which deployed **V2 ([T-157](T-157-migration-version-columns.md)) and [T-113](T-113-optimistic-locking-lost-update.md)**: optimistic locking is live, and a stale PUT gets 409. [T-303](T-303-admin-send-version-handle-409.md) (the admin sends `version`, handles 409/404) is live too.
-
-**Then**
-- → **[T-501](T-501-e2e-cv-milestone.md)** (~1 window, absorbs T-015): **milestone M2**. Decide first whose CV production shows (it's T-018's probe data today).
+**Next**
+- **[T-051](T-051-cost-remeasure-after-trims.md)** cost re-measure, **not before Friday 2026-10-09** (a few full days on the trimmed stack), then [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table).
+- **[T-503](T-503-production-cv-content.md)** (human: the real CV in production) → **[T-501](T-501-e2e-cv-milestone.md)** (milestone M2, ~1 window, absorbs T-015) → **[T-502](T-502-final-docs-architecture-diagram.md)** (final docs + diagram). Decide [T-052](T-052-observability-scope-decision.md) (observability scope) before T-502.
 
 **Anytime**
-- [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), from **2026-10-12**. Small; slot it into any window.
+- [T-050](T-050-ecr-sha-tag-retention.md) (ECR sha-tag retention). Small.
+- [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), from **2026-10-12**. Small.
 
 **Human**
 - **By 2026-10-30:** create a replacement CI GitHub token for Jenkins ([T-040](T-040-jenkins-github-pat-expiry.md)). The current one expires **2026-11-06**.
-- Paid plan since 2026-09-29; all five credit activities done (grant $200). **$120.75** left on 2026-10-01, ~mid-March 2027 at the measured rate (credits expire 2027-07-12). Charges past them bill the card; the budget alarms are the guard.
+- **[T-503](T-503-production-cv-content.md):** decide whose CV production shows and enter it through `/admin/`.
+- Paid plan since 2026-09-29; all five credit activities done (grant $200). **$120.75** left on 2026-10-01; the ~$0.69/day rate (2026-09-28) predates the EIP release and Graviton, so the runway is re-derived in T-051 (credits expire 2027-07-12). Charges past them bill the card; the budget alarms are the guard.
 
-~~**Standing invariant:** no new migration in cv-database until T-014 moves production to Flyway 13.7.0.~~ **Lifted 2026-10-01:** production runs Flyway 13.7.0 (T-014).
+Recent close-outs: 2026-10-06 T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
 
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): T-004 decided **not** to rotate `db_password`, so this has no trigger today. Claim it **before** anyone changes `db_password` for any reason.
 
 ## M2 — Complete the domain model end-to-end
 
-Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **computed from the frontmatter on 2026-09-24**, not grouped by hand; the deployment chain has its own table below. Everything else in the product repos is in *Defects, hygiene & hardening*.
+
+Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **computed from the frontmatter** (2026-09-24, re-checked 2026-10-06) — plus [T-502](T-502-final-docs-architecture-diagram.md), the roadmap close-out that follows it. The deployment chain's rows are folded in its own section below. Everything else in the product repos is in *Defects, hygiene & hardening*.
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | todo | | T-101…T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-403, T-404 (T-408, T-409 via T-401, T-402) | |
+| [T-503](T-503-production-cv-content.md) | Production CV content: replace T-018's probe rows with a real CV (human, via `/admin/`) | cv-project (meta) | todo |  | — |  |
+| [T-502](T-502-final-docs-architecture-diagram.md) | Final documentation and architecture diagram (the roadmap's last item) | cv-project (meta) | todo |  | T-501, T-052 |  |
 
 <details>
 <summary>M2 — 15 done</summary>
@@ -65,7 +62,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 
 ### Before claiming
 
-- **The domain waves are complete** — T-101…T-105 and T-151 merged; all four section collections are contract-compliant on ordering. The rendering tasks (T-301, T-401, T-402) are done too; **only the deployment chain below (T-014 → T-403/T-404) still gates [T-501](T-501-e2e-cv-milestone.md)**.
+- **The domain waves, the rendering tasks and the deployment chain are all done.** **Only [T-503](T-503-production-cv-content.md) (real production content, a human task) still gates [T-501](T-501-e2e-cv-milestone.md)**.
 - **Read contract design rule 7's carve-outs before writing a consumer.** Requests are the opposite (`PUT` replaces, so an omitted optional in a *request* body IS the empty case), and `endDate` is not governed by rule 7 at all — always emitted, its `null` means "current" under rule 3.
 - **Probe a guard, don't read it.** The T-205 → T-210 lineage caught several type-level guards passing for the wrong reason, each found only by making the defect and watching the check stay green. Narratives in HISTORY.md.
 - **Concurrency lesson from T-103:** highest-risk tasks (composite key, upsert, 409) should start first so review convergence failures surface earliest.
@@ -74,7 +71,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 
 - **cv-bff-node is now TypeScript** (strict, ts-jest/tsc). T-201's route and tests are `.ts`, type the aggregate payload, and `npm run typecheck` is a gate.
 - **cv-admin-react is hexagonal TypeScript** (domain ← application ← composition → infrastructure). T-301 follows the repo CLAUDE.md's "adding a section resource" recipe.
-- **cv-public-react** exists as a second public site (Next.js/ISR from the BFF). It renders all four CV sections (T-402, done); pointing it at the deployed BFF is T-404.
+- **cv-public-react** exists as a second public site (Next.js/ISR from the BFF). It renders all four CV sections (T-402) and points at the deployed BFF (T-404); both are done.
 - **The database is self-hosted MySQL 8.4**, not RDS. Migrations verified compatible; production applies migrations only — dev-seeds stay dev-only. Backups (T-001) and dev/prod version parity (T-016, T-152) are done.
 
 ## Defects, hygiene & hardening — product repos (not on T-501's path)
@@ -83,10 +80,10 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | done | tech-product-owner | T-111 ✔, T-044 ✔, T-047 | [cv-domain-service#17](https://github.com/erfeamor/cv-domain-service/pull/17) |
+| [T-158](T-158-cv-database-ci-migrate-on-master.md) | CI: apply new migrations to production on `master` (GitHub Actions after Jenkins is green → SSM `cv-redeploy-migrate`) | cv-database | todo |  | T-049 |  |
 
 <details>
-<summary>Defects, hygiene & hardening — 18 done</summary>
+<summary>Defects, hygiene & hardening — 19 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -108,6 +105,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-113](T-113-optimistic-locking-lost-update.md) | Lost updates on concurrent PUTs — **fixed (`@Version`, 409); deployed 2026-10-05** via T-044's `cv-redeploy` | cv-domain-service | done | tech-product-owner | T-108 ✔, T-014 ✔, T-046, T-157 | [cv-domain-service#15](https://github.com/erfeamor/cv-domain-service/pull/15) |
 | [T-303](T-303-admin-send-version-handle-409.md) | Admin: keep each row's `version`, send it on PUT, handle a 409 (split from T-113) | cv-admin-react | done | tech-product-owner | T-046 ✔ (T-113 ✔) | [cv-admin-react#17](https://github.com/erfeamor/cv-admin-react/pull/17) |
 | [T-116](T-116-domain-service-scope-enforcement.md) | The domain service accepts any pool token for any method — make the BFF's read-only service token GET-only (T-043 follow-up) | cv-domain-service | done | tech-product-owner | T-043 ✔ | [cv-domain-service#16](https://github.com/erfeamor/cv-domain-service/pull/16) |
+| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | done | tech-product-owner | T-111 ✔, T-044 ✔, T-047 | [cv-domain-service#17](https://github.com/erfeamor/cv-domain-service/pull/17) |
 
 </details>
 
@@ -120,11 +118,14 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
-| [T-047](T-047-ci-deploy-roles-and-ssm-documents.md) | GitHub OIDC deploy roles for the domain service and BFF + one SSM document per service (`cv-redeploy <svc>` only); for T-112/T-203 | cv-infra | done | tech-product-owner | T-044 ✔, T-045 ✔ | [cv-infra#37](https://github.com/erfeamor/cv-infra/pull/37) |
-| [T-048](T-048-jenkins-misses-push-when-ci-host-up.md) | **A push to a Jenkins repo while the CI host is up never reaches Jenkins** (the doorbell no-ops; Jenkins only scans on boot); found live at T-112's merge | cv-infra | done | tech-product-owner | — | [cv-infra#38](https://github.com/erfeamor/cv-infra/pull/38) |
+| [T-049](T-049-ci-migrate-role-and-ssm-document.md) | SSM document `cv-redeploy-migrate` + a master-only OIDC role for cv-database (for T-158) | cv-infra | todo |  | T-047 ✔ |  |
+| [T-050](T-050-ecr-sha-tag-retention.md) | ECR keeps every `:<sha>` deploy image forever — add a retention rule | cv-infra | todo |  | T-112 ✔, T-203 ✔ |  |
+| [T-051](T-051-cost-remeasure-after-trims.md) | Re-measure the run rate after the EIP release + Graviton — **not before Friday 2026-10-09** | cv-project (meta) | todo |  | — |  |
+| [T-052](T-052-observability-scope-decision.md) | Decide the observability scope (metrics are local-only; the logs pipeline is still "pending") | cv-project (meta) | todo |  | — |  |
+| [T-053](T-053-cv-infra-cost-table-refresh.md) | cv-infra CLAUDE.md cost table from T-051's measurement | cv-infra | todo |  | T-051 |  |
 
 <details>
-<summary>Infra & ops — 44 done</summary>
+<summary>Infra & ops — 46 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
@@ -172,16 +173,19 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-005](T-005-ci-secret-blast-radius.md) | CI secret blast radius — the remainder: the docker.sock/host-network IMDS gap, split parameter paths, narrow the app-host SSM read (CI-host IMDSv2 done in T-007; app host's moved to T-035) | cv-infra | done | tech-product-owner | T-002, T-007 | [cv-infra#39](https://github.com/erfeamor/cv-infra/pull/39) |
 | [T-046](T-046-contract-section-version-409.md) | Contract: optional `version` on person + sections, 409 on a stale PUT (split from T-113) | cv-project (meta) | done | tech-product-owner | — | [#107](https://github.com/erfeamor/curriculum/pull/107) |
 | [T-157](T-157-migration-version-columns.md) | cv-database V2: additive `version` columns on person + sections (split from T-113); reaches production via T-044's `cv-redeploy migrate` | cv-database | done | tech-product-owner | T-046 ✔ | [cv-database#7](https://github.com/erfeamor/cv-database/pull/7) |
+| [T-047](T-047-ci-deploy-roles-and-ssm-documents.md) | GitHub OIDC deploy roles for the domain service and BFF + one SSM document per service (`cv-redeploy <svc>` only); for T-112/T-203 | cv-infra | done | tech-product-owner | T-044 ✔, T-045 ✔ | [cv-infra#37](https://github.com/erfeamor/cv-infra/pull/37) |
+| [T-048](T-048-jenkins-misses-push-when-ci-host-up.md) | **A push to a Jenkins repo while the CI host is up never reaches Jenkins** (the doorbell no-ops; Jenkins only scans on boot); found live at T-112's merge | cv-infra | done | tech-product-owner | — | [cv-infra#38](https://github.com/erfeamor/cv-infra/pull/38) |
 
 </details>
 
 The cost model's 2026-09-23 reading (the T-020 table) moved to [HISTORY.md](HISTORY.md) on 2026-10-01; current figures are in [T-012](T-012-aws-endgame-decision.md)'s closing note and `cv-infra/CLAUDE.md`.
 
-## Public-path deployment gap (cross-repo — blocks T-501)
+## Public-path deployment chain (cross-repo) — done 2026-10-06
 
-**`cv-bff-node` has never been deployed to AWS, and neither has `cv-public-vanilla`.** Verified against the live account 2026-08-11/12: no BFF ECR repo, no BFF container in `user_data`, CloudFront `/api/*` goes straight to Java on :8080, and `s3://cv-project-frontend-dev/` holds only `admin/`. The only BFF-named object in the account is an empty log group. The whole **public** path is absent; the admin is live and unaffected because it bypasses the BFF by design (`docs/architecture.md:28`) — which is exactly why the gap stayed invisible.
+The public path is live: CloudFront `/bff/*` → BFF → domain service → MySQL, the vanilla site at the distribution root, cv-public-react on Vercel, and both services deploy themselves on a master push. The section's prose, its personas table and its sequencing notes are in [HISTORY.md](HISTORY.md) (2026-10-06).
 
-One task per repo. The **numbered** rows are strictly sequential and their `depends_on` enforces the order; the unnumbered rows hang off the chain and are claimable once their own dependency is met. **This is the board line for all eight; claim here.**
+<details>
+<summary>Public-path deployment chain — 10 done</summary>
 
 | # | ID | Title | Repo | Status | Owner | Depends on | PR |
 |---|----|-------|------|--------|-------|------------|----|
@@ -196,26 +200,7 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 | — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call (adopts T-201's shared guard) | cv-bff-node | done | fullstack-developer | T-202 ✔, **T-201 ✔** | [#8](https://github.com/erfeamor/cv-bff-node/pull/8) |
 | — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF — **done 2026-10-04**: live, and a production build fails without it | cv-public-react | done | tech-product-owner | T-014 ✔, **T-043** ✔ | [cv-public-react#9](https://github.com/erfeamor/cv-public-react/pull/9) |
 
-**[T-014](T-014-deploy-bff-to-aws.md) is claimable and heads the chain** — its `depends_on` (T-013, T-202, T-201) is fully satisfied. T-201 is there as a *sequencing* decision: the first deployed image must already serve the aggregate. When a dependency changes, the task file and every prose reference to it move together — the paragraph this replaces went stale about T-201 four times (see HISTORY.md).
-
-Two things T-014 inherited from this chain's reviews, both of which fail quietly:
-- `spa_router` rewrites extensionless URIs to `/index.html`, so `/metrics` and `/health` answer **200 with the SPA shell**, not 404. T-014 carries an acceptance criterion to exclude them, and to verify by request rather than by reading the Terraform.
-- The BFF now serves `/bff/api/v1`, so CloudFront must forward the prefix **unstripped**. A behavior that strips it produces a deploy that 404s with nothing obviously wrong in the config.
-
-> **T-202 merged without stage-4 QA.** Its auth matrix is proven by unit tests against `createApp()`, not against a live stack — no request has traversed a real CloudFront → BFF → domain-service path. T-014's own stage-4 verification is the first time that happens, so treat its live checks as covering both tasks.
-
-Personas and risk for the open rows (assigned per the adapter's capability→repo map; each task file carries the reviewer set and gate commands):
-
-| ID | Developer | Risk | `security_review` |
-|---|---|---|---|
-| T-014 | infrastructure-engineer | **high** | **true** — SG ingress, published ports, CORS |
-| T-203 | infrastructure-engineer | normal | **true** — CI config + AWS creds; read T-005 first |
-
-- **T-014 is the expensive one** (adapter §7: real apply + stage-4 AWS verification = budget for the full ceiling, never run it in a wave). It replaces the instance via `user_data_replace_on_change`; since [T-018](T-018-mysql-on-dedicated-ebs-volume.md) the MySQL datadir survives on its own volume, so confirm `/var/lib/cv-mysql` is mounted from it (`findmnt`) before applying.
-- **A trap arrived with T-018**, filed as **[T-021](T-021-mysql-password-rotation-persistent-datadir.md)**: because the datadir now survives, `mysql:8.4` skips initialization and keeps its original credentials, so rotating `var.db_password` makes Flyway fail auth, aborts the bootstrap under `set -e`, and leaves the box with **no domain-service container at all**. Anyone editing `db_password` before T-021 lands should expect that.
-- **T-203 is off the critical path** — T-501 needs the BFF *deployed*, not *auto-deployed*, and T-201 in T-014's `depends_on` means the first manual deploy already serves the aggregate.
-- **Deadline context (2026-10-01):** none binding. Paid plan, $120.75 of credits (~mid-March 2027 at the measured rate, expiring 2027-07-12); T-012 closed as A (keep the stack, no teardown), so nothing here has to race a rebuild.
-
+</details>
 
 ---
 
