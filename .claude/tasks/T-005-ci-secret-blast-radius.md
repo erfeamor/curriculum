@@ -10,18 +10,18 @@ depends_on: [T-002, T-007]   # T-007 added 2026-09-28: the CI host's metadata_op
 risk: normal   # rescoped at H1 2026-10-06: IAM-only change + a Drone settings check + a recorded risk
 security_review: true
 checkpoint:
-  stage: implement   # H1 (rescope) decided 2026-10-06; usage 40–75% → implement + review, checkpoint before the apply + Drone check
+  stage: review   # round 1: BLOCKING finding (AmazonSSMManagedInstanceCore grants GetParameter on * to both hosts); fix in progress
   repo: cv-infra
   branch: fix/app-host-ssm-least-privilege
   worktree: none
-  commit:
+  commit: 123693c
   pr:
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true
-  review_round: 0
-  open_findings: 0
+  review_round: 1
+  open_findings: 1
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a
@@ -29,11 +29,20 @@ checkpoint:
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 42032
+    spawns: 1   # infrastructure-engineer (fresh); its hand-back was empty ("placeholder"), so the driver verified the branch directly
     status: ok   # human-reported /usage 40–75%
     checked: 2026-10-06T19:00:00+02:00
 ---
+
+## Review round 1 — 2026-10-06: a blocking finding, scope widened by the human
+
+- **The implementation** (123693c): the app host's inline Allow is narrowed to exactly 7 parameter ARNs (`app/provision-sha256`, `db/password`, `cognito/issuer-uri`, `bff/{service-client-id,service-client-secret,token-url,token-scope}`), `GetParametersByPath` dropped, the `deploy/*` Deny kept, check-static cross-checks the templates' reads. The driver's grep of both templates found exactly those 7.
+- **BLOCKING:** both roles carry AWS's managed **`AmazonSSMManagedInstanceCore`**, which grants `ssm:GetParameter`/`GetParameters` on `*`. Simulated live:
+  - **app host** → `ci/github-pat` **allowed** (via the managed policy, so the narrowing alone changes nothing); `deploy/*` explicitDeny (T-008's Deny holds).
+  - **CI host** → `ci/github-pat` allowed (expected), but also **`deploy/drone-deploy/secret-access-key` allowed** (contradicting T-008's "readable by no instance role") and **`db/password` allowed**.
+  - With "a Jenkins build is root on the CI host", a malicious collaborator build could read the deploy key and the DB password.
+- **The human's decision:** **explicit Deny with `NotResource` on both roles.** App host: Deny `ssm:GetParameter*` except its 7 ARNs. CI host: Deny `ssm:GetParameter*` except `/cv-project/dev/ci/*`. An explicit Deny overrides the managed Allow; the SSM agent, Session Manager, Run Command and `cv-redeploy` don't need GetParameter. Proven by the simulator and live SSM runs after the apply (the CI provisioning re-run, `cv-redeploy`).
 
 ## H1 — decided by the human, 2026-10-06: the lean rescope
 
