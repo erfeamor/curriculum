@@ -31,7 +31,7 @@ checkpoint:
     total_tokens: 0
     subagent_tokens: 0
     spawns: 0
-    status: soft   # the human reported 75% usage: H1 only this window
+    status: ok   # human-reported /usage under ~40% (2026-10-06, new window)
     checked: 2026-10-06T11:30:00+02:00
 ---
 
