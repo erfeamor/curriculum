@@ -2,7 +2,7 @@
 id: T-005
 title: "CI secret blast radius — the remainder: close the docker.sock/host-network IMDS path, split parameter paths, narrow the app-host SSM read"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: feat/ci-secret-blast-radius
 pr: https://github.com/erfeamor/cv-infra/pull/39
@@ -10,11 +10,11 @@ depends_on: [T-002, T-007]   # T-007 added 2026-09-28: the CI host's metadata_op
 risk: normal   # rescoped at H1 2026-10-06: IAM-only change + a Drone settings check + a recorded risk
 security_review: true
 checkpoint:
-  stage: h2   # applied 2026-10-06 (2 inline policies); separation proven by simulator and live reads on both hosts; Drone untrusted confirmed; awaiting human acceptance
+  stage: done   # merged 0074fbd (squash of cv-infra#39), 2026-10-06 — applied first; H2 accepted; master plans No changes
   repo: cv-infra
   branch: fix/app-host-ssm-least-privilege
   worktree: none
-  commit: 08f7f2c
+  commit: 0074fbd
   pr: https://github.com/erfeamor/cv-infra/pull/39
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
