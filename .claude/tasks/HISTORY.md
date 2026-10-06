@@ -908,3 +908,46 @@ Two consequences still current (3 and 4 moved to HISTORY.md on 2026-09-24):
 
 - **Deadline context:** anything meant to be demonstrated live must exist before the T-012 dates (the Free-plan window, **2027-01-12**, binds first; at the real burn rate credits last to ~2027-02-26 — re-derived 2026-09-23. ~~credits ~2026-11-17~~ was the 2026-08-14 estimate, superseded by T-020). If T-012 resolves to teardown-and-rebuild, this chain must be **in Terraform before teardown** or the rebuild will not reproduce it.
 
+## Moved out of TASKS.md in the 2026-10-06 board review — verbatim
+
+The lane's done paragraphs and the public-path section's prose, moved when the deployment chain finished (its status rows stay on the board, folded). Nothing here is current state.
+
+### The lane's "Done" paragraphs (2026-10-05 and 2026-10-06)
+
+**Done 2026-10-06:** **[T-005](T-005-ci-secret-blast-radius.md)** (each host reads only its own SSM parameters: explicit Deny-NotResource over AWS's managed GetParameter-on-*; the CI host can no longer read the deploy key or DB password; Drone confirmed untrusted; "Jenkins build = root on CI host" accepted with re-open triggers), **[T-048](T-048-jenkins-misses-push-when-ci-host-up.md)** (a push while the CI host is up now gets built: the doorbell tags `CILastPush`, the reaper holds 10 min for Jenkins' 5-min scan; proven live), **[T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-047](T-047-ci-deploy-roles-and-ssm-documents.md): automated deploys are live.** A master push → (Jenkins green, for the domain service) → native multi-arch build → ECR → the per-service SSM document `cv-redeploy <svc>` on the tagged app host → smoke. OIDC roles are master-only, with no credentials on the CI host. Both first deploys were proven green end to end.
+
+**Done 2026-10-05:** **[T-035](T-035-app-host-to-graviton.md)** (app host on Graviton `t4g.micro`, arm64, IMDSv2; −$1.75/month; images on ECR are now multi-arch), [T-025](T-025-verify-requests-come-from-our-cloudfront.md) (closed at H1 as documented accepted risk), **[T-116](T-116-domain-service-scope-enforcement.md)** (machine tokens are read-only: writes need a user token's `openid` scope; live), **[T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)** (the app host boots from S3 behind a hash-checked 1.5 KB stub; `cv-redeploy migrate|domain-service|bff-node`; runbook), which deployed **V2 ([T-157](T-157-migration-version-columns.md)) and [T-113](T-113-optimistic-locking-lost-update.md)**: optimistic locking is live, and a stale PUT gets 409. [T-303](T-303-admin-send-version-handle-409.md) (the admin sends `version`, handles 409/404) is live too.
+
+### The lifted standing invariant
+
+~~**Standing invariant:** no new migration in cv-database until T-014 moves production to Flyway 13.7.0.~~ **Lifted 2026-10-01:** production runs Flyway 13.7.0 (T-014).
+
+### Public-path deployment gap: the section's prose and personas table
+
+## Public-path deployment gap (cross-repo — blocks T-501)
+
+**`cv-bff-node` has never been deployed to AWS, and neither has `cv-public-vanilla`.** Verified against the live account 2026-08-11/12: no BFF ECR repo, no BFF container in `user_data`, CloudFront `/api/*` goes straight to Java on :8080, and `s3://cv-project-frontend-dev/` holds only `admin/`. The only BFF-named object in the account is an empty log group. The whole **public** path is absent; the admin is live and unaffected because it bypasses the BFF by design (`docs/architecture.md:28`) — which is exactly why the gap stayed invisible.
+
+One task per repo. The **numbered** rows are strictly sequential and their `depends_on` enforces the order; the unnumbered rows hang off the chain and are claimable once their own dependency is met. **This is the board line for all eight; claim here.**
+
+*(the status table stays on the board)*
+
+**[T-014](T-014-deploy-bff-to-aws.md) is claimable and heads the chain** — its `depends_on` (T-013, T-202, T-201) is fully satisfied. T-201 is there as a *sequencing* decision: the first deployed image must already serve the aggregate. When a dependency changes, the task file and every prose reference to it move together — the paragraph this replaces went stale about T-201 four times (see HISTORY.md).
+
+Two things T-014 inherited from this chain's reviews, both of which fail quietly:
+- `spa_router` rewrites extensionless URIs to `/index.html`, so `/metrics` and `/health` answer **200 with the SPA shell**, not 404. T-014 carries an acceptance criterion to exclude them, and to verify by request rather than by reading the Terraform.
+- The BFF now serves `/bff/api/v1`, so CloudFront must forward the prefix **unstripped**. A behavior that strips it produces a deploy that 404s with nothing obviously wrong in the config.
+
+> **T-202 merged without stage-4 QA.** Its auth matrix is proven by unit tests against `createApp()`, not against a live stack — no request has traversed a real CloudFront → BFF → domain-service path. T-014's own stage-4 verification is the first time that happens, so treat its live checks as covering both tasks.
+
+Personas and risk for the open rows (assigned per the adapter's capability→repo map; each task file carries the reviewer set and gate commands):
+
+| ID | Developer | Risk | `security_review` |
+|---|---|---|---|
+| T-014 | infrastructure-engineer | **high** | **true** — SG ingress, published ports, CORS |
+| T-203 | infrastructure-engineer | normal | **true** — CI config + AWS creds; read T-005 first |
+
+- **T-014 is the expensive one** (adapter §7: real apply + stage-4 AWS verification = budget for the full ceiling, never run it in a wave). It replaces the instance via `user_data_replace_on_change`; since [T-018](T-018-mysql-on-dedicated-ebs-volume.md) the MySQL datadir survives on its own volume, so confirm `/var/lib/cv-mysql` is mounted from it (`findmnt`) before applying.
+- **A trap arrived with T-018**, filed as **[T-021](T-021-mysql-password-rotation-persistent-datadir.md)**: because the datadir now survives, `mysql:8.4` skips initialization and keeps its original credentials, so rotating `var.db_password` makes Flyway fail auth, aborts the bootstrap under `set -e`, and leaves the box with **no domain-service container at all**. Anyone editing `db_password` before T-021 lands should expect that.
+- **T-203 is off the critical path** — T-501 needs the BFF *deployed*, not *auto-deployed*, and T-201 in T-014's `depends_on` means the first manual deploy already serves the aggregate.
+- **Deadline context (2026-10-01):** none binding. Paid plan, $120.75 of credits (~mid-March 2027 at the measured rate, expiring 2027-07-12); T-012 closed as A (keep the stack, no teardown), so nothing here has to race a rebuild.
