@@ -11,7 +11,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
-- **[T-048](T-048-jenkins-misses-push-when-ci-host-up.md)** (cv-infra): a push to a Jenkins repo while the CI host is up never reaches Jenkins. Since T-112, that also stalls domain-service deploys until someone starts the CI host. H1 picks a fix (a second webhook straight to Jenkins, the doorbell triggering a scan, or a periodic scan).
+- **[T-048](T-048-jenkins-misses-push-when-ci-host-up.md)** (cv-infra): a push to a Jenkins repo while the CI host is up never reaches Jenkins. Since T-112, that also stalls domain-service deploys until someone starts the CI host. **H1 decided 2026-10-06:** the doorbell tags `CILastPush` on a Jenkins push while the host is up, and the reaper holds off for 10 min, so Jenkins' existing 5-min scan builds it. Lambda-only; implementation next window.
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**).
 - **[T-005](T-005-ci-secret-blast-radius.md)'s remainder** (docker.sock/host-network IMDS gap on the CI host, the parameter-path split, narrowing the app-host SSM read). Deploy credentials no longer depend on it (T-047 keeps them off the CI host).
 
@@ -124,7 +124,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
 | [T-047](T-047-ci-deploy-roles-and-ssm-documents.md) | GitHub OIDC deploy roles for the domain service and BFF + one SSM document per service (`cv-redeploy <svc>` only); for T-112/T-203 | cv-infra | done | tech-product-owner | T-044 ✔, T-045 ✔ | [cv-infra#37](https://github.com/erfeamor/cv-infra/pull/37) |
-| [T-048](T-048-jenkins-misses-push-when-ci-host-up.md) | **A push to a Jenkins repo while the CI host is up never reaches Jenkins** (the doorbell no-ops; Jenkins only scans on boot); found live at T-112's merge | cv-infra | todo | | — | |
+| [T-048](T-048-jenkins-misses-push-when-ci-host-up.md) | **A push to a Jenkins repo while the CI host is up never reaches Jenkins** (the doorbell no-ops; Jenkins only scans on boot); found live at T-112's merge | cv-infra | in_progress | tech-product-owner | — | |
 
 <details>
 <summary>Infra & ops — 43 done</summary>
