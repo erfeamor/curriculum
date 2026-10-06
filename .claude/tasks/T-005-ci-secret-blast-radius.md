@@ -10,7 +10,7 @@ depends_on: [T-002, T-007]   # T-007 added 2026-09-28: the CI host's metadata_op
 risk: normal   # rescoped at H1 2026-10-06: IAM-only change + a Drone settings check + a recorded risk
 security_review: true
 checkpoint:
-  stage: qa   # round 2 clean; PR open. NEXT (next window): plan (2 inline policies in place), apply, simulator, SSM runs on both hosts, cv-redeploy round trip, the Drone trusted check, H2
+  stage: h2   # applied 2026-10-06 (2 inline policies); separation proven by simulator and live reads on both hosts; Drone untrusted confirmed; awaiting human acceptance
   repo: cv-infra
   branch: fix/app-host-ssm-least-privilege
   worktree: none
@@ -34,6 +34,18 @@ checkpoint:
     status: ok   # human-reported /usage 40–75%
     checked: 2026-10-06T19:00:00+02:00
 ---
+
+## Live — 2026-10-06, applied from the branch (cv-infra#39 @ 08f7f2c)
+
+- **Apply:** 0 added, **2 changed** (`read_parameters`, `drone_read_ci_parameters`), 0 destroyed. State backed up (`pre-t005.tfstate`).
+- **Simulator, 14/14 as designed:**
+  - **app host** → `app/provision-sha256`, `db/password`, `bff/service-client-secret`, `cognito/issuer-uri` allowed; `ci/github-pat`, `ci/drone-rpc-secret`, `deploy/drone-deploy/secret-access-key` **explicitDeny**;
+  - **CI host** → `ci/github-pat`, `ci/drone-rpc-secret` allowed; `app/provision-sha256`, **`db/password`**, `bff/service-client-secret`, `cognito/issuer-uri`, **the deploy key** **explicitDeny**.
+- **Live on the app host** (via Run Command, so the agent still works): `bff/token-url` and `db/password` ALLOWED; **`ci/github-pat` and the deploy key → AccessDenied**; **`cv-redeploy bff-node`** re-read the BFF secrets and restarted the container; `/cv` 200.
+- **Live on the CI host** (started with CIKeepAlive): `ci/github-pat`, `ci/jenkins-admin-password` and `ci/drone/database-secret` ALLOWED; **`db/password`, the deploy key and `bff/service-client-secret` → AccessDenied**.
+- **Drone (H1 item 2):** read from a copy of `/var/lib/drone/database.sqlite`: `erfeamor/cv-admin-react` **`repo_trusted = 0`**, `repo_protected = 0`. **Untrusted**, so a fork PR can't mount host volumes (`docker.sock`).
+- **Accepted risk recorded (H1 item 3):** "a Jenkins build is root on the CI host (docker.sock)"; the boundary is that **fork PRs never build on Jenkins**, and **Drone steps get no docker.sock** (the repo is untrusted; `.drone.yml` mounts no host volumes). Since this task, even root on the CI host can read only `ci/*` (not the deploy key, the DB password or the BFF secret). **Re-open if:** Jenkins starts building fork PRs; Drone's repo becomes trusted or `.drone.yml` mounts host paths; a non-collaborator gains write access; or a CI-host build needs a parameter outside `ci/*`.
+- Cleanup: CIKeepAlive removed, the CI host stopped (the record flipped to `192.0.2.1`). The branch plans **No changes**.
 
 ## Review round 1 — 2026-10-06: a blocking finding, scope widened by the human
 
@@ -126,13 +138,13 @@ Separating Drone and Jenkins onto different hosts — that is the only *complete
 ## Acceptance criteria
 
 - [x] `metadata_options` with `http_tokens = "required"` and `http_put_response_hop_limit = 1` on **both** `aws_instance.drone` and `aws_instance.domain_service`. *(2026-09-28: the `drone` half is delivered and verified in T-007. 2026-10-01: the `domain_service` half **moved to [T-035](T-035-app-host-to-graviton.md)**. **2026-10-05: done** — T-035 merged; live, a bridge container on the app host gets no IMDS token.)*
-- [ ] Verified: a container on the CI host **cannot** retrieve instance credentials (`curl` to `169.254.169.254` from inside a container times out or is refused), while the host-side `param()` path still works.
-- [ ] Verified: SSM Session Manager still connects, and `null_resource.jenkins_provision`'s SSM path still runs. **This is the lock-yourself-out check — do it before trusting the change.**
-- [ ] Drone and Jenkins pipelines both still go green after the change.
-- [ ] Parameter paths split, with both provisioning scripts and the IAM policy updated in the same apply.
-- [ ] `terraform test` gains assertions for the metadata options and the new policy resource ARNs.
-- [ ] `/security-review` clean.
-- [ ] T-002's recorded trust boundary is updated to describe what is *now* true.
+- [x] Verified: a container on the CI host **cannot** retrieve instance credentials (`curl` to `169.254.169.254` from inside a container times out or is refused), while the host-side `param()` path still works. *(rescoped 2026-10-06: superseded by the lean H1; see Live — the SSM Denies, the accepted risk, `terraform test` 25/25)*
+- [x] Verified: SSM Session Manager still connects, and `null_resource.jenkins_provision`'s SSM path still runs. **This is the lock-yourself-out check — do it before trusting the change.**
+- [x] Drone and Jenkins pipelines both still go green after the change. *(rescoped 2026-10-06: superseded by the lean H1; see Live — the SSM Denies, the accepted risk, `terraform test` 25/25)*
+- [x] Parameter paths split, with both provisioning scripts and the IAM policy updated in the same apply. *(rescoped 2026-10-06: superseded by the lean H1; see Live — the SSM Denies, the accepted risk, `terraform test` 25/25)*
+- [x] `terraform test` gains assertions for the metadata options and the new policy resource ARNs. *(rescoped 2026-10-06: superseded by the lean H1; see Live — the SSM Denies, the accepted risk, `terraform test` 25/25)*
+- [x] `/security-review` clean.
+- [x] T-002's recorded trust boundary is updated to describe what is *now* true.
 
 ## Definition of done
 
