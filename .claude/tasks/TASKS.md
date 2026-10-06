@@ -121,6 +121,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
 | [T-047](T-047-ci-deploy-roles-and-ssm-documents.md) | GitHub OIDC deploy roles for the domain service and BFF + one SSM document per service (`cv-redeploy <svc>` only); for T-112/T-203 | cv-infra | in_review | tech-product-owner | T-044 ✔, T-045 ✔ | [cv-infra#37](https://github.com/erfeamor/cv-infra/pull/37) |
+| [T-048](T-048-jenkins-misses-push-when-ci-host-up.md) | **A push to a Jenkins repo while the CI host is up never reaches Jenkins** (the doorbell no-ops; Jenkins only scans on boot); found live at T-112's merge | cv-infra | todo | | — | |
 
 <details>
 <summary>Infra & ops — 43 done</summary>
