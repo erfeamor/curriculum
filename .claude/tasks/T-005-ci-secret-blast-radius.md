@@ -2,14 +2,54 @@
 id: T-005
 title: "CI secret blast radius — the remainder: close the docker.sock/host-network IMDS path, split parameter paths, narrow the app-host SSM read"
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: feat/ci-secret-blast-radius
 pr:
 depends_on: [T-002, T-007]   # T-007 added 2026-09-28: the CI host's metadata_options now land in T-007's replacement
-risk: high
+risk: normal   # rescoped at H1 2026-10-06: IAM-only change + a Drone settings check + a recorded risk
 security_review: true
+checkpoint:
+  stage: implement   # H1 (rescope) decided 2026-10-06; usage 40–75% → implement + review, checkpoint before the apply + Drone check
+  repo: cv-infra
+  branch: fix/app-host-ssm-least-privilege
+  worktree: none
+  commit:
+  pr:
+  developer: infrastructure-engineer
+  reviewers: [code-review, security-review]
+  risk: normal
+  security_review: true
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a
+  updated: 2026-10-06T19:00:00+02:00
+  budget:
+    turns: 0
+    total_tokens: 0
+    subagent_tokens: 0
+    spawns: 0
+    status: ok   # human-reported /usage 40–75%
+    checked: 2026-10-06T19:00:00+02:00
 ---
+
+## H1 — decided by the human, 2026-10-06: the lean rescope
+
+**Stage-0 facts (2026-10-06):**
+- **The CI host's role** grants SSM read on `/cv-project/dev/ci/*` (drone-rpc-secret, drone/database-secret, github-client-id/secret, github-pat, github-webhook-secret, jenkins-admin-password, jenkins-provision-sha256), Route 53 UPSERT on the `ci.erfeamor.com` A record, and one S3 object.
+- **But a build that can reach `docker.sock` is already root on the host**, so blocking IMDS for host-network containers wouldn't close the real hole. The boundary is **who can run a build**:
+  - **Jenkins:** fork PRs are deliberately excluded (`jenkins-provision.sh`), so only collaborators' code runs.
+  - **Drone:** cv-admin-react's `.drone.yml` mounts **no host volumes**, so its steps get no `docker.sock` and the hop limit blocks IMDS for them. A fork PR could only escalate by adding a host volume, which Drone allows **only for trusted repos**.
+- **The app host's role** reads all of `/cv-project/*` (minus `deploy/*`), including every CI secret, though it needs only a handful of paths. Since T-035, containers there can't reach IMDS.
+
+**Decision:**
+1. **Narrow the app host's SSM read** to exactly the paths its provisioning script (and `cv-redeploy`'s library) reads, by exact ARNs or prefixes like `bff/*` (no `/cv-project/*`); keep the explicit `deploy/*` Deny as defense in depth. IAM-only apply, proven with the policy simulator (needed paths allowed; `ci/*` and `deploy/*` denied) and by a `cv-redeploy domain-service` + `bff-node` round trip (their reads still work).
+2. **Verify Drone's cv-admin-react is not `trusted`** (read Drone's DB on the CI host, read-only). If it is, untrust it and record that.
+3. **Record documented accepted risk:** "a Jenkins build is root on the CI host", with the boundary "fork PRs never build on Jenkins; Drone steps get no docker.sock (repo untrusted)", and **re-open triggers**: Jenkins starts building fork PRs; Drone's repo becomes trusted or `.drone.yml` mounts host paths; a non-collaborator gains write access.
+4. **Dropped (decided):** blocking IMDS for host-network containers on the CI host, and splitting the CI parameter paths.
+5. **Budget:** `/usage` 40–75%: implement and review this window; the apply, the simulator check and the Drone check next.
 
 > **2026-10-06 (T-112/T-203 H1):** the CI deploy credentials were deliberately placed **off** the CI host (GitHub Actions OIDC + per-service SSM documents, T-047), so this task's docker.sock gap no longer guards any deploy path. What remains here: the docker.sock/host-network IMDS gap itself (the CI host's role still has its own grants), the parameter-path split, and narrowing the app-host SSM read.
 
