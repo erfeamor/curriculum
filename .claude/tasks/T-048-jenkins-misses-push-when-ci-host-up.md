@@ -2,25 +2,25 @@
 id: T-048
 title: "A push to a Jenkins repo while the CI host is already running never reaches Jenkins — the doorbell says 'already running; nothing to do'"
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: fix/jenkins-push-when-host-up
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/38
 depends_on: []
 risk: normal   # Lambda code only (doorbell + reaper) plus an ignore_changes tag
 security_review: true   # webhook targets / doorbell behaviour on the CI host — adapter §5 CI-config path
 checkpoint:
-  stage: implement   # stage 0 + H1 done 2026-10-06 (the human at 75% usage); implementation starts in a fresh window
+  stage: h2   # applied 2026-10-06 (Lambdas + doorbell IAM); both paths proven live; awaiting human acceptance
   repo: cv-infra
   branch: fix/jenkins-push-when-host-up
   worktree: none
-  commit:
-  pr:
+  commit: 2f34b12
+  pr: https://github.com/erfeamor/cv-infra/pull/38
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -29,11 +29,19 @@ checkpoint:
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 72636
+    spawns: 1   # infrastructure-engineer (fresh)
     status: ok   # human-reported /usage under ~40% (2026-10-06, new window)
     checked: 2026-10-06T11:30:00+02:00
 ---
+
+## Implement, review and live proof — 2026-10-06 (2f34b12, cv-infra#38)
+
+- **Developer** (fresh infrastructure-engineer, ~73k tokens): doorbell `_mark_push_on_running_host` (a Jenkins repo + `running`/`pending` → `create_tags CILastPush=<UTC>`, best-effort, responses unchanged); reaper `within_push_grace` (after keepalive and post-start; a malformed **or future-dated** tag ignored with a warning); IAM `ec2:CreateTags` on the CI instance ARN only with `ForAllValues:StringEquals aws:TagKeys=[CILastPush]`; env `PUSH_TAG` on both Lambdas, `PUSH_GRACE_MINUTES = 10`; `ignore_changes += CILastPush`. Red first → 96 Lambda tests and `terraform test` 25/25 (18 s); check-static 4 + new 19 (mutation-checked).
+- Driver-verified; **review round 1 (code + security): clean.** Applied: **0 added, 3 changed** (both Lambdas, the doorbell policy).
+- **Live, host up past its post-start grace** (started 16:56:55 with CIKeepAlive, removed at 17:15): push to `ci/t048-proof` 17:15:14Z → the doorbell **tagged `CILastPush=2026-10-06T17:15:16Z`** (and still answered "already running") → the reaper at **17:17:27: "within 10-minute push grace … leaving instance running"** (the run that used to stop it) → Jenkins' scan `branch=pending` 17:18:55 → **`success` 17:19:57** (4 m 43 s after the push).
+- **Regression, host stopped:** push 17:20:49Z → **the doorbell started the host at 17:20:52** → Jenkins built on boot → **`success` 17:25:00**.
+- Cleanup: the throwaway branch deleted, the host stopped (the record flipped to `192.0.2.1`). The `CILastPush` tag remains on the instance and the branch still plans **No changes** (the ignore_changes works).
 
 ## Stage 0 — 2026-10-06: the root cause is a race, not a missing mechanism
 
@@ -70,6 +78,6 @@ This affects **every** Jenkins-built push (cv-domain-service, cv-database) that 
 
 ## Acceptance criteria
 
-- [ ] A push to cv-domain-service **while the CI host is up** gets a Jenkins build and a commit status within a few minutes (proven live).
-- [ ] A push while the host is **stopped** still wakes it and builds (no regression).
-- [ ] T-112's deploy chain works for a master push in both cases.
+- [x] A push to cv-domain-service **while the CI host is up** gets a Jenkins build and a commit status within a few minutes (proven live).
+- [x] A push while the host is **stopped** still wakes it and builds (no regression).
+- [x] T-112's deploy chain works for a master push in both cases.
