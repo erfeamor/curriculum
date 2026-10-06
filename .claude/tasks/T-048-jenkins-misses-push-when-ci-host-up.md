@@ -2,7 +2,7 @@
 id: T-048
 title: "A push to a Jenkins repo while the CI host is already running never reaches Jenkins — the doorbell says 'already running; nothing to do'"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: fix/jenkins-push-when-host-up
 pr: https://github.com/erfeamor/cv-infra/pull/38
@@ -10,11 +10,11 @@ depends_on: []
 risk: normal   # Lambda code only (doorbell + reaper) plus an ignore_changes tag
 security_review: true   # webhook targets / doorbell behaviour on the CI host — adapter §5 CI-config path
 checkpoint:
-  stage: h2   # applied 2026-10-06 (Lambdas + doorbell IAM); both paths proven live; awaiting human acceptance
+  stage: done   # merged 11f1882 (squash of cv-infra#38), 2026-10-06 — applied first; H2 accepted; master plans No changes
   repo: cv-infra
   branch: fix/jenkins-push-when-host-up
   worktree: none
-  commit: 2f34b12
+  commit: 11f1882
   pr: https://github.com/erfeamor/cv-infra/pull/38
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]

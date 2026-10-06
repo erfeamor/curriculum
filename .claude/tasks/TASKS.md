@@ -4,18 +4,17 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-10-06 (T-112 + T-203 + T-047 merged: automated deploys live; T-048 found live; next T-048, then M2)
+## Now / Next / Later — refreshed 2026-10-06 (T-048 merged: the CI wake path covers a running host too; next T-040 (human), T-005's remainder, then M2)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
-- **[T-048](T-048-jenkins-misses-push-when-ci-host-up.md)** (cv-infra): a push to a Jenkins repo while the CI host is up never reaches Jenkins. Since T-112, that also stalls domain-service deploys until someone starts the CI host. **H1 decided 2026-10-06:** the doorbell tags `CILastPush` on a Jenkins push while the host is up, and the reaper holds off for 10 min, so Jenkins' existing 5-min scan builds it. Lambda-only; implementation next window.
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**).
 - **[T-005](T-005-ci-secret-blast-radius.md)'s remainder** (docker.sock/host-network IMDS gap on the CI host, the parameter-path split, narrowing the app-host SSM read). Deploy credentials no longer depend on it (T-047 keeps them off the CI host).
 
-**Done 2026-10-06:** **[T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-047](T-047-ci-deploy-roles-and-ssm-documents.md): automated deploys are live.** A master push → (Jenkins green, for the domain service) → native multi-arch build → ECR → the per-service SSM document `cv-redeploy <svc>` on the tagged app host → smoke. OIDC roles are master-only, with no credentials on the CI host. Both first deploys were proven green end to end.
+**Done 2026-10-06:** **[T-048](T-048-jenkins-misses-push-when-ci-host-up.md)** (a push while the CI host is up now gets built: the doorbell tags `CILastPush`, the reaper holds 10 min for Jenkins' 5-min scan; proven live), **[T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-047](T-047-ci-deploy-roles-and-ssm-documents.md): automated deploys are live.** A master push → (Jenkins green, for the domain service) → native multi-arch build → ECR → the per-service SSM document `cv-redeploy <svc>` on the tagged app host → smoke. OIDC roles are master-only, with no credentials on the CI host. Both first deploys were proven green end to end.
 
 **Done 2026-10-05:** **[T-035](T-035-app-host-to-graviton.md)** (app host on Graviton `t4g.micro`, arm64, IMDSv2; −$1.75/month; images on ECR are now multi-arch), [T-025](T-025-verify-requests-come-from-our-cloudfront.md) (closed at H1 as documented accepted risk), **[T-116](T-116-domain-service-scope-enforcement.md)** (machine tokens are read-only: writes need a user token's `openid` scope; live), **[T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)** (the app host boots from S3 behind a hash-checked 1.5 KB stub; `cv-redeploy migrate|domain-service|bff-node`; runbook), which deployed **V2 ([T-157](T-157-migration-version-columns.md)) and [T-113](T-113-optimistic-locking-lost-update.md)**: optimistic locking is live, and a stale PUT gets 409. [T-303](T-303-admin-send-version-handle-409.md) (the admin sends `version`, handles 409/404) is live too.
 
@@ -124,7 +123,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
 | [T-047](T-047-ci-deploy-roles-and-ssm-documents.md) | GitHub OIDC deploy roles for the domain service and BFF + one SSM document per service (`cv-redeploy <svc>` only); for T-112/T-203 | cv-infra | done | tech-product-owner | T-044 ✔, T-045 ✔ | [cv-infra#37](https://github.com/erfeamor/cv-infra/pull/37) |
-| [T-048](T-048-jenkins-misses-push-when-ci-host-up.md) | **A push to a Jenkins repo while the CI host is up never reaches Jenkins** (the doorbell no-ops; Jenkins only scans on boot); found live at T-112's merge | cv-infra | in_review | tech-product-owner | — | [cv-infra#38](https://github.com/erfeamor/cv-infra/pull/38) |
+| [T-048](T-048-jenkins-misses-push-when-ci-host-up.md) | **A push to a Jenkins repo while the CI host is up never reaches Jenkins** (the doorbell no-ops; Jenkins only scans on boot); found live at T-112's merge | cv-infra | done | tech-product-owner | — | [cv-infra#38](https://github.com/erfeamor/cv-infra/pull/38) |
 
 <details>
 <summary>Infra & ops — 43 done</summary>
