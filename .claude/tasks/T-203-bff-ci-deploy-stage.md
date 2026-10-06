@@ -2,7 +2,7 @@
 id: T-203
 title: "BFF CI: push the image to ECR and roll the container on master"
 repo: cv-bff-node
-status: in_progress
+status: done
 owner: tech-product-owner
 branch: chore/ci-ecr-deploy-stage
 pr: https://github.com/erfeamor/cv-bff-node/pull/13
@@ -26,6 +26,11 @@ security_review: true
 ## Shared decision (added 2026-09-25, board review)
 
 Decide the credential model **together with [T-112](T-112-domain-service-ci-ecr-deploy.md)** (the Jenkins twin), with [T-005](T-005-ci-secret-blast-radius.md) as the input. See T-112's note. Both need an IAM principal in **cv-infra**, so both run in the serial cv-infra chain after T-014.
+
+## ✅ Done 2026-10-06: the first automated deploy is green (fix-forward cv-bff-node#14, 1037ea6)
+
+- **Fix:** native runners (amd64 on `ubuntu-latest`, arm64 on `ubuntu-24.04-arm`), push by digest, a `merge` job (`imagetools create`, asserting both platforms), then the unchanged roll and smoke, with timeouts on every job.
+- **Master run 37448864714: green in ~5 min** (merge 10:18:04Z → done 10:23). The SSM invocation on `i-0ae1377c04594b2b0` (found by tag): `Success`, `bff-node image: old=…0c57a6e0 new=…c57ff54e`; smoke `/cv` 200 on attempt 1. **On the host:** bff-node `arm64 rev=1037ea6`; only bff-node restarted.
 
 ## Merged 2026-10-06 (2f379c3, cv-bff-node#13), and the first live deploy FAILED: fix forward
 
@@ -61,12 +66,12 @@ This is the same gap the meta README backlog records as *"Automated backend depl
 
 ## Acceptance criteria
 
-- [ ] PR builds do **not** push or deploy — asserted by the workflow's own `if`/`when` conditions, not by convention.
-- [ ] A `master` push publishes an image to the T-014 ECR repository and the running container ends up on that image.
-- [ ] The IAM principal used can push to the BFF ECR repo and roll that one instance, and nothing else — the policy is in the PR (in `cv-infra` if the role is Terraform-managed; if so, note the cross-repo ordering in the checkpoint).
-- [ ] No credential value in the repo; secrets come from GitHub secrets / OIDC.
-- [ ] **(board review 2026-10-01; decide at this task's H1 — T-014 declined multi-arch for its one-off builds)** The pushed image is **multi-arch** (`linux/amd64` + `linux/arm64`, one manifest), so [T-035](T-035-app-host-to-graviton.md)'s Graviton swap needs no rebuild here.
-- [ ] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` still pass; the workflow is valid YAML and runs green end-to-end at least once.
+- [x] PR builds do **not** push or deploy — asserted by the workflow's own `if`/`when` conditions, not by convention.
+- [x] A `master` push publishes an image to the T-014 ECR repository and the running container ends up on that image.
+- [x] The IAM principal used can push to the BFF ECR repo and roll that one instance, and nothing else — the policy is in the PR (in `cv-infra` if the role is Terraform-managed; if so, note the cross-repo ordering in the checkpoint).
+- [x] No credential value in the repo; secrets come from GitHub secrets / OIDC.
+- [x] **(board review 2026-10-01; decide at this task's H1 — T-014 declined multi-arch for its one-off builds)** The pushed image is **multi-arch** (`linux/amd64` + `linux/arm64`, one manifest), so [T-035](T-035-app-host-to-graviton.md)'s Graviton swap needs no rebuild here.
+- [x] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` still pass; the workflow is valid YAML and runs green end-to-end at least once.
 
 ## Definition of done
 

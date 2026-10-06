@@ -2,7 +2,7 @@
 id: T-112
 title: "cv-domain-service CI: push the image to ECR and roll the container on master"
 repo: cv-domain-service
-status: in_review
+status: done
 owner: tech-product-owner
 branch: chore/ci-ecr-deploy-stage
 pr: https://github.com/erfeamor/cv-domain-service/pull/17
@@ -10,6 +10,12 @@ depends_on: [T-111, T-044, T-047]   # T-044 added 2026-10-04: "roll the containe
 risk: normal
 security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /security-review path, and this diff introduces registry credentials into CI
 ---
+
+## ✅ Done 2026-10-06: the first automated deploy is green (cv-domain-service#17, f487615)
+
+- Updated before merge to native runners (0bb3932), after T-203's QEMU stall.
+- **Master run 37449494415:** `wait-for-jenkins` waited for the `branch` status. **It never came by itself**: the CI host was already up from the PR build, so the doorbell no-oped and Jenkins (scan-on-boot only) missed the push. That's filed as **[T-048](T-048-jenkins-misses-push-when-ci-host-up.md)**. The driver started the CI host at 10:34:05Z; Jenkins scanned, built master green, and the run continued: native builds → merge → deploy, **green at 10:40Z**.
+- **The SSM invocation:** `domain-service image: old=…87d98f14 new=…c810d9a7`; smoke `/cv` 200 and the domain API without a token 401. **On the host:** domain-service `arm64 rev=f487615`; only domain-service restarted.
 
 ## H1 — decided by the human, 2026-10-06 (shared with [T-203](T-203-bff-ci-deploy-stage.md))
 
@@ -82,14 +88,14 @@ T-203 is **GitHub Actions**; this is **Jenkins on our own EC2 host**. The creden
 
 ## Acceptance criteria
 
-- [ ] PR builds do **not** push or deploy — asserted by the pipeline's own `when` conditions, not by convention.
-- [ ] A `master` build publishes an image to the domain-service ECR repository and the running container ends up on that image — **verified by request against the live service**, not by reading the pipeline.
-- [ ] The IAM principal used can push to that one ECR repo and roll that one instance, and nothing else. The policy is in the PR (in `cv-infra` if Terraform-managed; if so, record the cross-repo ordering in the checkpoint).
-- [ ] **The credential model is reconciled with [T-005](T-005-ci-secret-blast-radius.md) in writing** — either it survives IMDS being blocked from containers, or the PR states plainly what T-005 will have to change and why that is acceptable.
-- [ ] No credential value in the repo.
-- [ ] **(board review 2026-10-01; decide at this task's H1 — T-014 declined multi-arch for its one-off builds)** The pushed image is **multi-arch** (`linux/amd64` + `linux/arm64`, one manifest), so [T-035](T-035-app-host-to-graviton.md)'s Graviton swap needs no rebuild here.
-- [ ] The tag contract is documented, and `cv-infra/compute.tf:46` still resolves to the image the pipeline pushed.
-- [ ] `mvn -B checkstyle:check` and `mvn -B test` still gate the push — a failing test must block the deploy.
+- [x] PR builds do **not** push or deploy — asserted by the pipeline's own `when` conditions, not by convention.
+- [x] A `master` build publishes an image to the domain-service ECR repository and the running container ends up on that image — **verified by request against the live service**, not by reading the pipeline.
+- [x] The IAM principal used can push to that one ECR repo and roll that one instance, and nothing else. The policy is in the PR (in `cv-infra` if Terraform-managed; if so, record the cross-repo ordering in the checkpoint).
+- [x] **The credential model is reconciled with [T-005](T-005-ci-secret-blast-radius.md) in writing** — either it survives IMDS being blocked from containers, or the PR states plainly what T-005 will have to change and why that is acceptable.
+- [x] No credential value in the repo.
+- [x] **(board review 2026-10-01; decide at this task's H1 — T-014 declined multi-arch for its one-off builds)** The pushed image is **multi-arch** (`linux/amd64` + `linux/arm64`, one manifest), so [T-035](T-035-app-host-to-graviton.md)'s Graviton swap needs no rebuild here.
+- [x] The tag contract is documented, and `cv-infra/compute.tf:46` still resolves to the image the pipeline pushed.
+- [x] `mvn -B checkstyle:check` and `mvn -B test` still gate the push — a failing test must block the deploy.
 
 ## Watch-outs
 
