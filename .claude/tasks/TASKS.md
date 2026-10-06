@@ -10,7 +10,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 
 **Next**
 - **[T-051](T-051-cost-remeasure-after-trims.md)** cost re-measure, **not before Friday 2026-10-09** (a few full days on the trimmed stack), then [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table).
-- **[T-503](T-503-production-cv-content.md)** (human: the real CV in production) → **[T-501](T-501-e2e-cv-milestone.md)** (milestone M2, ~1 window, absorbs T-015) → **[T-502](T-502-final-docs-architecture-diagram.md)** (final docs + diagram). Decide [T-052](T-052-observability-scope-decision.md) (observability scope) before T-502.
+- ~~T-503~~ **done 2026-10-06** (the human's own CV is live) → **[T-501](T-501-e2e-cv-milestone.md)** (milestone M2, ~1 window, absorbs T-015) → **[T-502](T-502-final-docs-architecture-diagram.md)** (final docs + diagram). Decide [T-052](T-052-observability-scope-decision.md) (observability scope) before T-502.
 
 **Anytime**
 - [T-050](T-050-ecr-sha-tag-retention.md) (ECR sha-tag retention). Small.
@@ -18,7 +18,6 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 
 **Human**
 - **By 2026-10-30:** create a replacement CI GitHub token for Jenkins ([T-040](T-040-jenkins-github-pat-expiry.md)). The current one expires **2026-11-06**.
-- **[T-503](T-503-production-cv-content.md):** decide whose CV production shows and enter it through `/admin/`.
 - Paid plan since 2026-09-29; all five credit activities done (grant $200). **$120.75** left on 2026-10-01; the ~$0.69/day rate (2026-09-28) predates the EIP release and Graviton, so the runway is re-derived in T-051 (credits expire 2027-07-12). Charges past them bill the card; the budget alarms are the guard.
 
 Recent close-outs: 2026-10-06 T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
@@ -34,14 +33,14 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | todo | | T-101…T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-403, T-404 (T-408, T-409 via T-401, T-402) | |
-| [T-503](T-503-production-cv-content.md) | Production CV content: replace T-018's probe rows with a real CV (human, via `/admin/`) | cv-project (meta) | todo |  | — |  |
 | [T-502](T-502-final-docs-architecture-diagram.md) | Final documentation and architecture diagram (the roadmap's last item) | cv-project (meta) | todo |  | T-501, T-052 |  |
 
 <details>
-<summary>M2 — 15 done</summary>
+<summary>M2 — 16 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
+| [T-503](T-503-production-cv-content.md) | Production CV content: replace T-018's probe rows with a real CV (human, via `/admin/`) | cv-project (meta) | done | tech-product-owner | — | none |
 | [T-101](T-101-experience-resource.md) | Experience resource in the domain API | cv-domain-service | done | backend-developer | — | [#3](https://github.com/erfeamor/cv-domain-service/pull/3) |
 | [T-102](T-102-education-resource.md) | Education resource in the domain API | cv-domain-service | done | backend-developer | — | [#5](https://github.com/erfeamor/cv-domain-service/pull/5) |
 | [T-103](T-103-skills-catalog-and-assignments.md) | Skill catalog + person-skill assignments | cv-domain-service | done | backend-developer | — | [#7](https://github.com/erfeamor/cv-domain-service/pull/7) |
@@ -62,7 +61,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 
 ### Before claiming
 
-- **The domain waves, the rendering tasks and the deployment chain are all done.** **Only [T-503](T-503-production-cv-content.md) (real production content, a human task) still gates [T-501](T-501-e2e-cv-milestone.md)**.
+- **The domain waves, the rendering tasks and the deployment chain are all done.** [T-503](T-503-production-cv-content.md) (real production content) is done too, so **[T-501](T-501-e2e-cv-milestone.md) is claimable**.
 - **Read contract design rule 7's carve-outs before writing a consumer.** Requests are the opposite (`PUT` replaces, so an omitted optional in a *request* body IS the empty case), and `endDate` is not governed by rule 7 at all — always emitted, its `null` means "current" under rule 3.
 - **Probe a guard, don't read it.** The T-205 → T-210 lineage caught several type-level guards passing for the wrong reason, each found only by making the defect and watching the check stay green. Narratives in HISTORY.md.
 - **Concurrency lesson from T-103:** highest-risk tasks (composite key, upsert, 409) should start first so review convergence failures surface earliest.
