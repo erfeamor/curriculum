@@ -2,7 +2,7 @@
 id: T-203
 title: "BFF CI: push the image to ECR and roll the container on master"
 repo: cv-bff-node
-status: in_review
+status: in_progress
 owner: tech-product-owner
 branch: chore/ci-ecr-deploy-stage
 pr: https://github.com/erfeamor/cv-bff-node/pull/13
@@ -26,6 +26,12 @@ security_review: true
 ## Shared decision (added 2026-09-25, board review)
 
 Decide the credential model **together with [T-112](T-112-domain-service-ci-ecr-deploy.md)** (the Jenkins twin), with [T-005](T-005-ci-secret-blast-radius.md) as the input. See T-112's note. Both need an IAM principal in **cv-infra**, so both run in the serial cv-infra chain after T-014.
+
+## Merged 2026-10-06 (2f379c3, cv-bff-node#13), and the first live deploy FAILED: fix forward
+
+- **Proven:** OIDC assumed `cv-project-bff-node-deploy`, and the ECR login succeeded (T-047's trust and permissions work live).
+- **Failed:** the QEMU-emulated multi-arch build on `ubuntu-latest` **stalled** (deploy job started 23:47:34Z; no progress or push in 70 min). **The driver cancelled the run.** Nothing reached ECR and no roll ran; production is unaffected (`/cv` 200).
+- **H1 amended by the human (2026-10-06):** **native arm64 runners**: a matrix build (amd64 on `ubuntu-latest`, arm64 on `ubuntu-24.04-arm`, free for public repos), each pushing by digest, then a merge job creating the multi-arch `:latest` + `:<sha>` manifest (`docker buildx imagetools create`), then the unchanged SSM roll and smoke. Fix forward on a new branch `fix/native-arm-build`; done when a master deploy run is green end to end.
 
 ## Implement + review — 2026-10-06 (e232297)
 

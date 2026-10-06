@@ -33,6 +33,7 @@ security_review: true   # adapter §5 — `Jenkinsfile` is an unconditional /sec
 
 - Developer (fresh backend-developer, ~28k tokens: `.github/workflows/deploy.yml` (master push only): `wait-for-jenkins` (the newest `continuous-integration/jenkins/branch` status: success → deploy, red → stop, else poll ≤30 min) then `deploy` (OIDC, multi-arch, `send-command` by tag, invocation poll, smoke `/cv` 200 + `/api` 401). The Jenkinsfile `Deploy` stage points here.
 - Driver-verified: the workflow read; YAML parses; Jenkins green on the PR (`pr-merge` ✓); checkstyle clean, 237 tests. **Review round 1: clean.** Non-blocking: `:<sha>` tags never expire under the untagged-only lifecycle (T-035), so they accumulate (~100 MB per deploy, cents); worth a tagged-image retention rule later.
+- **2026-10-06: H1 amended (T-203's QEMU build stalled live):** switch `deploy.yml` to **native arm64 runners** (the same matrix + merge pattern as T-203's fix) **before merging**. A new commit on the open PR.
 - **Checkpoint (usage 40–75%): not merged.** The merge to master **is the first live deploy**, so H2 = merge, then watch the run.
 
 ## Why this exists
