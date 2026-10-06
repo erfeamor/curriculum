@@ -4,20 +4,23 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-10-05 (T-035 merged: the app host runs on Graviton; next the CI deploy stages, then M2)
+## Now / Next / Later — refreshed 2026-10-06 (T-112 + T-203 + T-047 merged: automated deploys live; T-048 found live; next T-048, then M2)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
+- **[T-048](T-048-jenkins-misses-push-when-ci-host-up.md)** (cv-infra): a push to a Jenkins repo while the CI host is up never reaches Jenkins. Since T-112, that also stalls domain-service deploys until someone starts the CI host. H1 picks a fix (a second webhook straight to Jenkins, the doorbell triggering a scan, or a periodic scan).
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**).
+- **[T-005](T-005-ci-secret-blast-radius.md)'s remainder** (docker.sock/host-network IMDS gap on the CI host, the parameter-path split, narrowing the app-host SSM read). Deploy credentials no longer depend on it (T-047 keeps them off the CI host).
+
+**Done 2026-10-06:** **[T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-047](T-047-ci-deploy-roles-and-ssm-documents.md): automated deploys are live.** A master push → (Jenkins green, for the domain service) → native multi-arch build → ECR → the per-service SSM document `cv-redeploy <svc>` on the tagged app host → smoke. OIDC roles are master-only, with no credentials on the CI host. Both first deploys were proven green end to end.
 
 **Done 2026-10-05:** **[T-035](T-035-app-host-to-graviton.md)** (app host on Graviton `t4g.micro`, arm64, IMDSv2; −$1.75/month; images on ECR are now multi-arch), [T-025](T-025-verify-requests-come-from-our-cloudfront.md) (closed at H1 as documented accepted risk), **[T-116](T-116-domain-service-scope-enforcement.md)** (machine tokens are read-only: writes need a user token's `openid` scope; live), **[T-044](T-044-app-host-bootstrap-s3-and-redeploy.md)** (the app host boots from S3 behind a hash-checked 1.5 KB stub; `cv-redeploy migrate|domain-service|bff-node`; runbook), which deployed **V2 ([T-157](T-157-migration-version-columns.md)) and [T-113](T-113-optimistic-locking-lost-update.md)**: optimistic locking is live, and a stale PUT gets 409. [T-303](T-303-admin-send-version-handle-409.md) (the admin sends `version`, handles 409/404) is live too.
 
-**Then** (~2 windows)
-- [T-112](T-112-domain-service-ci-ecr-deploy.md) + [T-203](T-203-bff-ci-deploy-stage.md) + [T-005](T-005-ci-secret-blast-radius.md)'s remainder: **one H1** for the pipelines' AWS permissions. GitHub Actions reuses T-403's OIDC; Jenkins uses its instance role, narrowed per T-005. Both roll containers with `cv-redeploy`.
-- → **[T-501](T-501-e2e-cv-milestone.md)** (~1 window, absorbs T-015): **milestone M2**.
+**Then**
+- → **[T-501](T-501-e2e-cv-milestone.md)** (~1 window, absorbs T-015): **milestone M2**. Decide first whose CV production shows (it's T-018's probe data today).
 
 **Anytime**
 - [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), from **2026-10-12**. Small; slot it into any window.
@@ -82,7 +85,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | in_review | tech-product-owner | T-111 ✔, T-044 ✔, T-047 | [cv-domain-service#17](https://github.com/erfeamor/cv-domain-service/pull/17) |
+| [T-112](T-112-domain-service-ci-ecr-deploy.md) | CI: push the image to ECR and roll the container on `master` (deploy is manual today). Needs a cv-infra apply: after T-014, one credential decision with T-203 | cv-domain-service | done | tech-product-owner | T-111 ✔, T-044 ✔, T-047 | [cv-domain-service#17](https://github.com/erfeamor/cv-domain-service/pull/17) |
 
 <details>
 <summary>Defects, hygiene & hardening — 18 done</summary>
@@ -120,7 +123,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
-| [T-047](T-047-ci-deploy-roles-and-ssm-documents.md) | GitHub OIDC deploy roles for the domain service and BFF + one SSM document per service (`cv-redeploy <svc>` only); for T-112/T-203 | cv-infra | in_review | tech-product-owner | T-044 ✔, T-045 ✔ | [cv-infra#37](https://github.com/erfeamor/cv-infra/pull/37) |
+| [T-047](T-047-ci-deploy-roles-and-ssm-documents.md) | GitHub OIDC deploy roles for the domain service and BFF + one SSM document per service (`cv-redeploy <svc>` only); for T-112/T-203 | cv-infra | done | tech-product-owner | T-044 ✔, T-045 ✔ | [cv-infra#37](https://github.com/erfeamor/cv-infra/pull/37) |
 | [T-048](T-048-jenkins-misses-push-when-ci-host-up.md) | **A push to a Jenkins repo while the CI host is up never reaches Jenkins** (the doorbell no-ops; Jenkins only scans on boot); found live at T-112's merge | cv-infra | todo | | — | |
 
 <details>
@@ -191,7 +194,7 @@ One task per repo. The **numbered** rows are strictly sequential and their `depe
 | 3b | [T-043](T-043-bff-service-token-to-domain.md) | **The BFF reads the domain service with a Cognito service token** — the public CV is 200 live | cv-infra | done | tech-product-owner | T-014 ✔, T-211 ✔ | [cv-infra#33](https://github.com/erfeamor/cv-infra/pull/33) |
 | 4 | [T-403](T-403-public-vanilla-deploy.md) | Public site (vanilla): deploy + point at the deployed BFF — H1 2026-10-04: OIDC (T-045 first), same-origin calls, root deploy excluding `admin/*` | cv-public-vanilla | done | tech-product-owner | T-014 ✔, **T-408** ✔, **T-043** ✔, **T-045** ✔ | [cv-public-vanilla#5](https://github.com/erfeamor/cv-public-vanilla/pull/5) |
 | 5 | [T-015](T-015-docs-reflect-deployed-bff.md) | Correct the meta docs that claim the BFF is deployed — **absorbed into T-501** (2026-10-01) | cv-project (meta) | done | tech-product-owner | T-014, T-403, T-404 | none |
-| — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | in_progress | tech-product-owner | T-014 ✔, T-044 ✔, T-047 | [cv-bff-node#13](https://github.com/erfeamor/cv-bff-node/pull/13) |
+| — | [T-203](T-203-bff-ci-deploy-stage.md) | BFF CI: push to ECR and roll the container on master | cv-bff-node | done | tech-product-owner | T-014 ✔, T-044 ✔, T-047 | [cv-bff-node#13](https://github.com/erfeamor/cv-bff-node/pull/13) |
 | — | [T-204](T-204-bff-validate-person-id-param.md) | BFF: validate the person id before the upstream call (adopts T-201's shared guard) | cv-bff-node | done | fullstack-developer | T-202 ✔, **T-201 ✔** | [#8](https://github.com/erfeamor/cv-bff-node/pull/8) |
 | — | [T-404](T-404-public-react-point-at-deployed-bff.md) | Public site (React): point Vercel's `BFF_URL` at the deployed BFF — **done 2026-10-04**: live, and a production build fails without it | cv-public-react | done | tech-product-owner | T-014 ✔, **T-043** ✔ | [cv-public-react#9](https://github.com/erfeamor/cv-public-react/pull/9) |
 

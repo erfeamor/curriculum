@@ -2,7 +2,7 @@
 id: T-047
 title: "cv-infra: GitHub OIDC deploy roles for cv-domain-service and cv-bff-node, and one SSM document per service that runs only `cv-redeploy <svc>`"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: feat/ci-deploy-roles
 pr: https://github.com/erfeamor/cv-infra/pull/37
@@ -10,11 +10,11 @@ depends_on: [T-044, T-045]   # cv-redeploy on the host; the OIDC provider
 risk: normal   # IAM + SSM documents only; no host or edge change
 security_review: true   # new trust relationships and a remote-execution path to production — adapter §5
 checkpoint:
-  stage: h2   # applied 2026-10-06 (IAM + SSM documents); simulator 16/16 as designed; awaiting human acceptance
+  stage: done   # merged ab3f6ec (squash of cv-infra#37), 2026-10-06 — applied first; H2 accepted; master plans No changes; both roles proven by real deploys (T-203, T-112)
   repo: cv-infra
   branch: feat/ci-deploy-roles
   worktree: none
-  commit: 19dd954
+  commit: ab3f6ec
   pr: https://github.com/erfeamor/cv-infra/pull/37
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
@@ -50,6 +50,8 @@ Filed at the shared H1 of [T-112](T-112-domain-service-ci-ecr-deploy.md) and [T-
    - Nothing else.
 3. **Two SSM documents** (`aws_ssm_document`, type Command): `cv-redeploy-domain-service` and `cv-redeploy-bff-node`. Each runs exactly `/usr/local/bin/cv-redeploy <svc>` and takes **no parameters**, so there's no injection surface and no arbitrary shell.
 4. **Outputs:** both role ARNs and both document names (the driver sets them as repo variables).
+
+**Proven by real deploys (2026-10-06):** both roles assumed via OIDC from master, pushed multi-arch images to their own repos, and ran their own document on the tagged app host (T-203, T-112).
 
 ## Implement, review and apply — 2026-10-06 (19dd954, cv-infra#37)
 
