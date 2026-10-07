@@ -2,20 +2,20 @@
 id: T-501
 title: End-to-end verification of the complete CV flow
 repo: cv-project (meta)
-status: in_progress
+status: done
 owner: tech-product-owner
 branch: chore/m2-e2e-verification
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/116
 depends_on: [T-101, T-102, T-103, T-104, T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-043, T-403, T-404, T-503]
 risk: normal   # verification + docs; no code, but it gates the milestone
 security_review: false
 checkpoint:
-  stage: implement   # H1 2026-10-07: verification (local from scratch + AWS), then T-015's doc claims
+  stage: done   # merged as curriculum#116 (squash), 2026-10-07; H2 accepted; milestone M2 closed
   repo: cv-project (meta)
   branch: chore/m2-e2e-verification
   worktree: none
   commit:
-  pr:
+  pr: https://github.com/erfeamor/curriculum/pull/116
   developer: tech-product-owner   # driver-run verification + docs (no developer spawn)
   reviewers: [code-review]
   risk: normal
