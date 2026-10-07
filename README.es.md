@@ -162,42 +162,35 @@ Cada repositorio implementa TDD desde el inicio:
 
 Cada repositorio usa un pipeline distinto para demostrar dominio de varias herramientas:
 
-| Repositorio | Pipeline |
-|-------------|----------|
-| cv-domain-service | Jenkins |
-| cv-bff-node | GitHub Actions |
-| cv-admin-react | DroneCI |
-| cv-public-vanilla | GitHub Actions |
-| cv-public-react | Vercel |
-| cv-database | Jenkins |
-| cv-observability | GitHub Actions |
+| Repositorio | CI (tests) | Deploy en cada push a `master` |
+|-------------|----------|----------|
+| cv-domain-service | Jenkins | GitHub Actions (`deploy.yml`): con Jenkins en verde, imagen multi-arch → ECR → SSM `cv-redeploy-domain-service` |
+| cv-bff-node | GitHub Actions | el mismo workflow: imagen → ECR → SSM `cv-redeploy-bff-node` |
+| cv-admin-react | DroneCI | Drone: build → S3 `admin/` → invalidación de CloudFront |
+| cv-public-vanilla | GitHub Actions | el mismo workflow (OIDC): build → raíz de S3 → invalidación de CloudFront |
+| cv-public-react | Vercel | Vercel (ISR desde el BFF desplegado) |
+| cv-database | Jenkins | GitHub Actions (`migrate.yml`): con Jenkins en verde, SSM `cv-redeploy-migrate` ejecuta Flyway en producción |
+| cv-observability | GitHub Actions | — (solo stack local de desarrollo) |
 
-Los pipelines incluyen:
-- Linter
-- Tests (TDD)
-- Build
-- Docker image
-- Deploy a AWS (dev/prod)
+La columna de CI ejecuta lint, tests (TDD) y build. Los deploys de GitHub Actions asumen roles OIDC limitados a master; ninguna credencial de deploy vive en el host de CI.
 
 ---
 
-## ☁️ Infraestructura Cloud (AWS Free Tier)
+## ☁️ Infraestructura Cloud (AWS, eu-west-3)
 
-El despliegue se realiza en AWS aprovechando al máximo el free tier:
+Desplegada con Terraform. La cuenta está en el plan Paid de AWS desde el 2026-09-29 y se paga primero con créditos (modelo de costes en `cv-infra`). Verificado contra la cuenta el 2026-10-07:
 
 ### Servicios utilizados
-- **EC2 t2.micro/t3.micro**  
-  Para Java, Node y Prometheus/Grafana (si se desea).
+- **Host de aplicación EC2 `t4g.micro` (Graviton)**  
+  Ejecuta el servicio de dominio (Java) y el BFF (Node) como contenedores. Un host de CI `t3.small` aparte ejecuta Jenkins y Drone y solo se arranca para los builds.
 - **MySQL 8.4 autoalojado (contenedor en la EC2 del servicio de dominio)**  
   Base de datos principal — corre junto a la app en lugar de RDS, lo que evita el coste de la instancia RDS y el cargo de Extended Support de MySQL 8.0.
 - **S3 + CloudFront**  
-  Hosting del frontend React y Vanilla.
+  Hosting del admin y del sitio vanilla; la misma distribución da acceso al BFF (`/bff/*`) y al servicio de dominio (`/api/*`). El sitio Next.js está en Vercel.
 - **AWS Cognito**  
   Autenticación.
 - **CloudWatch Logs**  
-  Logs básicos.
-- **MongoDB Atlas Free Tier**  
-  Logs/eventos NoSQL.
+  Existen grupos de logs para ambos servicios, pero ningún contenedor les envía logs todavía. MongoDB Atlas es una opción de diseño, no desplegada, y Prometheus/Grafana solo corren en el stack local de desarrollo (decisión de alcance: T-052).
 - **SSM Parameter Store**  
   Gestión de secretos.
 
@@ -265,7 +258,7 @@ Cada repo de producto también incluye su propio `.devcontainer/devcontainer.jso
 - [x] Crear el sitio público optimizado con Next.js (CV completo; ISR desde el BFF desplegado; en Vercel)
 - [x] Configurar observabilidad (métricas solo en el stack local de desarrollo; aún sin métricas ni pipeline de logs en la nube, decisión de alcance T-052)
 - [x] Desplegar infraestructura AWS — Terraform aplicado en eu-west-3 (un host EC2 de aplicación con el servicio de dominio y el BFF junto a un contenedor MySQL 8.4 autoalojado, S3+CloudFront para el admin y el sitio vanilla, Cognito, ECR, un host de CI bajo demanda para Jenkins y Drone)
-- [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); el servicio de dominio y el BFF se despliegan solos en cada push a master, y cv-database migra producción en master
+- [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); el servicio de dominio y el BFF se despliegan solos en cada push a master, cv-database migra producción en master, el admin se despliega desde Drone y el sitio vanilla desde GitHub Actions
 - [ ] Documentación final y diagrama de arquitectura
 
 ### Backlog

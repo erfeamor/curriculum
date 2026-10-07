@@ -162,42 +162,35 @@ Every repository implements TDD from the start:
 
 Each repository uses a different pipeline to demonstrate mastery of multiple tools:
 
-| Repository | Pipeline |
-|-------------|----------|
-| cv-domain-service | Jenkins |
-| cv-bff-node | GitHub Actions |
-| cv-admin-react | DroneCI |
-| cv-public-vanilla | GitHub Actions |
-| cv-public-react | Vercel |
-| cv-database | Jenkins |
-| cv-observability | GitHub Actions |
+| Repository | CI (tests) | Deploy on a push to `master` |
+|-------------|----------|----------|
+| cv-domain-service | Jenkins | GitHub Actions (`deploy.yml`): once Jenkins is green, multi-arch image → ECR → SSM `cv-redeploy-domain-service` |
+| cv-bff-node | GitHub Actions | the same workflow: image → ECR → SSM `cv-redeploy-bff-node` |
+| cv-admin-react | DroneCI | Drone: build → S3 `admin/` → CloudFront invalidation |
+| cv-public-vanilla | GitHub Actions | the same workflow (OIDC): build → S3 root → CloudFront invalidation |
+| cv-public-react | Vercel | Vercel (ISR from the deployed BFF) |
+| cv-database | Jenkins | GitHub Actions (`migrate.yml`): once Jenkins is green, SSM `cv-redeploy-migrate` runs Flyway in production |
+| cv-observability | GitHub Actions | — (local dev stack only) |
 
-The pipelines include:
-- Linter
-- Tests (TDD)
-- Build
-- Docker image
-- Deploy to AWS (dev/prod)
+The CI column runs lint, tests (TDD) and the build. GitHub Actions deploys assume master-only OIDC roles; no deploy credential lives on the CI host.
 
 ---
 
-## ☁️ Cloud Infrastructure (AWS Free Tier)
+## ☁️ Cloud Infrastructure (AWS, eu-west-3)
 
-Deployment is done on AWS, making the most of the free tier:
+Deployed with Terraform. The account is on AWS's Paid plan since 2026-09-29, paid from credits first (cost model in `cv-infra`). Verified against the account on 2026-10-07:
 
 ### Services used
-- **EC2 t2.micro/t3.micro**
-  For Java, Node, and Prometheus/Grafana (if desired).
+- **EC2 `t4g.micro` (Graviton) app host**
+  Runs the domain service (Java) and the BFF (Node) as containers. A separate `t3.small` CI host runs Jenkins and Drone and is started only for builds.
 - **Self-hosted MySQL 8.4 (container on the domain-service EC2)**
   Main database — runs alongside the app instead of RDS, which avoids the RDS instance cost and the MySQL 8.0 Extended Support charge.
 - **S3 + CloudFront**
-  Hosting for the React and Vanilla frontends.
+  Hosting for the admin and the vanilla site; the same distribution fronts the BFF (`/bff/*`) and the domain service (`/api/*`). The Next.js site is on Vercel.
 - **AWS Cognito**
   Authentication.
 - **CloudWatch Logs**
-  Basic logging.
-- **MongoDB Atlas Free Tier**
-  NoSQL logs/events.
+  Log groups exist for both services, but no container ships logs to them yet. MongoDB Atlas is a design option, not deployed, and Prometheus/Grafana run only in the local dev stack (scope decision: T-052).
 - **SSM Parameter Store**
   Secrets management.
 
@@ -265,7 +258,7 @@ Each product repo also ships its own `.devcontainer/devcontainer.json` for worki
 - [x] Create the Next.js optimized public site (full CV; ISR from the deployed BFF; on Vercel)
 - [x] Configure observability (metrics in the local dev stack only; no cloud metrics or logs pipeline yet, scope decision T-052)
 - [x] Deploy AWS infrastructure — Terraform applied in eu-west-3 (an EC2 app host running the domain service and the BFF beside a self-hosted MySQL 8.4 container, S3+CloudFront for the admin and the vanilla site, Cognito, ECR, an on-demand CI host for Jenkins and Drone)
-- [x] Configure CI/CD pipelines (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); the domain service and the BFF deploy themselves on a master push, and cv-database migrates production on master
+- [x] Configure CI/CD pipelines (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); the domain service and the BFF deploy themselves on a master push, cv-database migrates production on master, the admin deploys from Drone and the vanilla site from GitHub Actions
 - [ ] Final documentation and architecture diagram
 
 ### Backlog
