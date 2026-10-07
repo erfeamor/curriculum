@@ -2,7 +2,7 @@
 id: T-049
 title: "cv-infra: an SSM document `cv-redeploy-migrate` and a master-only OIDC role for cv-database, so production migrations can be applied by CI"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: feat/ci-migrate-role
 pr: https://github.com/erfeamor/cv-infra/pull/40
@@ -10,11 +10,11 @@ depends_on: [T-047]   # reuses T-045's OIDC provider and T-047's role/document p
 risk: normal   # IAM + one SSM document; no host or edge change
 security_review: true   # a new trust relationship and a remote-execution path to production — adapter §5
 checkpoint:
-  stage: h2   # applied from the branch 2026-10-07; simulator + No changes; variable set; awaiting H2
+  stage: done   # merged b9f8b8d (squash of cv-infra#40), 2026-10-07 — applied from the branch first; H2 accepted; master plans No changes
   repo: cv-infra
   branch: feat/ci-migrate-role
   worktree: none
-  commit: 63f5e1b
+  commit: b9f8b8d
   pr: https://github.com/erfeamor/cv-infra/pull/40
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
@@ -25,7 +25,7 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a
-  updated: 2026-10-06T23:45:00+02:00
+  updated: 2026-10-07T11:10:00+02:00
   budget:
     turns: 0
     total_tokens: 0
@@ -69,6 +69,6 @@ Filed by the 2026-10-06 board review. Since [T-112](T-112-domain-service-ci-ecr-
 
 ## Acceptance criteria
 
-- [ ] Offline (red first): the trust conditions, the policy shape, the parameterless document.
-- [ ] Applied (IAM + SSM document only); simulator: own document on the tagged app host allowed; other documents, `AWS-RunShellScript` and the CI host denied; no ECR.
-- [ ] Gates green; `/security-review` clean.
+- [x] Offline (red first): the trust conditions, the policy shape, the parameterless document.
+- [x] Applied (IAM + SSM document only); simulator: own document on the tagged app host allowed; other documents, `AWS-RunShellScript` and the CI host denied; no ECR.
+- [x] Gates green; `/security-review` clean.

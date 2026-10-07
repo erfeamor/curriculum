@@ -2,7 +2,7 @@
 id: T-158
 title: "cv-database: apply new migrations to production automatically on master (GitHub Actions after Jenkins is green → SSM `cv-redeploy-migrate`)"
 repo: cv-database
-status: in_review
+status: done
 owner: tech-product-owner
 branch: feat/ci-migrate-on-master
 pr: https://github.com/erfeamor/cv-database/pull/8
@@ -10,11 +10,11 @@ depends_on: [T-049]
 risk: normal
 security_review: true   # CI config + AWS credentials — adapter §5
 checkpoint:
-  stage: review   # round 2 clean (f3e68f3); waits for T-049's apply + the repo variable, then PR → merge (the merge is the first live run)
+  stage: done   # merged 0e7a566 (squash of cv-database#8), 2026-10-07 — its merge was the first live run: Jenkins green → SSM migrate Success, schema up to date; H2 accepted
   repo: cv-database
   branch: feat/ci-migrate-on-master
   worktree: none
-  commit: f3e68f3
+  commit: 0e7a566
   pr: https://github.com/erfeamor/cv-database/pull/8
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
@@ -25,7 +25,7 @@ checkpoint:
   qa_bounces: 0
   fix_attempts: 0
   env_slot: n/a
-  updated: 2026-10-06T23:45:00+02:00
+  updated: 2026-10-07T11:10:00+02:00
   budget:
     turns: 0
     total_tokens: 0
@@ -34,6 +34,14 @@ checkpoint:
     status: ok   # human-reported /usage 40–75%: implement + review, checkpoint before the apply
     checked: 2026-10-06T23:45:00+02:00
 ---
+
+
+## Live — 2026-10-07: the merge was the first run (cv-database#8 → 0e7a566, run 37596433369)
+
+- `wait-for-jenkins` 08:50:15 → 08:53:03Z: `absent` while the doorbell woke the CI host, `pending` 08:52:40, **`success`** 08:53:00.
+- `migrate` 08:53:06 → 08:53:32Z: OIDC into `cv-project-database-migrate` (the variable set at T-049's live stage), SSM `cv-redeploy-migrate` → **1 invocation, `Success` in 11 s**: "Successfully validated 2 migrations … Schema `cv` is up to date. No migration necessary." BFF aggregate 200.
+- The ordering rule is in both repos: cv-database CLAUDE.md Rules item 2 (this PR) and cv-domain-service CLAUDE.md ([cv-domain-service#18](https://github.com/erfeamor/cv-domain-service/pull/18), b0a32e6; its merge redeployed an unchanged image).
+- **Not yet exercised:** a real pending migration (the next schema change is the proof), and the failure path (`flyway repair` is manual by design).
 
 ## H1 — decided by the human, 2026-10-06 (T-049 + T-158 together)
 
@@ -60,6 +68,6 @@ Filed by the 2026-10-06 board review; see [T-049](T-049-ci-migrate-role-and-ssm-
 
 ## Acceptance criteria
 
-- [ ] PRs never migrate; a master push migrates only after Jenkins is green.
-- [ ] Proven live with the next real migration, or with a no-op run (`cv-redeploy migrate` reports "up to date") on a docs-only master push.
-- [ ] The ordering rule is in both repos' CLAUDE.md.
+- [x] PRs never migrate; a master push migrates only after Jenkins is green.
+- [x] Proven live with the next real migration, or with a no-op run (`cv-redeploy migrate` reports "up to date") on a docs-only master push.
+- [x] The ordering rule is in both repos' CLAUDE.md.
