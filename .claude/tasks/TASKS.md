@@ -18,14 +18,13 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - **[T-502](T-502-final-docs-architecture-diagram.md)** (final docs + diagram; its drift list was narrowed by T-501); decide [T-052](T-052-observability-scope-decision.md) (observability scope) before it.
 
 **Anytime**
-- [T-050](T-050-ecr-sha-tag-retention.md) (ECR sha-tag retention). Small.
 - [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), from **2026-10-12**. Small.
 
 **Human**
 - **By 2026-10-30:** create a replacement CI GitHub token for Jenkins ([T-040](T-040-jenkins-github-pat-expiry.md)). The current one expires **2026-11-06**.
 - Paid plan since 2026-09-29; all five credit activities done (grant $200). **$120.75** left on 2026-10-01; the ~$0.69/day rate (2026-09-28) predates the EIP release and Graviton, so the runway is re-derived in T-051 (credits expire 2027-07-12). Charges past them bill the card; the budget alarms are the guard.
 
-Recent close-outs: 2026-10-07 **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
+Recent close-outs: 2026-10-07 T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
 
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): T-004 decided **not** to rotate `db_password`, so this has no trigger today. Claim it **before** anyone changes `db_password` for any reason.
@@ -122,16 +121,16 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
-| [T-050](T-050-ecr-sha-tag-retention.md) | ECR keeps every `:<sha>` deploy image forever — add a retention rule | cv-infra | in_review | tech-product-owner | T-112 ✔, T-203 ✔ | [cv-infra#41](https://github.com/erfeamor/cv-infra/pull/41) |
 | [T-051](T-051-cost-remeasure-after-trims.md) | Re-measure the run rate after the EIP release + Graviton — **not before Friday 2026-10-09** | cv-project (meta) | todo |  | — |  |
 | [T-052](T-052-observability-scope-decision.md) | Decide the observability scope (metrics are local-only; the logs pipeline is still "pending") | cv-project (meta) | todo |  | — |  |
 | [T-053](T-053-cv-infra-cost-table-refresh.md) | cv-infra CLAUDE.md cost table from T-051's measurement | cv-infra | todo |  | T-051 |  |
 
 <details>
-<summary>Infra & ops — 47 done</summary>
+<summary>Infra & ops — 48 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
+| [T-050](T-050-ecr-sha-tag-retention.md) | ECR keeps every `:<sha>` deploy image forever — add a retention rule | cv-infra | done | tech-product-owner | T-112 ✔, T-203 ✔ | [cv-infra#41](https://github.com/erfeamor/cv-infra/pull/41) |
 | [T-049](T-049-ci-migrate-role-and-ssm-document.md) | SSM document `cv-redeploy-migrate` + a master-only OIDC role for cv-database (for T-158) | cv-infra | done | tech-product-owner | T-047 ✔ | [cv-infra#40](https://github.com/erfeamor/cv-infra/pull/40) |
 | [T-001](T-001-selfhost-mysql-followups.md) | Backup: replace the managed backups lost when MySQL left RDS | cv-infra | done | infrastructure-engineer | — | [#15](https://github.com/erfeamor/cv-infra/pull/15) |
 | [T-002](T-002-jenkins-on-drone-host.md) | Host Jenkins on the existing Drone CI instance | cv-infra | done | infrastructure-engineer | — | [#11](https://github.com/erfeamor/cv-infra/pull/11) |

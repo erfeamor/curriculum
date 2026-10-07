@@ -2,7 +2,7 @@
 id: T-050
 title: "cv-infra: ECR keeps every `:<sha>` deploy image forever — add a retention rule for sha tags"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: fix/ecr-sha-tag-retention
 pr: https://github.com/erfeamor/cv-infra/pull/41
@@ -10,11 +10,11 @@ depends_on: [T-112, T-203]
 risk: low
 security_review: false
 checkpoint:
-  stage: h2   # applied from the branch 2026-10-07; preview 0 expiring; every tagged index resolves both arches
+  stage: done   # merged 3f8d80d (squash of cv-infra#41), 2026-10-07 — applied from the branch first; H2 accepted; master plans No changes
   repo: cv-infra
   branch: fix/ecr-sha-tag-retention
   worktree: none
-  commit: bed7dd7
+  commit: 3f8d80d
   pr: https://github.com/erfeamor/cv-infra/pull/41
   developer: infrastructure-engineer
   reviewers: [code-review]
@@ -77,4 +77,4 @@ Found at T-112/T-203's review (non-blocking), filed by the 2026-10-06 board revi
 
 ## Acceptance criteria
 
-- [ ] Applied; `aws ecr get-lifecycle-policy-preview` shows only old sha tags would expire, never `:latest`.
+- [x] Applied; `aws ecr get-lifecycle-policy-preview` shows only old sha tags would expire, never `:latest`.
