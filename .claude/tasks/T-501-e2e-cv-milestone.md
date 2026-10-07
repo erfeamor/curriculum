@@ -2,12 +2,45 @@
 id: T-501
 title: End-to-end verification of the complete CV flow
 repo: cv-project (meta)
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: chore/m2-e2e-verification
 pr:
 depends_on: [T-101, T-102, T-103, T-104, T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-043, T-403, T-404, T-503]
+risk: normal   # verification + docs; no code, but it gates the milestone
+security_review: false
+checkpoint:
+  stage: implement   # H1 2026-10-07: verification (local from scratch + AWS), then T-015's doc claims
+  repo: cv-project (meta)
+  branch: chore/m2-e2e-verification
+  worktree: none
+  commit:
+  pr:
+  developer: tech-product-owner   # driver-run verification + docs (no developer spawn)
+  reviewers: [code-review]
+  risk: normal
+  security_review: false
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: local dev stack (docker-compose.dev.yml) + live AWS
+  updated: 2026-10-07T12:00:00+02:00
+  budget:
+    turns: 0
+    total_tokens: 0
+    subagent_tokens: 0
+    spawns: 0
+    status: ok   # human-reported /usage under ~40%
+    checked: 2026-10-07T12:00:00+02:00
 ---
+
+## H1 — decided by the human, 2026-10-07
+
+1. **Doc scope: T-015's claims only.** Fix the roadmap/backlog lines that state the wrong thing and the request-flow's deployed-vs-target wording, each verified against the account. The `t4g`/OIDC/doorbell refresh and the Mermaid diagram stay in [T-502](T-502-final-docs-architecture-diagram.md).
+2. **Local stack from scratch with `down -v`**: nothing authored locally to keep (Grafana's UI dashboards included).
+3. **Step 4 by HTTP:** the driver runs the three frontends locally and checks the served pages and the admin-edit → BFF round trip with curl; the human has eyeballed production (admin + React) and checks the vanilla root. No QA spawn.
+4. **Budget:** `/usage` under ~40%: the whole task this window.
 
 > **Production content is now [T-503](T-503-production-cv-content.md)** (filed 2026-10-06, a dependency; **done 2026-10-06: the human's own CV is live, person 1**): found 2026-10-04 at T-404's live check, production's only person is T-018's durability probe ("T018 Survival Probe"), and both public sites render it. T-503 is the human entering the real CV through `/admin/` and removing the probe rows; step 6 below verifies against that content.
 

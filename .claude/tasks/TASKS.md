@@ -32,7 +32,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | todo | | T-101…T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-403, T-404 (T-408, T-409 via T-401, T-402) | |
+| [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | in_progress | tech-product-owner | T-101…T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-043, T-403, T-404, T-503 (T-408, T-409 via T-401, T-402) | |
 | [T-502](T-502-final-docs-architecture-diagram.md) | Final documentation and architecture diagram (the roadmap's last item) | cv-project (meta) | todo |  | T-501, T-052 |  |
 
 <details>
