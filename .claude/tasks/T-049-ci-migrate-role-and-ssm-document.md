@@ -10,7 +10,7 @@ depends_on: [T-047]   # reuses T-045's OIDC provider and T-047's role/document p
 risk: normal   # IAM + one SSM document; no host or edge change
 security_review: true   # a new trust relationship and a remote-execution path to production — adapter §5
 checkpoint:
-  stage: apply   # review clean; CHECKPOINT before the apply (/usage 40–75%). Next: apply from the branch, set cv-database AWS_DEPLOY_ROLE_ARN, H2, merge, then T-158
+  stage: h2   # applied from the branch 2026-10-07; simulator + No changes; variable set; awaiting H2
   repo: cv-infra
   branch: feat/ci-migrate-role
   worktree: none
@@ -31,7 +31,7 @@ checkpoint:
     total_tokens: 0
     subagent_tokens: 70318
     spawns: 1   # infrastructure-engineer (fresh)
-    status: ok   # human-reported /usage 40–75%: implement + review, checkpoint before the apply
+    status: ok   # 2026-10-07: human-reported /usage under ~40% (new window)
     checked: 2026-10-06T23:45:00+02:00
 ---
 
@@ -41,6 +41,13 @@ checkpoint:
 2. **Mode:** both implemented and reviewed in parallel against pinned names (document `cv-redeploy-migrate`, role `cv-project-database-migrate`, repo variable `AWS_DEPLOY_ROLE_ARN`, target `tag:Name=cv-project-domain-service`); then strictly serial: apply T-049 → set the variable on cv-database → merge T-049 → merge T-158.
 3. **Ordering (schema first, then the domain change):** a documented rule in both repos' CLAUDE.md; no cross-repo guard.
 4. **Budget:** `/usage` 40–75% → implement and review both, **checkpoint before the apply**.
+
+## Live — 2026-10-07, applied from the branch (cv-infra#40 @ 63f5e1b)
+
+- State backed up (`2026-10-07/pre-t049.tfstate`, 0600). The **unscoped** plan: exactly 3 to add (document, role, inline policy), nothing else; the saved plan applied: **3 added, 0 changed, 0 destroyed**.
+- **IAM simulator** (role `cv-project-database-migrate`): SendCommand on `cv-redeploy-migrate` **allowed**; on `cv-redeploy-domain-service` and `AWS-RunShellScript` **implicitDeny**; on the app host with `Name=cv-project-domain-service` **allowed**, the CI host (`Name=cv-project-drone`) **implicitDeny**; `ecr:GetAuthorizationToken` and `ssm:GetParameter` **implicitDeny**; `ListCommandInvocations` allowed. Trust read back: `StringEquals` aud + sub `repo:erfeamor/cv-database:ref:refs/heads/master`.
+- The branch plans **No changes**. cv-database repo variable **`AWS_DEPLOY_ROLE_ARN`** set to the role ARN (08:21Z).
+- The first real `SendCommand` through the role is T-158's merge run.
 
 ## Implement + review — 2026-10-06 (63f5e1b, cv-infra#40)
 
