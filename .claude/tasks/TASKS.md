@@ -122,7 +122,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
-| [T-050](T-050-ecr-sha-tag-retention.md) | ECR keeps every `:<sha>` deploy image forever — add a retention rule | cv-infra | todo |  | T-112 ✔, T-203 ✔ |  |
+| [T-050](T-050-ecr-sha-tag-retention.md) | ECR keeps every `:<sha>` deploy image forever — add a retention rule | cv-infra | in_progress | tech-product-owner | T-112 ✔, T-203 ✔ |  |
 | [T-051](T-051-cost-remeasure-after-trims.md) | Re-measure the run rate after the EIP release + Graviton — **not before Friday 2026-10-09** | cv-project (meta) | todo |  | — |  |
 | [T-052](T-052-observability-scope-decision.md) | Decide the observability scope (metrics are local-only; the logs pipeline is still "pending") | cv-project (meta) | todo |  | — |  |
 | [T-053](T-053-cv-infra-cost-table-refresh.md) | cv-infra CLAUDE.md cost table from T-051's measurement | cv-infra | todo |  | T-051 |  |
