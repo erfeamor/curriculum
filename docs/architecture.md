@@ -26,6 +26,8 @@ cv-admin-react ─────→ CloudFront ───────────�
                                         /api/*
 ```
 
+**Deployed state (verified against the account 2026-10-07, T-501):** every path above is live. One CloudFront distribution serves `cv-public-vanilla` at its root, `cv-admin-react` under `/admin/`, the BFF under `/bff/*` and the domain service under `/api/*`; `cv-public-react` runs on Vercel and calls the BFF through that same CloudFront domain, server-side only. The public reads (`/bff/api/v1/people/1` and `.../cv`) answer anonymously; the domain service's `/api/*` needs a token.
+
 The two edge prefixes are the routing contract (`docs/api-contract.md` § BFF, amended 2026-08-13 by T-013). `/bff/*` reaches the BFF on :3000; `/api/*` reaches the domain service on :8080. They are distinct because both services would otherwise claim `GET /api/v1/people/:id`. The prefix is carried through to the origin, not stripped, so the BFF serves `/bff/api/v1/...` in every environment.
 
 `cv-admin-react` talks directly to `cv-domain-service`, bypassing the BFF, since the admin UI needs full CRUD rather than the aggregated/normalized shape the public site consumes. `cv-public-react` consumes the same BFF aggregate as `cv-public-vanilla`; it renders via ISR, so at runtime it only ever calls the BFF and is otherwise decoupled from `cv-domain-service`.
@@ -35,7 +37,7 @@ The BFF's public read routes (`GET /bff/api/v1/people/:id` and `.../cv`) serve a
 ## Cross-cutting concerns
 
 - **Auth**: AWS Cognito issues JWTs. `cv-domain-service` and `cv-bff-node` both validate tokens independently; `cv-admin-react` is the only client that authenticates interactively.
-- **Observability**: metrics (Prometheus/Grafana via Micrometer / prom-client) and logs (MongoDB Atlas or CloudWatch) are deliberately separate pipelines, not a unified stack. See `cv-observability`.
-- **Infra**: one `t3.micro` runs `cv-domain-service` beside a self-hosted MySQL 8.4 container (no RDS), with S3+CloudFront, Cognito, CloudWatch and SSM Parameter Store; a separate `t3.small` CI host runs Jenkins and Drone and is started only for builds. The account is on AWS's **Paid plan** (since 2026-09-29, upgraded from the post-July-2025 Free Tier). The remaining credits pay first, then the card; there's no free EC2 allowance, so every instance-hour bills. The cost model is T-020's, the endgame T-012's. See `cv-infra`.
+- **Observability** *(target design; only partly deployed)*: metrics (Prometheus/Grafana via Micrometer / prom-client) and logs (MongoDB Atlas or CloudWatch) are deliberately separate pipelines, not a unified stack. See `cv-observability`. **Deployed state (2026-10-07):** Prometheus and Grafana run only in the local dev stack and nothing scrapes the deployed services. CloudWatch log groups exist for both services (`cv-infra/observability.tf`), but no container ships logs to them, so no application logs pipeline is live; only the CI host's doorbell and reaper Lambdas write to CloudWatch. Whether that changes is [T-052](../.claude/tasks/T-052-observability-scope-decision.md).
+- **Infra**: one `t4g.micro` (Graviton) app host runs `cv-domain-service` and `cv-bff-node` beside a self-hosted MySQL 8.4 container (no RDS), with S3+CloudFront, Cognito, CloudWatch and SSM Parameter Store; a separate `t3.small` CI host runs Jenkins and Drone and is started only for builds. The account is on AWS's **Paid plan** (since 2026-09-29, upgraded from the post-July-2025 Free Tier). The remaining credits pay first, then the card; there's no free EC2 allowance, so every instance-hour bills. The cost model is T-020's, the endgame T-012's. See `cv-infra`.
 
 See [../diagrams/architecture.mmd](../diagrams/architecture.mmd) for a renderable diagram.

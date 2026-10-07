@@ -15,10 +15,14 @@ security_review: false
 
 The README roadmap's last open item: "Final documentation and architecture diagram". Filed by the 2026-10-06 board review, **after** [T-501](T-501-e2e-cv-milestone.md) (which only ticks the domain-model item), so the docs describe the verified system.
 
-## Known drift to fix (2026-10-06)
+## Known drift to fix (narrowed 2026-10-07 by T-501)
 
-- `README.md` / `README.es.md` roadmap: "Java API … remaining entities pending", "React Admin (person CRUD)", "Next.js … (person view)": all four sections are done everywhere. CI count "GitHub Actions ×3": now ×4 (cv-domain-service's deploy workflow).
-- `docs/architecture.md`: "one `t3.micro`" → `t4g.micro` (Graviton, arm64); missing the BFF's Cognito service token (T-043), domain-service write scoping (T-116), optimistic locking (T-113), the S3 bootstrap + `cv-redeploy` (T-044), automated deploys via GitHub OIDC + per-service SSM documents (T-047/T-112/T-203), the CI host's DNS name + doorbell/reaper (T-034/T-041/T-042/T-048), the observability scope ([T-052](T-052-observability-scope-decision.md)).
+[T-501](T-501-e2e-cv-milestone.md)'s PR already corrected the README roadmap and backlog (EN + ES), the CI/CD table (CI and deploy per repo, GitHub Actions ×5), the "Cloud Infrastructure" services list (`t4g.micro` app host, `t3.small` CI host, Paid plan, Vercel, log groups unused), and `docs/architecture.md`'s deployed-state note, observability and Infra bullets. What's left:
+
+- `docs/architecture.md` still lacks: the BFF's Cognito service token (T-043), machine tokens read-only (T-116), optimistic locking (T-113), the S3 bootstrap + `cv-redeploy` (T-044), the deploy and migrate flows via GitHub OIDC + per-service SSM documents (T-047/T-049/T-112/T-158/T-203), the CI host's DNS name + doorbell/reaper (T-034/T-041/T-042/T-048), the observability decision ([T-052](T-052-observability-scope-decision.md)).
+- `diagrams/architecture.mmd` (linked from `architecture.md`) predates all of the above; the new Mermaid diagram replaces or updates it.
+- README design-spec sections still written as current (EN + ES): § Logs lists "MongoDB Atlas (free tier)" as the log store (not deployed), and § Auth says "Cognito falls within the **AWS Free Tier**" (the account is on the Paid plan; user MAUs are in Cognito's own free allowance, but the BFF's machine tokens bill, T-043). Found at T-501's review round 2.
+- Per-repo README pointers that contradict the live system (not yet audited).
 
 ## Scope
 

@@ -1,16 +1,21 @@
-## Now / Next / Later — refreshed 2026-10-07 (T-049 + T-158 merged: production migrations by CI; T-503 done; next T-501)
+# Board
+
+Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/api-contract.md) · History: [HISTORY.md](HISTORY.md)
+
+One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
+
+## Now / Next / Later — refreshed 2026-10-07 (**milestone M2 closed**: T-501 verified the CV flow end to end, locally and in AWS; next the cost re-measure and the final docs)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
-- **[T-501](T-501-e2e-cv-milestone.md)**: milestone M2 (~1 window, absorbs T-015). Nothing blocks it since T-503 put the real CV in production.
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**).
 
 **Next**
 - **[T-051](T-051-cost-remeasure-after-trims.md)** cost re-measure, **not before Friday 2026-10-09** (a few full days on the trimmed stack), then [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table).
-- **[T-502](T-502-final-docs-architecture-diagram.md)** (final docs + diagram) after T-501; decide [T-052](T-052-observability-scope-decision.md) (observability scope) before it.
+- **[T-502](T-502-final-docs-architecture-diagram.md)** (final docs + diagram; its drift list was narrowed by T-501); decide [T-052](T-052-observability-scope-decision.md) (observability scope) before it.
 
 **Anytime**
 - [T-050](T-050-ecr-sha-tag-retention.md) (ECR sha-tag retention). Small.
@@ -20,7 +25,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - **By 2026-10-30:** create a replacement CI GitHub token for Jenkins ([T-040](T-040-jenkins-github-pat-expiry.md)). The current one expires **2026-11-06**.
 - Paid plan since 2026-09-29; all five credit activities done (grant $200). **$120.75** left on 2026-10-01; the ~$0.69/day rate (2026-09-28) predates the EIP release and Graviton, so the runway is re-derived in T-051 (credits expire 2027-07-12). Charges past them bill the card; the budget alarms are the guard.
 
-Recent close-outs: 2026-10-07 **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
+Recent close-outs: 2026-10-07 **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
 
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): T-004 decided **not** to rotate `db_password`, so this has no trigger today. Claim it **before** anyone changes `db_password` for any reason.
@@ -32,14 +37,14 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | todo | | T-101…T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-403, T-404 (T-408, T-409 via T-401, T-402) | |
 | [T-502](T-502-final-docs-architecture-diagram.md) | Final documentation and architecture diagram (the roadmap's last item) | cv-project (meta) | todo |  | T-501, T-052 |  |
 
 <details>
-<summary>M2 — 16 done</summary>
+<summary>M2 — 17 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
+| [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | done | tech-product-owner | T-101…T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-043, T-403, T-404, T-503 (T-408, T-409 via T-401, T-402) | [#116](https://github.com/erfeamor/curriculum/pull/116) |
 | [T-503](T-503-production-cv-content.md) | Production CV content: replace T-018's probe rows with a real CV (human, via `/admin/`) | cv-project (meta) | done | tech-product-owner | — | none |
 | [T-101](T-101-experience-resource.md) | Experience resource in the domain API | cv-domain-service | done | backend-developer | — | [#3](https://github.com/erfeamor/cv-domain-service/pull/3) |
 | [T-102](T-102-education-resource.md) | Education resource in the domain API | cv-domain-service | done | backend-developer | — | [#5](https://github.com/erfeamor/cv-domain-service/pull/5) |

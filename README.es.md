@@ -162,42 +162,35 @@ Cada repositorio implementa TDD desde el inicio:
 
 Cada repositorio usa un pipeline distinto para demostrar dominio de varias herramientas:
 
-| Repositorio | Pipeline |
-|-------------|----------|
-| cv-domain-service | Jenkins |
-| cv-bff-node | GitHub Actions |
-| cv-admin-react | DroneCI |
-| cv-public-vanilla | GitHub Actions |
-| cv-public-react | Vercel |
-| cv-database | Jenkins |
-| cv-observability | GitHub Actions |
+| Repositorio | CI | Deploy (desde `master`) |
+|-------------|----------|----------|
+| cv-domain-service | Jenkins | GitHub Actions (`deploy.yml`): con Jenkins en verde, imagen multi-arch → ECR → SSM `cv-redeploy-domain-service` |
+| cv-bff-node | GitHub Actions | el mismo workflow: imagen multi-arch → ECR → SSM `cv-redeploy-bff-node` |
+| cv-admin-react | DroneCI | Drone: build → S3 `admin/` → invalidación de CloudFront |
+| cv-public-vanilla | GitHub Actions | el mismo workflow (OIDC): build → raíz de S3 → invalidación de CloudFront |
+| cv-public-react | Vercel | Vercel (ISR desde el BFF desplegado) |
+| cv-database | Jenkins | GitHub Actions (`migrate.yml`), solo cuando un push cambia `sql/migrations/**`: con Jenkins en verde, SSM `cv-redeploy-migrate` ejecuta Flyway en producción |
+| cv-observability | GitHub Actions | — (solo stack local de desarrollo) |
 
-Los pipelines incluyen:
-- Linter
-- Tests (TDD)
-- Build
-- Docker image
-- Deploy a AWS (dev/prod)
+La columna de CI ejecuta lint, tests (TDD) y build; la de cv-observability solo valida su fichero compose y la configuración de Prometheus. Los deploys de GitHub Actions asumen roles OIDC limitados a master y no guardan ninguna credencial. El deploy del admin desde Drone es la excepción: usa una clave de acceso IAM estática guardada en Drone, en el host de CI.
 
 ---
 
-## ☁️ Infraestructura Cloud (AWS Free Tier)
+## ☁️ Infraestructura Cloud (AWS, eu-west-3)
 
-El despliegue se realiza en AWS aprovechando al máximo el free tier:
+Desplegada con Terraform. La cuenta está en el plan Paid de AWS desde el 2026-09-29 y se paga primero con créditos (modelo de costes en `cv-infra`). Verificado contra la cuenta el 2026-10-07:
 
 ### Servicios utilizados
-- **EC2 t2.micro/t3.micro**  
-  Para Java, Node y Prometheus/Grafana (si se desea).
+- **Host de aplicación EC2 `t4g.micro` (Graviton)**  
+  Ejecuta el servicio de dominio (Java) y el BFF (Node) como contenedores. Un host de CI `t3.small` aparte ejecuta Jenkins y Drone y solo se arranca para los builds.
 - **MySQL 8.4 autoalojado (contenedor en la EC2 del servicio de dominio)**  
   Base de datos principal — corre junto a la app en lugar de RDS, lo que evita el coste de la instancia RDS y el cargo de Extended Support de MySQL 8.0.
 - **S3 + CloudFront**  
-  Hosting del frontend React y Vanilla.
+  Hosting del admin y del sitio vanilla; la misma distribución da acceso al BFF (`/bff/*`) y al servicio de dominio (`/api/*`). El sitio Next.js está en Vercel.
 - **AWS Cognito**  
   Autenticación.
 - **CloudWatch Logs**  
-  Logs básicos.
-- **MongoDB Atlas Free Tier**  
-  Logs/eventos NoSQL.
+  Existen grupos de logs para ambos servicios, pero ningún contenedor les envía logs todavía (solo las Lambdas doorbell y reaper del host de CI escriben logs allí). MongoDB Atlas es una opción de diseño, no desplegada, y Prometheus/Grafana solo corren en el stack local de desarrollo (decisión de alcance: T-052).
 - **SSM Parameter Store**  
   Gestión de secretos.
 
@@ -257,22 +250,20 @@ Cada repo de producto también incluye su propio `.devcontainer/devcontainer.jso
 
 - [x] Definir modelo de datos inicial (person/experience/education/skill/project)
 - [x] Crear migraciones iniciales
-- [x] Implementar API Java con TDD (recurso person; resto de entidades pendiente)
+- [x] Implementar API Java con TDD (person + experience, education, skills, projects; bloqueo optimista con `version` / 409)
 - [x] Integrar Cognito (user pool + Hosted UI activos en eu-west-3; validación JWT en Java/BFF; flujo Hosted UI con PKCE implementado en el admin)
-- [x] Crear BFF Node
-- [x] Crear React Admin (CRUD de person)
-- [x] Crear Vanilla Landing
-- [x] Crear el sitio público optimizado con Next.js (vista de persona; ISR desde el BFF)
-- [x] Configurar observabilidad (métricas; pipeline de logging estructurado pendiente)
-- [x] Desplegar infraestructura AWS — Terraform aplicado en eu-west-3 (EC2 servicio de dominio con un contenedor MySQL 8.4 autoalojado, frontends en S3+CloudFront, Cognito, ECR, servidor Drone CI)
-- [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×3, DroneCI ×1, Vercel ×1)
+- [x] Crear BFF Node (desplegado tras CloudFront `/bff/*`; agregado público `/cv`; lee el servicio de dominio con un token de servicio de Cognito)
+- [x] Crear React Admin (CRUD de la persona y de las cuatro secciones; desplegado en `/admin/`)
+- [x] Crear Vanilla Landing (CV completo; desplegado en la raíz de CloudFront)
+- [x] Crear el sitio público optimizado con Next.js (CV completo; ISR desde el BFF desplegado; en Vercel)
+- [x] Configurar observabilidad (métricas solo en el stack local de desarrollo; aún sin métricas ni pipeline de logs en la nube, decisión de alcance T-052)
+- [x] Desplegar infraestructura AWS — Terraform aplicado en eu-west-3 (un host EC2 de aplicación con el servicio de dominio y el BFF junto a un contenedor MySQL 8.4 autoalojado, S3+CloudFront para el admin y el sitio vanilla, Cognito, ECR, un host de CI bajo demanda para Jenkins y Drone)
+- [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); el servicio de dominio y el BFF se despliegan solos en cada push a master, cv-database migra producción cuando llega una migración a master, el admin se despliega desde Drone y el sitio vanilla desde GitHub Actions
 - [ ] Documentación final y diagrama de arquitectura
 
 ### Backlog
 
-- Stages de deploy automatizado del backend en CI (EC2 aprovisionada y activa; los frontends despliegan vía DroneCI, los servicios backend aún se despliegan manualmente)
-- Backups gestionados para el MySQL autoalojado (`mysqldump` nocturno → S3, en sustitución de los backups automáticos de RDS)
-- Resto de entidades de dominio (experience, education, skill, project) en API/BFF/frontends
-- Logging JSON estructurado hacia MongoDB Atlas o CloudWatch (ver `cv-observability/docs/logging.md`)
+- Logging JSON estructurado hacia MongoDB Atlas o CloudWatch (ver `cv-observability/docs/logging.md`); si se hace o no es T-052
+- ECR conserva todas las imágenes de deploy `:<sha>`; la regla de retención es T-050
 - Dashboard inicial de Grafana
 - Animaciones / Web Components del sitio público

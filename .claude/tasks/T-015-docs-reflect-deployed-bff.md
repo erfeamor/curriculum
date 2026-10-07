@@ -41,10 +41,10 @@ This is the close-out task: it lands **after** T-014 and T-403 make the claims t
 
 ## Acceptance criteria
 
-- [ ] Every claim in the table above matches the live account at the time of the PR.
-- [ ] Anything deferred out of the T-013…T-403 chain is named in the backlog with its task ID, not dropped.
-- [ ] `docs/architecture.md` distinguishes target design from deployed state where it matters.
-- [ ] No new claim is added that was not verified against the account.
+- [x] Every claim in the table above matches the live account at the time of the PR.
+- [x] Anything deferred out of the T-013…T-403 chain is named in the backlog with its task ID, not dropped.
+- [x] `docs/architecture.md` distinguishes target design from deployed state where it matters.
+- [x] No new claim is added that was not verified against the account.
 
 ## Definition of done
 

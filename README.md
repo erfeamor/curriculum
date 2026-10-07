@@ -162,42 +162,35 @@ Every repository implements TDD from the start:
 
 Each repository uses a different pipeline to demonstrate mastery of multiple tools:
 
-| Repository | Pipeline |
-|-------------|----------|
-| cv-domain-service | Jenkins |
-| cv-bff-node | GitHub Actions |
-| cv-admin-react | DroneCI |
-| cv-public-vanilla | GitHub Actions |
-| cv-public-react | Vercel |
-| cv-database | Jenkins |
-| cv-observability | GitHub Actions |
+| Repository | CI | Deploy (from `master`) |
+|-------------|----------|----------|
+| cv-domain-service | Jenkins | GitHub Actions (`deploy.yml`): once Jenkins is green, multi-arch image → ECR → SSM `cv-redeploy-domain-service` |
+| cv-bff-node | GitHub Actions | the same workflow: multi-arch image → ECR → SSM `cv-redeploy-bff-node` |
+| cv-admin-react | DroneCI | Drone: build → S3 `admin/` → CloudFront invalidation |
+| cv-public-vanilla | GitHub Actions | the same workflow (OIDC): build → S3 root → CloudFront invalidation |
+| cv-public-react | Vercel | Vercel (ISR from the deployed BFF) |
+| cv-database | Jenkins | GitHub Actions (`migrate.yml`), only when a push changes `sql/migrations/**`: once Jenkins is green, SSM `cv-redeploy-migrate` runs Flyway in production |
+| cv-observability | GitHub Actions | — (local dev stack only) |
 
-The pipelines include:
-- Linter
-- Tests (TDD)
-- Build
-- Docker image
-- Deploy to AWS (dev/prod)
+The CI column runs lint, tests (TDD) and the build; cv-observability's only validates its compose file and Prometheus config. The GitHub Actions deploys assume master-only OIDC roles and hold no stored credential. The admin's Drone deploy is the exception: it uses a static IAM access key kept in Drone on the CI host.
 
 ---
 
-## ☁️ Cloud Infrastructure (AWS Free Tier)
+## ☁️ Cloud Infrastructure (AWS, eu-west-3)
 
-Deployment is done on AWS, making the most of the free tier:
+Deployed with Terraform. The account is on AWS's Paid plan since 2026-09-29, paid from credits first (cost model in `cv-infra`). Verified against the account on 2026-10-07:
 
 ### Services used
-- **EC2 t2.micro/t3.micro**
-  For Java, Node, and Prometheus/Grafana (if desired).
+- **EC2 `t4g.micro` (Graviton) app host**
+  Runs the domain service (Java) and the BFF (Node) as containers. A separate `t3.small` CI host runs Jenkins and Drone and is started only for builds.
 - **Self-hosted MySQL 8.4 (container on the domain-service EC2)**
   Main database — runs alongside the app instead of RDS, which avoids the RDS instance cost and the MySQL 8.0 Extended Support charge.
 - **S3 + CloudFront**
-  Hosting for the React and Vanilla frontends.
+  Hosting for the admin and the vanilla site; the same distribution fronts the BFF (`/bff/*`) and the domain service (`/api/*`). The Next.js site is on Vercel.
 - **AWS Cognito**
   Authentication.
 - **CloudWatch Logs**
-  Basic logging.
-- **MongoDB Atlas Free Tier**
-  NoSQL logs/events.
+  Log groups exist for both services, but no container ships logs to them yet (only the CI host's doorbell and reaper Lambdas log there). MongoDB Atlas is a design option, not deployed, and Prometheus/Grafana run only in the local dev stack (scope decision: T-052).
 - **SSM Parameter Store**
   Secrets management.
 
@@ -257,22 +250,20 @@ Each product repo also ships its own `.devcontainer/devcontainer.json` for worki
 
 - [x] Define the initial data model (person/experience/education/skill/project)
 - [x] Create initial migrations
-- [x] Implement the Java API with TDD (person resource; remaining entities pending)
+- [x] Implement the Java API with TDD (person + experience, education, skills, projects; optimistic locking with `version` / 409)
 - [x] Integrate Cognito (user pool + Hosted UI live in eu-west-3; JWT validation in Java/BFF; admin PKCE Hosted UI flow implemented)
-- [x] Create the Node BFF
-- [x] Create React Admin (person CRUD)
-- [x] Create the Vanilla Landing page
-- [x] Create the Next.js optimized public site (person view; ISR from the BFF)
-- [x] Configure observability (metrics; structured-logging pipeline pending)
-- [x] Deploy AWS infrastructure — Terraform applied in eu-west-3 (EC2 domain service with a self-hosted MySQL 8.4 container, S3+CloudFront frontends, Cognito, ECR, Drone CI server)
-- [x] Configure CI/CD pipelines (Jenkins ×2, GitHub Actions ×3, DroneCI ×1, Vercel ×1)
+- [x] Create the Node BFF (deployed behind CloudFront `/bff/*`; public aggregate `/cv`; reads the domain service with a Cognito service token)
+- [x] Create React Admin (CRUD for the person and all four sections; deployed at `/admin/`)
+- [x] Create the Vanilla Landing page (full CV; deployed at the CloudFront root)
+- [x] Create the Next.js optimized public site (full CV; ISR from the deployed BFF; on Vercel)
+- [x] Configure observability (metrics in the local dev stack only; no cloud metrics or logs pipeline yet, scope decision T-052)
+- [x] Deploy AWS infrastructure — Terraform applied in eu-west-3 (an EC2 app host running the domain service and the BFF beside a self-hosted MySQL 8.4 container, S3+CloudFront for the admin and the vanilla site, Cognito, ECR, an on-demand CI host for Jenkins and Drone)
+- [x] Configure CI/CD pipelines (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); the domain service and the BFF deploy themselves on a master push, cv-database migrates production when a migration lands on master, the admin deploys from Drone and the vanilla site from GitHub Actions
 - [ ] Final documentation and architecture diagram
 
 ### Backlog
 
-- Automated backend deploy stages in CI (EC2 provisioned and live; frontends deploy via DroneCI, backend services still deployed manually)
-- Managed backups for the self-hosted MySQL (nightly `mysqldump` → S3, replacing RDS's automated backups)
-- Remaining domain entities (experience, education, skill, project) across API/BFF/frontends
-- Structured JSON logging to MongoDB Atlas or CloudWatch (see `cv-observability/docs/logging.md`)
+- Structured JSON logging to MongoDB Atlas or CloudWatch (see `cv-observability/docs/logging.md`); whether to do it at all is T-052
+- ECR keeps every `:<sha>` deploy image; a retention rule is T-050
 - Grafana starter dashboard
 - Vanilla-site animations / Web Components
