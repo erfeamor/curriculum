@@ -21,6 +21,7 @@ The README roadmap's last open item: "Final documentation and architecture diagr
 
 - `docs/architecture.md` still lacks: the BFF's Cognito service token (T-043), machine tokens read-only (T-116), optimistic locking (T-113), the S3 bootstrap + `cv-redeploy` (T-044), the deploy and migrate flows via GitHub OIDC + per-service SSM documents (T-047/T-049/T-112/T-158/T-203), the CI host's DNS name + doorbell/reaper (T-034/T-041/T-042/T-048), the observability decision ([T-052](T-052-observability-scope-decision.md)).
 - `diagrams/architecture.mmd` (linked from `architecture.md`) predates all of the above; the new Mermaid diagram replaces or updates it.
+- README design-spec sections still written as current (EN + ES): § Logs lists "MongoDB Atlas (free tier)" as the log store (not deployed), and § Auth says "Cognito falls within the **AWS Free Tier**" (the account is on the Paid plan; user MAUs are in Cognito's own free allowance, but the BFF's machine tokens bill, T-043). Found at T-501's review round 2.
 - Per-repo README pointers that contradict the live system (not yet audited).
 
 ## Scope

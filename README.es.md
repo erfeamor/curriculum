@@ -162,17 +162,17 @@ Cada repositorio implementa TDD desde el inicio:
 
 Cada repositorio usa un pipeline distinto para demostrar dominio de varias herramientas:
 
-| Repositorio | CI (tests) | Deploy en cada push a `master` |
+| Repositorio | CI | Deploy (desde `master`) |
 |-------------|----------|----------|
 | cv-domain-service | Jenkins | GitHub Actions (`deploy.yml`): con Jenkins en verde, imagen multi-arch → ECR → SSM `cv-redeploy-domain-service` |
-| cv-bff-node | GitHub Actions | el mismo workflow: imagen → ECR → SSM `cv-redeploy-bff-node` |
+| cv-bff-node | GitHub Actions | el mismo workflow: imagen multi-arch → ECR → SSM `cv-redeploy-bff-node` |
 | cv-admin-react | DroneCI | Drone: build → S3 `admin/` → invalidación de CloudFront |
 | cv-public-vanilla | GitHub Actions | el mismo workflow (OIDC): build → raíz de S3 → invalidación de CloudFront |
 | cv-public-react | Vercel | Vercel (ISR desde el BFF desplegado) |
-| cv-database | Jenkins | GitHub Actions (`migrate.yml`): con Jenkins en verde, SSM `cv-redeploy-migrate` ejecuta Flyway en producción |
+| cv-database | Jenkins | GitHub Actions (`migrate.yml`), solo cuando un push cambia `sql/migrations/**`: con Jenkins en verde, SSM `cv-redeploy-migrate` ejecuta Flyway en producción |
 | cv-observability | GitHub Actions | — (solo stack local de desarrollo) |
 
-La columna de CI ejecuta lint, tests (TDD) y build. Los deploys de GitHub Actions asumen roles OIDC limitados a master; ninguna credencial de deploy vive en el host de CI.
+La columna de CI ejecuta lint, tests (TDD) y build; la de cv-observability solo valida su fichero compose y la configuración de Prometheus. Los deploys de GitHub Actions asumen roles OIDC limitados a master y no guardan ninguna credencial. El deploy del admin desde Drone es la excepción: usa una clave de acceso IAM estática guardada en Drone, en el host de CI.
 
 ---
 
@@ -190,7 +190,7 @@ Desplegada con Terraform. La cuenta está en el plan Paid de AWS desde el 2026-0
 - **AWS Cognito**  
   Autenticación.
 - **CloudWatch Logs**  
-  Existen grupos de logs para ambos servicios, pero ningún contenedor les envía logs todavía. MongoDB Atlas es una opción de diseño, no desplegada, y Prometheus/Grafana solo corren en el stack local de desarrollo (decisión de alcance: T-052).
+  Existen grupos de logs para ambos servicios, pero ningún contenedor les envía logs todavía (solo las Lambdas doorbell y reaper del host de CI escriben logs allí). MongoDB Atlas es una opción de diseño, no desplegada, y Prometheus/Grafana solo corren en el stack local de desarrollo (decisión de alcance: T-052).
 - **SSM Parameter Store**  
   Gestión de secretos.
 
@@ -258,7 +258,7 @@ Cada repo de producto también incluye su propio `.devcontainer/devcontainer.jso
 - [x] Crear el sitio público optimizado con Next.js (CV completo; ISR desde el BFF desplegado; en Vercel)
 - [x] Configurar observabilidad (métricas solo en el stack local de desarrollo; aún sin métricas ni pipeline de logs en la nube, decisión de alcance T-052)
 - [x] Desplegar infraestructura AWS — Terraform aplicado en eu-west-3 (un host EC2 de aplicación con el servicio de dominio y el BFF junto a un contenedor MySQL 8.4 autoalojado, S3+CloudFront para el admin y el sitio vanilla, Cognito, ECR, un host de CI bajo demanda para Jenkins y Drone)
-- [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); el servicio de dominio y el BFF se despliegan solos en cada push a master, cv-database migra producción en master, el admin se despliega desde Drone y el sitio vanilla desde GitHub Actions
+- [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); el servicio de dominio y el BFF se despliegan solos en cada push a master, cv-database migra producción cuando llega una migración a master, el admin se despliega desde Drone y el sitio vanilla desde GitHub Actions
 - [ ] Documentación final y diagrama de arquitectura
 
 ### Backlog
