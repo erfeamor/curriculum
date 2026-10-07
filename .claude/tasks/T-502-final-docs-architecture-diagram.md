@@ -18,6 +18,7 @@ The README roadmap's last open item: "Final documentation and architecture diagr
 ## Known drift to fix (2026-10-06)
 
 - `README.md` / `README.es.md` roadmap: "Java API … remaining entities pending", "React Admin (person CRUD)", "Next.js … (person view)": all four sections are done everywhere. CI count "GitHub Actions ×3": now ×4 (cv-domain-service's deploy workflow).
+- `README.md` § stack (line ~189, "EC2 t2.micro/t3.micro") and its ES mirror: the app host is a `t4g.micro` (found at T-501, 2026-10-07).
 - `docs/architecture.md`: "one `t3.micro`" → `t4g.micro` (Graviton, arm64); missing the BFF's Cognito service token (T-043), domain-service write scoping (T-116), optimistic locking (T-113), the S3 bootstrap + `cv-redeploy` (T-044), automated deploys via GitHub OIDC + per-service SSM documents (T-047/T-112/T-203), the CI host's DNS name + doorbell/reaper (T-034/T-041/T-042/T-048), the observability scope ([T-052](T-052-observability-scope-decision.md)).
 
 ## Scope

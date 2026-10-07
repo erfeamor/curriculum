@@ -257,22 +257,20 @@ Cada repo de producto también incluye su propio `.devcontainer/devcontainer.jso
 
 - [x] Definir modelo de datos inicial (person/experience/education/skill/project)
 - [x] Crear migraciones iniciales
-- [x] Implementar API Java con TDD (recurso person; resto de entidades pendiente)
+- [x] Implementar API Java con TDD (person + experience, education, skills, projects; bloqueo optimista con `version` / 409)
 - [x] Integrar Cognito (user pool + Hosted UI activos en eu-west-3; validación JWT en Java/BFF; flujo Hosted UI con PKCE implementado en el admin)
-- [x] Crear BFF Node
-- [x] Crear React Admin (CRUD de person)
-- [x] Crear Vanilla Landing
-- [x] Crear el sitio público optimizado con Next.js (vista de persona; ISR desde el BFF)
-- [x] Configurar observabilidad (métricas; pipeline de logging estructurado pendiente)
-- [x] Desplegar infraestructura AWS — Terraform aplicado en eu-west-3 (EC2 servicio de dominio con un contenedor MySQL 8.4 autoalojado, frontends en S3+CloudFront, Cognito, ECR, servidor Drone CI)
-- [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×3, DroneCI ×1, Vercel ×1)
+- [x] Crear BFF Node (desplegado tras CloudFront `/bff/*`; agregado público `/cv`; lee el servicio de dominio con un token de servicio de Cognito)
+- [x] Crear React Admin (CRUD de la persona y de las cuatro secciones; desplegado en `/admin/`)
+- [x] Crear Vanilla Landing (CV completo; desplegado en la raíz de CloudFront)
+- [x] Crear el sitio público optimizado con Next.js (CV completo; ISR desde el BFF desplegado; en Vercel)
+- [x] Configurar observabilidad (métricas solo en el stack local de desarrollo; aún sin métricas ni pipeline de logs en la nube, decisión de alcance T-052)
+- [x] Desplegar infraestructura AWS — Terraform aplicado en eu-west-3 (un host EC2 de aplicación con el servicio de dominio y el BFF junto a un contenedor MySQL 8.4 autoalojado, S3+CloudFront para el admin y el sitio vanilla, Cognito, ECR, un host de CI bajo demanda para Jenkins y Drone)
+- [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); el servicio de dominio y el BFF se despliegan solos en cada push a master, y cv-database migra producción en master
 - [ ] Documentación final y diagrama de arquitectura
 
 ### Backlog
 
-- Stages de deploy automatizado del backend en CI (EC2 aprovisionada y activa; los frontends despliegan vía DroneCI, los servicios backend aún se despliegan manualmente)
-- Backups gestionados para el MySQL autoalojado (`mysqldump` nocturno → S3, en sustitución de los backups automáticos de RDS)
-- Resto de entidades de dominio (experience, education, skill, project) en API/BFF/frontends
-- Logging JSON estructurado hacia MongoDB Atlas o CloudWatch (ver `cv-observability/docs/logging.md`)
+- Logging JSON estructurado hacia MongoDB Atlas o CloudWatch (ver `cv-observability/docs/logging.md`); si se hace o no es T-052
+- ECR conserva todas las imágenes de deploy `:<sha>`; la regla de retención es T-050
 - Dashboard inicial de Grafana
 - Animaciones / Web Components del sitio público

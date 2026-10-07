@@ -69,11 +69,31 @@ Prove milestone M2 works as a system, not just as green unit tests, then close o
    - Load **both** public sites at their production URLs — `cv-public-vanilla` (CloudFront) and `cv-public-react` (Vercel, ISR via T-404's `BFF_URL`) — and confirm all four sections render with the same data. For the ISR site, confirm it after a revalidation, since a stale cached page can render correctly from data that predates the deploy.
    - Record the distribution domain and both site URLs in the close-out. **If any of this cannot be run, the milestone is `blocked`, not "verified locally"** — that is the distinction the 2026-08-12 note asked for and this step makes executable.
 
+## Verification — 2026-10-07 (driver; every sibling repo on master)
+
+Repos at: cv-database `0e7a566`, cv-domain-service `b0a32e6`, cv-bff-node `1037ea6`, cv-admin-react `22ea9a4`, cv-public-vanilla `609342d`, cv-public-react `2c785cb`, cv-observability `3e73e45`, cv-infra `b9f8b8d`.
+
+1. **From scratch:** `down -v` (both volumes removed), `up --build -d`. Flyway: "Successfully applied 2 migrations … now at version v2" + the `afterMigrate` dev seeds; the BFF answered `/cv` 200 ~8 s after start.
+2. **Local payload:** `localhost:3000/bff/api/v1/people/1/cv` 200, seeded "Jane Doe", experiences 3 / education 2 / skills 5 / projects 4; **no `id`, `personId`, `skillId`, `email` or `version` key anywhere** (walked recursively).
+3. **CRUD per section** (domain API :8080, auth off locally; script in the session scratchpad): for experiences, educations and projects, POST 201 `version 0` → visible in the BFF → PUT 200 `version 1` → visible → **stale PUT 409** → DELETE 204 → gone from the BFF. Skills: catalog POST 201, duplicate name 409, assignment PUT 200 and upsert 200, visible with the new proficiency, DELETE 204, gone. Person: PUT 200 `version +1`, visible, stale PUT 409, restored. **34/34 on the contract's routes.** (Three extra probes of `GET /{id}` after a delete returned 405: the contract defines no single-item GET for sections, so the probe, not the service, was wrong. A `T501 Skill` row stays in the *local* catalog: the contract has no catalog DELETE.)
+4. **Frontends locally:** admin `:5173/admin/` 200 (vite), vanilla `:4173` 200 (the BFF's CORS allows exactly `http://localhost:4173`), React `next dev :4300` 200 with all four section headings. An edit through the domain API (the admin's write path) appeared in the BFF payload served to the vanilla origin at once; on the React site **after the 60 s ISR window**: the first request served the stale page, the next one the edit (ISR as designed). The restore propagated the same way. *(The React repo's local `.env` points `BFF_URL` at `:3010`, a QA leftover; overridden on the command line, the file left alone.)*
+5. **Prometheus:** `cv-bff-node` and `cv-domain-service` targets `up`; Grafana health 200.
+6. **AWS, anonymous, through CloudFront `https://dvdlxl0zqepqi.cloudfront.net`:** `/bff/api/v1/people/1/cv` **200**, the production CV ([T-503](T-503-production-cv-content.md)): experiences 7 (newest first), education 3, skills 30, projects 2; no `id`/`personId`/`skillId`/`email`/`version`/`phone`, no `T018`. `/bff/api/v1/people/1` 200; `/bff/api/v1/people` 401; `/api/v1/people/1` 401; unknown person 404; bad id 400; `/metrics` 403. **Sites:** vanilla at the distribution root 200, admin `/admin/` 200, cv-public-react `https://cv-public-react.vercel.app/` 200 with the production CV (its ISR revalidation was observed live at T-503, 2026-10-06). The human eyeballed the admin and the React site on 2026-10-06.
+
+**Milestone M2 verified end to end, locally from a clean volume and in AWS.** No defect found.
+
+## Docs (T-015's claims, verified against the account)
+
+- `README.md` + `README.es.md` roadmap: the Java API (all five resources + optimistic locking), the BFF (deployed, service token), the admin (person + four sections, `/admin/`), the vanilla landing (CloudFront root), Next.js (full CV, ISR from the deployed BFF, Vercel), observability (local-only metrics, T-052), the AWS line (app host with the domain service and the BFF, S3+CloudFront for admin + vanilla, on-demand CI host), CI/CD (GitHub Actions ×5, automated deploys and migrations).
+- Backlog: removed three delivered items (automated backend deploys, MySQL backups, the remaining entities); logging now points at T-052; added T-050.
+- `docs/architecture.md`: a dated **deployed state** note under the request flow; the observability bullet marked target design vs deployed state.
+- Instance-type drift (`t3.micro` in `architecture.md` and README § stack) is left to [T-502](T-502-final-docs-architecture-diagram.md) by H1.
+
 ## Deliverables
 
-- [ ] Meta-repo PR: roadmap in `README.md` + `README.es.md` ticks the domain-model item; `.claude/tasks/` board updated to `done` for the whole milestone (the batched board-sync commit rides on this PR).
-- [ ] **From [T-015](T-015-docs-reflect-deployed-bff.md) (absorbed 2026-10-01; its "Why" table lists the claims):** every claim it lists matches the live account at the time of the PR; anything deferred out of the T-013…T-403 chain is named in the backlog with its task ID; `docs/architecture.md` distinguishes target design from deployed state; no new claim is added that was not verified against the account.
-- [ ] Any defect found does **not** get fixed in this task — file it as a new task and mark this one `blocked` until resolved.
+- [x] Meta-repo PR: roadmap in `README.md` + `README.es.md` ticks the domain-model item; `.claude/tasks/` board updated to `done` for the whole milestone (the batched board-sync commit rides on this PR).
+- [x] **From [T-015](T-015-docs-reflect-deployed-bff.md) (absorbed 2026-10-01; its "Why" table lists the claims):** every claim it lists matches the live account at the time of the PR; anything deferred out of the T-013…T-403 chain is named in the backlog with its task ID; `docs/architecture.md` distinguishes target design from deployed state; no new claim is added that was not verified against the account.
+- [x] Any defect found does **not** get fixed in this task — file it as a new task and mark this one `blocked` until resolved.
 
 ## Definition of done
 
