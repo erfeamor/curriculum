@@ -4,7 +4,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-10-07 (**milestone M2 closed**: T-501 verified the CV flow end to end, locally and in AWS; next the cost re-measure and the final docs)
+## Now / Next / Later — refreshed 2026-10-08 (T-054 merged: production app logs in CloudWatch; T-502 claimable)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
@@ -15,16 +15,17 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 
 **Next**
 - **[T-051](T-051-cost-remeasure-after-trims.md)** cost re-measure, **not before Friday 2026-10-09** (a few full days on the trimmed stack), then [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table).
-- **[T-502](T-502-final-docs-architecture-diagram.md)** (final docs + diagram; its drift list was narrowed by T-501) after **[T-054](T-054-app-container-logs-to-cloudwatch.md)** (app logs to CloudWatch, decided at T-052; one host replacement).
+- **[T-502](T-502-final-docs-architecture-diagram.md)** (final docs + diagram; its drift list was narrowed by T-501): **claimable** (T-054 put app logs in CloudWatch, 2026-10-08).
 
 **Anytime**
+- [T-055](T-055-cv-redeploy-resolve-inputs-before-rm.md) (`cv-redeploy` resolves its SSM inputs before removing the running container; one host replacement).
 - [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), from **2026-10-12**. Small.
 
 **Human**
 - **By 2026-10-30:** create a replacement CI GitHub token for Jenkins ([T-040](T-040-jenkins-github-pat-expiry.md)). The current one expires **2026-11-06**.
 - Paid plan since 2026-09-29; all five credit activities done (grant $200). **$120.75** left on 2026-10-01; the ~$0.69/day rate (2026-09-28) predates the EIP release and Graviton, so the runway is re-derived in T-051 (credits expire 2027-07-12). Charges past them bill the card; the budget alarms are the guard.
 
-Recent close-outs: 2026-10-07 T-052 (decided: app logs to CloudWatch via T-054, metrics local by design); T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
+Recent close-outs: 2026-10-08 **T-054** (app logs in CloudWatch; app host now `i-0ec8607bffc070d6a`); 2026-10-07 T-052 (decided: app logs to CloudWatch via T-054, metrics local by design); T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
 
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): T-004 decided **not** to rotate `db_password`, so this has no trigger today. Claim it **before** anyone changes `db_password` for any reason.
@@ -36,7 +37,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-502](T-502-final-docs-architecture-diagram.md) | Final documentation and architecture diagram (the roadmap's last item) | cv-project (meta) | todo |  | T-501 ✔, T-052 ✔, T-054 |  |
+| [T-502](T-502-final-docs-architecture-diagram.md) | Final documentation and architecture diagram (the roadmap's last item) | cv-project (meta) | todo |  | T-501 ✔, T-052 ✔, T-054 ✔ |  |
 
 <details>
 <summary>M2 — 17 done</summary>
@@ -123,13 +124,14 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
 | [T-051](T-051-cost-remeasure-after-trims.md) | Re-measure the run rate after the EIP release + Graviton — **not before Friday 2026-10-09** | cv-project (meta) | todo |  | — |  |
 | [T-053](T-053-cv-infra-cost-table-refresh.md) | cv-infra CLAUDE.md cost table from T-051's measurement | cv-infra | todo |  | T-051 |  |
-| [T-054](T-054-app-container-logs-to-cloudwatch.md) | Ship the app containers' logs to the existing CloudWatch groups (awslogs driver); decided at T-052 | cv-infra | in_review | tech-product-owner | T-052 ✔ | [cv-infra#42](https://github.com/erfeamor/cv-infra/pull/42) |
+| [T-055](T-055-cv-redeploy-resolve-inputs-before-rm.md) | `cv-redeploy` removes the running container before reading its SSM parameters; a failed read leaves the service down (from T-054's review) | cv-infra | todo | | T-054 ✔ | |
 
 <details>
-<summary>Infra & ops — 49 done</summary>
+<summary>Infra & ops — 50 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
+| [T-054](T-054-app-container-logs-to-cloudwatch.md) | Ship the app containers' logs to the existing CloudWatch groups (awslogs driver); decided at T-052 | cv-infra | done | tech-product-owner | T-052 ✔ | [cv-infra#42](https://github.com/erfeamor/cv-infra/pull/42) |
 | [T-052](T-052-observability-scope-decision.md) | Decide the observability scope (metrics are local-only; the logs pipeline is still "pending") | cv-project (meta) | done | tech-product-owner | — | none |
 | [T-050](T-050-ecr-sha-tag-retention.md) | ECR keeps every `:<sha>` deploy image forever — add a retention rule | cv-infra | done | tech-product-owner | T-112 ✔, T-203 ✔ | [cv-infra#41](https://github.com/erfeamor/cv-infra/pull/41) |
 | [T-049](T-049-ci-migrate-role-and-ssm-document.md) | SSM document `cv-redeploy-migrate` + a master-only OIDC role for cv-database (for T-158) | cv-infra | done | tech-product-owner | T-047 ✔ | [cv-infra#40](https://github.com/erfeamor/cv-infra/pull/40) |
