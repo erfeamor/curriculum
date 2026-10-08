@@ -2,7 +2,7 @@
 id: T-502
 title: "Final documentation and architecture diagram (the roadmap's last unchecked item)"
 repo: cv-project (meta)
-status: in_review
+status: done
 owner: tech-product-owner
 branch: docs/final-architecture
 pr: https://github.com/erfeamor/curriculum/pull/122
@@ -10,7 +10,7 @@ depends_on: [T-501, T-052, T-054]
 risk: low
 security_review: false
 checkpoint:
-  stage: h2   # reviewed (round 1: 8 findings, all fixed); awaiting H2
+  stage: done   # merged as curriculum#122 (squash), 2026-10-08; H2 accepted (the human confirmed the Mermaid render)
   repo: cv-project (meta)
   branch: docs/final-architecture
   worktree: none
@@ -99,5 +99,5 @@ The README roadmap's last open item: "Final documentation and architecture diagr
 
 ## Acceptance criteria
 
-- [ ] The diagram matches the live system, checked against the account and Terraform.
-- [ ] No doc in the meta repo claims a state the system isn't in; the roadmap's last item ticked.
+- [x] The diagram matches the live system, checked against the account and Terraform.
+- [x] No doc in the meta repo claims a state the system isn't in; the roadmap's last item ticked.

@@ -4,7 +4,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-10-08 (T-051: ~$0.51/day, credits to ~late May 2027; next T-502)
+## Now / Next / Later — refreshed 2026-10-08 (T-502 merged: the roadmap is complete; next T-504, the M2 tag)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
@@ -15,10 +15,9 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 
 **Next**
 - **[T-051](T-051-cost-remeasure-after-trims.md)** cost re-measure **done 2026-10-08** (~$0.51/day), with [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table), then [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table).
-- **[T-502](T-502-final-docs-architecture-diagram.md)** (final docs + diagram; its drift list was narrowed by T-501): **claimable** (T-054 put app logs in CloudWatch, 2026-10-08).
 
 **Then**
-- [T-504](T-504-m2-release-tag-all-repos.md): tag `M2` in all 9 repos after T-502, pinned by a manifest, with immutable tags.
+- **[T-504](T-504-m2-release-tag-all-repos.md)**: tag `M2` in all 9 repos, pinned by a manifest, with immutable tags. **Claimable: T-502 is done.**
 
 **Anytime**
 - [T-056](T-056-cv-infra-readme-free-tier-drift.md) and [T-057](T-057-cv-observability-docs-reflect-decision.md): trivial README fixes from T-502's audit.
@@ -28,7 +27,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - **By 2026-10-30:** create a replacement CI GitHub token for Jenkins ([T-040](T-040-jenkins-github-pat-expiry.md)). The current one expires **2026-11-06**.
 - Paid plan since 2026-09-29; all five credit activities done (grant $200). **$116.15** left on 2026-10-08 at **~$0.51/day** (T-051), enough until about late May 2027, before the credits expire on 2027-07-12. Charges past them bill the card; the budget alarms are the guard.
 
-Recent close-outs: 2026-10-08 **T-055** (`cv-redeploy` resolves every input before removing the running container; app host now `i-05c8e011117d30b34`); 2026-10-08 **T-054** (app logs in CloudWatch; app host now `i-0ec8607bffc070d6a`); 2026-10-07 T-052 (decided: app logs to CloudWatch via T-054, metrics local by design); T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
+Recent close-outs: 2026-10-08 **T-502** (final docs + Mermaid diagram; the roadmap is complete); 2026-10-08 **T-055** (`cv-redeploy` resolves every input before removing the running container; app host now `i-05c8e011117d30b34`); 2026-10-08 **T-054** (app logs in CloudWatch; app host now `i-0ec8607bffc070d6a`); 2026-10-07 T-052 (decided: app logs to CloudWatch via T-054, metrics local by design); T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
 
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): T-004 decided **not** to rotate `db_password`, so this has no trigger today. Claim it **before** anyone changes `db_password` for any reason.
@@ -40,14 +39,14 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-502](T-502-final-docs-architecture-diagram.md) | Final documentation and architecture diagram (the roadmap's last item) | cv-project (meta) | in_review | tech-product-owner | T-501 ✔, T-052 ✔, T-054 ✔ | [#122](https://github.com/erfeamor/curriculum/pull/122) |
 | [T-504](T-504-m2-release-tag-all-repos.md) | Tag `M2` in all 9 repos, pinned by a meta-repo manifest, with checkout/verify scripts and immutable tags | cv-project (meta) + all repos | todo | | T-502 | |
 
 <details>
-<summary>M2 — 17 done</summary>
+<summary>M2 — 18 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
+| [T-502](T-502-final-docs-architecture-diagram.md) | Final documentation and architecture diagram (the roadmap's last item) | cv-project (meta) | done | tech-product-owner | T-501 ✔, T-052 ✔, T-054 ✔ | [#122](https://github.com/erfeamor/curriculum/pull/122) |
 | [T-501](T-501-e2e-cv-milestone.md) | End-to-end verification + roadmap close-out | cv-project | done | tech-product-owner | T-101…T-105, T-151, T-201, T-301, T-401, T-402, T-014, T-043, T-403, T-404, T-503 (T-408, T-409 via T-401, T-402) | [#116](https://github.com/erfeamor/curriculum/pull/116) |
 | [T-503](T-503-production-cv-content.md) | Production CV content: replace T-018's probe rows with a real CV (human, via `/admin/`) | cv-project (meta) | done | tech-product-owner | — | none |
 | [T-101](T-101-experience-resource.md) | Experience resource in the domain API | cv-domain-service | done | backend-developer | — | [#3](https://github.com/erfeamor/cv-domain-service/pull/3) |
