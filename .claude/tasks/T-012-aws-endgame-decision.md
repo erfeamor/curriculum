@@ -149,3 +149,18 @@ The human completed the Bedrock playground activity. Verified by the driver with
 - **Budgets unchanged, on purpose:** `credit-runway` stays at $160 against a $200 grant, so its alerts fire ~$40 early, the safe side (this file's standing rule: never raise it past the real grant). `gross-usage` ($30/month) is unaffected.
 - **Every execution item and AC is done.** The trims continue under their own tasks: T-008, T-007 and T-034 are done; [T-035](T-035-app-host-to-graviton.md) (app host to Graviton, after T-014) remains. The domain (`erfeamor.com`, $16 + VAT/year from T-034) is a card charge, not credit-covered.
 
+## Addendum 2026-10-08 — re-measured after the trims (T-051)
+
+Cost Explorer (`UnblendedCost`, `RECORD_TYPE=Usage`, daily by usage type):
+
+| Period | Rate | Notes |
+|---|---|---|
+| 09-20 to 09-23 | **$0.689/day** | CI host idle; matches T-020's model |
+| 10-02 to 10-03 | **$0.512/day** | after the CI host's EIP was released (T-034) |
+| **10-06** | **$0.513/day** | the first full Graviton day (T-035) |
+
+- **10-06 in detail:** app host `t4g.micro` $0.226 (the `t3.micro` was $0.283); EBS $0.108; IPv4 $0.129 (EIP $0.120, plus the CI host's IP during builds); CI host $0.043; other $0.007 (Cognito M2M $0.0045, ECR storage $0.002).
+- 10-07 was still being finalized (every line low), so it is excluded. One-off `other` charges of ~$0.5 on 09-30 and 10-01 are monthly or one-time (the Route 53 zone's $0.50/month among them), not run rate.
+- **Model:** fixed ≈ **$0.47/day**; the CI host averages ≈ **$0.04/day** (September build days: $0.009–0.074); total ≈ **$0.51/day ≈ $15.5/month**. The CI host left up adds ≈ $0.54/day.
+- **Credits:** **$116.15** on 2026-10-08 (`aws freetier get-account-plan-state`, PAID/ACTIVE). Runway ≈ 228 days, to about **late May 2027**, before the credits expire on 2027-07-12. So the credits run out first, and then the account bills ~$15–16/month.
+- **Budgets unchanged and still fit:** `gross-usage` $30/month sits ~2× above the new rate, and `credit-runway` stays at $160 against the $200 grant.

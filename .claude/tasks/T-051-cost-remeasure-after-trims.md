@@ -2,16 +2,16 @@
 id: T-051
 title: "Re-measure the AWS run rate after this week's trims (not before Friday 2026-10-09) and refresh the cost model"
 repo: cv-project (meta)
-status: in_progress
+status: done
 owner: tech-product-owner
 branch: docs/cost-remeasure
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/120
 depends_on: []
 risk: low
 security_review: false
 due: 2026-10-16
 checkpoint:
-  stage: implement   # H1 2026-10-08; stopped after H1 (/usage over 75%)
+  stage: done   # measured 2026-10-08 outside the dev loop at the human's request (usage gap): driver-only, no spawns, no review pass
   repo: cv-project (meta)
   branch: docs/cost-remeasure
   worktree: none
@@ -49,6 +49,10 @@ checkpoint:
 
 > ~~**Not before Friday 2026-10-09.**~~ **Lifted at H1, 2026-10-08** (see below). The post-trim stack (no CI-host EIP since T-034, the app host on Graviton since T-035 on 2026-10-05, the BFF + Cognito machine tokens since T-043) needs a few full days of usage in Cost Explorer before the daily rate means anything.
 
+## Result — 2026-10-08
+
+**~$0.51/day ≈ $15.5/month** (fixed ~$0.47 + CI ~$0.04); **$116.15** of credits, enough until about late May 2027. Full table and method in the dated addenda on [T-012](T-012-aws-endgame-decision.md) and [T-020](T-020-cost-model-correction.md). Done outside the dev loop at the human's request (usage over 75%): the driver ran 2 API calls (Cost Explorer + `freetier`), with no spawn and no `/code-review`; the human's merge is the gate. No anomaly: no `CPUCredits` line on the Graviton host.
+
 ## Why
 
 Filed by the 2026-10-06 board review. Every cost figure on the board and in both CLAUDE.md files is the **2026-09-28** measurement (~$0.69/day ≈ $21/month), taken before: the CI-host EIP release (−$3.64/month), Graviton (−$1.75/month), plus small new lines (Cognito M2M tokens, the BFF's own ECR repo, multi-arch images, the hosted zone). The real number is probably lower, and the runway (credits $120.75 on 2026-10-01) longer.
@@ -62,6 +66,6 @@ Filed by the 2026-10-06 board review. Every cost figure on the board and in both
 
 ## Acceptance criteria
 
-- [ ] The measured daily rate (and its per-service breakdown) recorded with its date range.
-- [ ] The credits and runway re-derived; the meta docs updated.
-- [ ] Any anomaly (e.g. a `CPUCredits` line on the Graviton host) noted or filed.
+- [x] The measured daily rate (and its per-service breakdown) recorded with its date range.
+- [x] The credits and runway re-derived; the meta docs updated.
+- [x] Any anomaly (e.g. a `CPUCredits` line on the Graviton host) noted or filed.
