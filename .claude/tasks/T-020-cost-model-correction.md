@@ -140,6 +140,6 @@ Cost Explorer (`UnblendedCost`, `RECORD_TYPE=Usage`, daily by usage type):
 
 - **10-06 in detail:** app host `t4g.micro` $0.226 (the `t3.micro` was $0.283); EBS $0.108; IPv4 $0.129 (EIP $0.120, plus the CI host's IP during builds); CI host $0.043; other $0.007 (Cognito M2M $0.0045, ECR storage $0.002).
 - 10-07 was still being finalized (every line low), so it is excluded. One-off `other` charges of ~$0.5 on 09-30 and 10-01 are monthly or one-time (the Route 53 zone's $0.50/month among them), not run rate.
-- **Model:** fixed ≈ **$0.47/day**; the CI host averages ≈ **$0.04/day** (September build days: $0.009–0.074); total ≈ **$0.51/day ≈ $15.5/month**. The CI host left up adds ≈ $0.54/day.
+- **Model:** fixed ≈ **$0.47/day**; the CI host averages ≈ **$0.04/day** (September build days: $0.009–0.074); total ≈ **$0.51/day ≈ $15.5/month**. The CI host left up all day adds ≈ $0.7 (its `t3.small` hours plus its public IPv4, which bills only while it runs since T-034), for ≈ $1.2/day ≈ $35/month.
 - **Credits:** **$116.15** on 2026-10-08 (`aws freetier get-account-plan-state`, PAID/ACTIVE). Runway ≈ 228 days, to about **late May 2027**, before the credits expire on 2027-07-12. So the credits run out first, and then the account bills ~$15–16/month.
 - **Budgets unchanged and still fit:** `gross-usage` $30/month sits ~2× above the new rate, and `credit-runway` stays at $160 against the $200 grant.

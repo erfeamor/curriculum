@@ -4,7 +4,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-10-08 (T-051: ~$0.51/day, credits to ~late May 2027; next T-502, T-053)
+## Now / Next / Later — refreshed 2026-10-08 (T-051: ~$0.51/day, credits to ~late May 2027; next T-502)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
@@ -14,7 +14,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**).
 
 **Next**
-- **[T-051](T-051-cost-remeasure-after-trims.md)** cost re-measure **done 2026-10-08** (~$0.51/day); next [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table), then [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table).
+- **[T-051](T-051-cost-remeasure-after-trims.md)** cost re-measure **done 2026-10-08** (~$0.51/day), with [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table), then [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table).
 - **[T-502](T-502-final-docs-architecture-diagram.md)** (final docs + diagram; its drift list was narrowed by T-501): **claimable** (T-054 put app logs in CloudWatch, 2026-10-08).
 
 **Anytime**
@@ -121,13 +121,13 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
-| [T-053](T-053-cv-infra-cost-table-refresh.md) | cv-infra CLAUDE.md cost table from T-051's measurement | cv-infra | todo |  | T-051 |  |
 
 <details>
-<summary>Infra & ops — 52 done</summary>
+<summary>Infra & ops — 53 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
+| [T-053](T-053-cv-infra-cost-table-refresh.md) | cv-infra CLAUDE.md cost table from T-051's measurement | cv-infra | done | tech-product-owner | T-051 | [cv-infra#44](https://github.com/erfeamor/cv-infra/pull/44) |
 | [T-051](T-051-cost-remeasure-after-trims.md) | Re-measure the run rate after the EIP release + Graviton — started early (H1 2026-10-08) | cv-project (meta) | done | tech-product-owner | — | [#120](https://github.com/erfeamor/curriculum/pull/120) |
 | [T-055](T-055-cv-redeploy-resolve-inputs-before-rm.md) | `cv-redeploy` removes the running container before reading its SSM parameters; a failed read leaves the service down (from T-054's review) | cv-infra | done | tech-product-owner | T-054 ✔ | [cv-infra#43](https://github.com/erfeamor/cv-infra/pull/43) |
 | [T-054](T-054-app-container-logs-to-cloudwatch.md) | Ship the app containers' logs to the existing CloudWatch groups (awslogs driver); decided at T-052 | cv-infra | done | tech-product-owner | T-052 ✔ | [cv-infra#42](https://github.com/erfeamor/cv-infra/pull/42) |
