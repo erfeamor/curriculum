@@ -4,7 +4,7 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-10-08 (T-055 merged; next T-051 on Friday, T-502)
+## Now / Next / Later — refreshed 2026-10-08 (T-055 merged; next T-051 (H1 done), T-502)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
@@ -14,7 +14,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**).
 
 **Next**
-- **[T-051](T-051-cost-remeasure-after-trims.md)** cost re-measure, **not before Friday 2026-10-09** (a few full days on the trimmed stack), then [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table).
+- **[T-051](T-051-cost-remeasure-after-trims.md)** cost re-measure: **H1 done 2026-10-08** (started early; fixed vs variable split), measurement next window, then [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table).
 - **[T-502](T-502-final-docs-architecture-diagram.md)** (final docs + diagram; its drift list was narrowed by T-501): **claimable** (T-054 put app logs in CloudWatch, 2026-10-08).
 
 **Anytime**
@@ -121,7 +121,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
-| [T-051](T-051-cost-remeasure-after-trims.md) | Re-measure the run rate after the EIP release + Graviton — **not before Friday 2026-10-09** | cv-project (meta) | todo |  | — |  |
+| [T-051](T-051-cost-remeasure-after-trims.md) | Re-measure the run rate after the EIP release + Graviton — started early (H1 2026-10-08) | cv-project (meta) | in_progress | tech-product-owner | — |  |
 | [T-053](T-053-cv-infra-cost-table-refresh.md) | cv-infra CLAUDE.md cost table from T-051's measurement | cv-infra | todo |  | T-051 |  |
 
 <details>

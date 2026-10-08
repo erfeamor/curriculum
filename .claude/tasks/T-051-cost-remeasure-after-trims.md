@@ -2,17 +2,52 @@
 id: T-051
 title: "Re-measure the AWS run rate after this week's trims (not before Friday 2026-10-09) and refresh the cost model"
 repo: cv-project (meta)
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: docs/cost-remeasure
 pr:
 depends_on: []
 risk: low
 security_review: false
 due: 2026-10-16
+checkpoint:
+  stage: implement   # H1 2026-10-08; stopped after H1 (/usage over 75%)
+  repo: cv-project (meta)
+  branch: docs/cost-remeasure
+  worktree: none
+  commit:
+  pr:
+  developer: tech-product-owner   # driver measures (Cost Explorer) and edits docs; no spawn
+  reviewers: [code-review]
+  risk: low
+  security_review: false
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a
+  updated: 2026-10-08T15:00:00+02:00
+  budget:
+    turns: 0
+    total_tokens: 0
+    subagent_tokens: 0
+    spawns: 0
+    status: stop   # human-reported /usage over 75%: H1 only, resume next window
+    checked: 2026-10-08T15:00:00+02:00
 ---
 
-> **Not before Friday 2026-10-09.** The post-trim stack (no CI-host EIP since T-034, the app host on Graviton since T-035 on 2026-10-05, the BFF + Cognito machine tokens since T-043) needs a few full days of usage in Cost Explorer before the daily rate means anything.
+## H1 — decided by the human, 2026-10-08
+
+1. **Start early: the "not before Friday" gate is lifted.** Since the trims, nothing has changed the cost structure. T-049, T-050, T-054 and T-055 were IAM, an ECR lifecycle change, kilobytes of CloudWatch logs and two same-size host replacements. So only sample size is lost.
+2. **Method:**
+   - Use every full post-Graviton day available when this runs: 10-06 onward. Flag a day Cost Explorer may still be finalizing.
+   - Split the daily rate into **fixed** (app host, EBS, public IPv4, Route 53, Cognito, ECR, CloudWatch) and **variable** (CI host instance-hours and its EBS).
+   - The CI share in this window is a **busy-week sample** (many dev-loop builds 10-06 to 10-08). Derive the runway from fixed plus a *typical* CI share taken from the September history, not from the busy days.
+   - Expect about 5–10 Cost Explorer calls (~$0.01 each).
+3. **Docs: meta only, as scoped** (CLAUDE.md cost bullet, T-012 runway note, dated T-020 addendum, TASKS.md lane note). [T-053](T-053-cv-infra-cost-table-refresh.md) follows as its own small PR.
+4. **Budget:** `/usage` over 75%: **stopped after H1.** Resume with `/dev-loop T-051` in the next window. The measurement starts there, and later is fine: more full days only help.
+
+> ~~**Not before Friday 2026-10-09.**~~ **Lifted at H1, 2026-10-08** (see below). The post-trim stack (no CI-host EIP since T-034, the app host on Graviton since T-035 on 2026-10-05, the BFF + Cognito machine tokens since T-043) needs a few full days of usage in Cost Explorer before the daily rate means anything.
 
 ## Why
 
