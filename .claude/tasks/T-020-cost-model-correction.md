@@ -127,3 +127,19 @@ Comments and docs only: zero non-comment lines changed in any `.tf`, `terraform 
 - **Developer:** `tech-product-owner` for the docs/model half, `infrastructure-engineer` if the budget resource changes.
 - ~~**The human dependency in §1 is unavoidable** — do not let the loop "verify" the balance from the CLI. It cannot.~~ **Wrong as of 2026-08-19: it can, and it did.** `aws freetier get-account-plan-state` and `list-account-activities` cover §1 and §2 completely. This instruction was inherited from T-010 (written 2026-08-09, when it was true) and would have kept the task parked indefinitely on a human step that no longer existed. **The lesson generalises: a recorded "this is impossible" ages like any other assumption** — re-test it before building process around it. T-010's `human_dependency` has been corrected in place.
 - **Interacts with [T-019](T-019-ci-host-on-demand.md)**: the corrected rate is what makes T-019's saving worth anything (see the board note of 2026-08-14). T-019's H1 should read this task's numbers, and this task should fold in T-019's measured saving if it lands first.
+
+## Addendum 2026-10-08 — re-measured after the trims (T-051)
+
+Cost Explorer (`UnblendedCost`, `RECORD_TYPE=Usage`, daily by usage type):
+
+| Period | Rate | Notes |
+|---|---|---|
+| 09-20 to 09-23 | **$0.689/day** | CI host idle; matches T-020's model |
+| 10-02 to 10-03 | **$0.512/day** | after the CI host's EIP was released (T-034) |
+| **10-06** | **$0.513/day** | the first full Graviton day (T-035) |
+
+- **10-06 in detail:** app host `t4g.micro` $0.226 (the `t3.micro` was $0.283); EBS $0.108; IPv4 $0.129 (EIP $0.120, plus the CI host's IP during builds); CI host $0.043; other $0.007 (Cognito M2M $0.0045, ECR storage $0.002).
+- 10-07 was still being finalized (every line low), so it is excluded. One-off `other` charges of ~$0.5 on 09-30 and 10-01 are monthly or one-time (the Route 53 zone's $0.50/month among them), not run rate.
+- **Model:** fixed ≈ **$0.47/day**; the CI host averages ≈ **$0.04/day** (September build days: $0.009–0.074); total ≈ **$0.51/day ≈ $15.5/month**. The CI host left up all day adds ≈ $0.7 (its `t3.small` hours plus its public IPv4, which bills only while it runs since T-034), for ≈ $1.2/day ≈ $35/month.
+- **Credits:** **$116.15** on 2026-10-08 (`aws freetier get-account-plan-state`, PAID/ACTIVE). Runway ≈ 228 days, to about **late May 2027**, before the credits expire on 2027-07-12. So the credits run out first, and then the account bills ~$15–16/month.
+- **Budgets unchanged and still fit:** `gross-usage` $30/month sits ~2× above the new rate, and `credit-runway` stays at $160 against the $200 grant.
