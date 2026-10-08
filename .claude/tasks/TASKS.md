@@ -123,7 +123,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
 | [T-051](T-051-cost-remeasure-after-trims.md) | Re-measure the run rate after the EIP release + Graviton — **not before Friday 2026-10-09** | cv-project (meta) | todo |  | — |  |
 | [T-053](T-053-cv-infra-cost-table-refresh.md) | cv-infra CLAUDE.md cost table from T-051's measurement | cv-infra | todo |  | T-051 |  |
-| [T-054](T-054-app-container-logs-to-cloudwatch.md) | Ship the app containers' logs to the existing CloudWatch groups (awslogs driver); decided at T-052 | cv-infra | todo | | T-052 ✔ | |
+| [T-054](T-054-app-container-logs-to-cloudwatch.md) | Ship the app containers' logs to the existing CloudWatch groups (awslogs driver); decided at T-052 | cv-infra | in_progress | tech-product-owner | T-052 ✔ | |
 
 <details>
 <summary>Infra & ops — 49 done</summary>

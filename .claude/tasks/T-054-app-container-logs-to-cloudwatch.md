@@ -2,14 +2,45 @@
 id: T-054
 title: "cv-infra: ship the app containers' logs to the existing CloudWatch log groups (awslogs driver), so production logs survive a host replacement"
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: feat/app-logs-to-cloudwatch
 pr:
 depends_on: [T-052]
 risk: high   # changes every container's run arguments (cv-app.sh), so the app host is replaced once
 security_review: true   # a new IAM grant on the app host's role; logs could carry request data
+checkpoint:
+  stage: implement   # H1 2026-10-08
+  repo: cv-infra
+  branch: feat/app-logs-to-cloudwatch
+  worktree: none
+  commit:
+  pr:
+  developer: infrastructure-engineer
+  reviewers: [code-review, security-review]
+  risk: high
+  security_review: true
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a   # live app host (replaced once)
+  updated: 2026-10-08T10:00:00+02:00
+  budget:
+    turns: 0
+    total_tokens: 0
+    subagent_tokens: 0
+    spawns: 0
+    status: ok   # human-reported /usage under ~40%
+    checked: 2026-10-08T10:00:00+02:00
 ---
+
+## H1 — decided by the human, 2026-10-08
+
+1. **Containers:** domain-service and bff-node only, into their existing groups. MySQL stays on `docker logs`: it's started by the bootstrap, not `cv-app.sh`, and has no group.
+2. **Driver mode:** `mode=non-blocking`, `max-buffer-size=4m`. The apps never stall on logging; a long CloudWatch outage drops the oldest buffered lines, and `docker logs` keeps working (dual logging).
+3. **Stream name** (driver's call, recorded): `<container>-<instance id>` (from IMDS at run time in `cv-app.sh`), so each host replacement starts fresh streams and old ones age out under the 14-day retention.
+4. **Budget:** `/usage` under ~40%: the whole task this window, including the host replacement.
 
 ## Why
 
