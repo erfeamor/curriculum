@@ -2,14 +2,44 @@
 id: T-055
 title: "cv-infra: `cv-redeploy` removes the running container before reading its SSM parameters — a failed read leaves the service down"
 repo: cv-infra
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: fix/cv-redeploy-resolve-before-rm
 pr:
 depends_on: [T-054]
 risk: normal   # changes cv-app.sh/cv-redeploy, so applying replaces the app host
 security_review: true   # touches the code path that handles the DB password and the BFF client secret
+checkpoint:
+  stage: implement   # H1 2026-10-08
+  repo: cv-infra
+  branch: fix/cv-redeploy-resolve-before-rm
+  worktree: none
+  commit:
+  pr:
+  developer: infrastructure-engineer
+  reviewers: [code-review, security-review]
+  risk: normal
+  security_review: true
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a   # live app host (replaced once)
+  updated: 2026-10-08T12:00:00+02:00
+  budget:
+    turns: 0
+    total_tokens: 0
+    subagent_tokens: 0
+    spawns: 0
+    status: ok   # human-reported /usage 40–75%: implement + review, checkpoint before the apply
+    checked: 2026-10-08T12:00:00+02:00
 ---
+
+## H1 — decided by the human, 2026-10-08
+
+1. **Split resolve / start.** Each service gets `cv_resolve_<svc>`, which does every SSM read plus the instance id into non-exported shell variables, and `cv_start_<svc>`, which runs the `docker run` with exactly today's arguments. `cv_run_<svc>` is resolve then start, so the bootstrap path is unchanged. `roll` becomes pull → resolve → `docker rm -f` → start. There is still one definition of the run arguments. Rejected: start-new-then-swap (collides on the published ports 8080/3000; a redesign).
+2. **Apply:** one host replacement (as in T-054), with a backup and row baseline first, then both SSM redeploy documents proven live.
+3. **Budget:** `/usage` 40–75%: implement and review, then **checkpoint before the apply**.
 
 ## Why
 
