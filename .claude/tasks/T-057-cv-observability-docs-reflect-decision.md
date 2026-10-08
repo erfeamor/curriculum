@@ -2,14 +2,18 @@
 id: T-057
 title: "cv-observability docs predate T-052/T-054: logging 'not wired up yet', pipeline 'Jenkins or GitHub Actions'"
 repo: cv-observability
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: docs/reflect-observability-decision
-pr:
+pr: https://github.com/erfeamor/cv-observability/pull/3
 depends_on: []
 risk: trivial
 security_review: false
 ---
+
+## Done — 2026-10-08
+
+A driver-written docs fix in [cv-observability#3](https://github.com/erfeamor/cv-observability/pull/3), done outside the dev loop at the human's request (a trivial docs task); the human's merge is the gate.
 
 ## Why
 
@@ -21,5 +25,5 @@ Found by [T-502](T-502-final-docs-architecture-diagram.md)'s per-repo README aud
 
 ## Acceptance criteria
 
-- [ ] `docs/logging.md` records the decision: what ships today (raw container output to `/cv-project/cv-domain-service` and `/cv-project/cv-bff-node`, 14 days), what's out of scope, and how to read it (`aws logs tail`). The old Logback/pino plan stays as a "should this ever be built" note.
-- [ ] The README states the pipeline correctly and that the metrics stack is local-only.
+- [x] `docs/logging.md` records the decision: what ships today (raw container output to `/cv-project/cv-domain-service` and `/cv-project/cv-bff-node`, 14 days), what's out of scope, and how to read it (`aws logs tail`). The old Logback/pino plan stays as a "should this ever be built" note.
+- [x] The README states the pipeline correctly and that the metrics stack is local-only.

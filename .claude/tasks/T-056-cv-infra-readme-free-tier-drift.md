@@ -2,14 +2,18 @@
 id: T-056
 title: "cv-infra README still says the stack is 'kept within the AWS Free Tier' and counts 'six' other repos"
 repo: cv-infra
-status: todo
-owner:
+status: done
+owner: tech-product-owner
 branch: docs/readme-paid-plan
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/45
 depends_on: []
 risk: trivial
 security_review: false
 ---
+
+## Done — 2026-10-08
+
+A driver-written docs fix in [cv-infra#45](https://github.com/erfeamor/cv-infra/pull/45), done outside the dev loop at the human's request (a trivial docs task); the human's merge is the gate.
 
 ## Why
 
@@ -21,4 +25,4 @@ Found by [T-502](T-502-final-docs-architecture-diagram.md)'s per-repo README aud
 
 ## Acceptance criteria
 
-- [ ] The README describes the Paid plan, funded by credits first, and points to `CLAUDE.md`'s cost model instead of quoting figures. It counts the repos correctly and gives the default-VPC rationale as cost.
+- [x] The README describes the Paid plan, funded by credits first, and points to `CLAUDE.md`'s cost model instead of quoting figures. It counts the repos correctly and gives the default-VPC rationale as cost.
