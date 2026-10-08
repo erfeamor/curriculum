@@ -10,7 +10,7 @@ depends_on: [T-054]
 risk: normal   # changes cv-app.sh/cv-redeploy, so applying replaces the app host
 security_review: true   # touches the code path that handles the DB password and the BFF client secret
 checkpoint:
-  stage: apply   # reviews clean; CHECKPOINT before the apply (/usage 40–75%). Next: backup + row baseline, plan (expect the T-054 shape: S3 object + hash in place, instance/EIP assoc/volume attachment replaced), apply, live checks, both SSM redeploys, H2
+  stage: h2   # applied from the branch 2026-10-08; host i-05c8e011117d30b34; both SSM redeploys green; awaiting H2
   repo: cv-infra
   branch: fix/cv-redeploy-resolve-before-rm
   worktree: none
@@ -31,7 +31,7 @@ checkpoint:
     total_tokens: 0
     subagent_tokens: 146000   # developer ~102k (build + 2 fix rounds), security sub-task ~44k
     spawns: 2   # infrastructure-engineer (fresh, resumed twice) + security sub-task
-    status: ok   # human-reported /usage 40–75%: implement + review, checkpoint before the apply
+    status: ok   # human-reported /usage 40–75% (apply window, no subagents)
     checked: 2026-10-08T12:00:00+02:00
 ---
 
@@ -41,7 +41,18 @@ checkpoint:
 2. **Apply:** one host replacement (as in T-054), with a backup and row baseline first, then both SSM redeploy documents proven live.
 3. **Budget:** `/usage` 40–75%: implement and review, then **checkpoint before the apply**.
 
-## Implement + review — 2026-10-08 (cv-infra#43, 680a6ba)
+## Live — 2026-10-08, applied from the branch (cv-infra#43 @ 680a6ba)
+
+- **Before:** backup `cv-20261008T094624Z.sql.gz`; rows 1/7/3/2/30/30 at V2; state `2026-10-08/pre-t055.tfstate`.
+- **Plan and apply:** the S3 object and hash updated in place; the instance, EIP association and volume attachment replaced. **3 added, 2 changed, 3 destroyed.** New host `i-05c8e011117d30b34`; the public CV was back to 200 after **185 s**.
+- **Host:** cloud-init done; rows identical; volume mounted, backup timer enabled. The deployed `cv-app.sh` has 5 `local +x` declarations, and `cv-redeploy`'s `roll` is `"cv_run_${name//-/_}" docker rm -f "$name"`. Both apps still on awslogs.
+- **Both SSM redeploy documents, live:**
+  - `cv-redeploy-domain-service`: Success, CV 200 after 14 s.
+  - `cv-redeploy-bff-node`: Success, CV 200 after 1 s.
+  - **Neither command's output contains the DB password or the BFF client secret.** The real values were compared in-process from shredded temp files and never printed.
+- The failure path (an SSM read failing leaves the old container serving) is proven by the harness (case 9), not live.
+- The branch plans **No changes**.
+ — 2026-10-08 (cv-infra#43, 680a6ba)
 
 - **Developer, first pass (0cd8022):** the split H1 asked for (`cv_resolve_*` / `cv_start_*` / `cv_clear_*`, with global non-exported secrets).
 - **`/code-review` high:** behaviour correct, but **three mutations passed all 159 checks**:
@@ -82,6 +93,6 @@ Found by T-054's code review, 2026-10-08, and filed on the human's H2. Pre-exist
 
 ## Acceptance criteria
 
-- [ ] Offline, red first: the harness case above.
-- [ ] Applied (one host replacement, as in T-054). `cv-redeploy domain-service` and `bff-node` still work live through their SSM documents.
-- [ ] Gates green; `/security-review` clean.
+- [x] Offline, red first: the harness case above.
+- [x] Applied (one host replacement, as in T-054). `cv-redeploy domain-service` and `bff-node` still work live through their SSM documents.
+- [x] Gates green; `/security-review` clean.
