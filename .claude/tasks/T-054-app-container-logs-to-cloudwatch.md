@@ -2,25 +2,25 @@
 id: T-054
 title: "cv-infra: ship the app containers' logs to the existing CloudWatch log groups (awslogs driver), so production logs survive a host replacement"
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: feat/app-logs-to-cloudwatch
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/42
 depends_on: [T-052]
 risk: high   # changes every container's run arguments (cv-app.sh), so the app host is replaced once
 security_review: true   # a new IAM grant on the app host's role; logs could carry request data
 checkpoint:
-  stage: implement   # H1 2026-10-08
+  stage: h2   # applied from the branch 2026-10-08; logs flowing; awaiting H2
   repo: cv-infra
   branch: feat/app-logs-to-cloudwatch
   worktree: none
-  commit:
-  pr:
+  commit: ca622cd
+  pr: https://github.com/erfeamor/cv-infra/pull/42
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: high
   security_review: true
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -29,8 +29,8 @@ checkpoint:
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 225000   # developer ~96k (build + 1 fix round), security sub-task ~49k, reviews forked
+    spawns: 2   # infrastructure-engineer (fresh, resumed once) + security-review identification sub-task
     status: ok   # human-reported /usage under ~40%
     checked: 2026-10-08T10:00:00+02:00
 ---
@@ -41,6 +41,30 @@ checkpoint:
 2. **Driver mode:** `mode=non-blocking`, `max-buffer-size=4m`. The apps never stall on logging; a long CloudWatch outage drops the oldest buffered lines, and `docker logs` keeps working (dual logging).
 3. **Stream name** (driver's call, recorded): `<container>-<instance id>` (from IMDS at run time in `cv-app.sh`), so each host replacement starts fresh streams and old ones age out under the 14-day retention.
 4. **Budget:** `/usage` under ~40%: the whole task this window, including the host replacement.
+
+## Implement, review, live — 2026-10-08 (cv-infra#42)
+
+- **Developer** (fresh infrastructure-engineer): awslogs in the shared `cv_run_domain_service`/`cv_run_bff_node` (non-blocking, 4m, stream `<container>-<instance id>`), group names as template vars, `aws_iam_role_policy.app_write_container_logs` (CreateLogStream + PutLogEvents on the two groups' `:*`), harness + `terraform test` + check-static, runbook "Reading the logs".
+- **`/code-review` high (0fe28a6): 10 findings, 7 fixed.**
+  - The instance id now comes from cloud-init's `/var/lib/cloud/data/instance-id`, not IMDS. That removes a network dependency at boot under `set -e`, and a second IMDS call after `docker rm -f` in `roll`. The file was confirmed on the live host first.
+  - The instance `depends_on` the new grant, enforced by check 18. This was also a driver finding.
+  - The check was renumbered 22 and widened to managed CloudWatch/Logs policy attachments.
+  - The runbook now says non-blocking mode drops the *newest* lines and that a missing grant is silent.
+  - domain-service gets `awslogs-datetime-format`, so a stack trace is one event.
+  - Not fixed: the plan test's resource assertion (the ARNs are unknown at plan time; check-static guards the references), the 27 copied fixtures (pre-existing), and the pre-existing T-044 hazard that `param()` SSM reads happen after `docker rm -f` in `roll`. **Follow-up worth filing:** resolve all inputs before the `rm`.
+  - The reviewer confirmed from Docker's source that in non-blocking mode the stream is created in the background with retries, so a missing grant or an outage never stops a container from starting.
+- **`/security-review` (ca622cd): no findings.** Only stdout/stderr ship, never the `-e` environment. cv-domain-service has no logging code of its own (Spring/Hikari/Hibernate INFO, no `show-sql`, no request logging). cv-bff-node prints only the listening port, a token-failure message designed never to contain the secret, and 500-handler errors without headers. No Authorization header, request body or email is logged.
+- **Live, 2026-10-08, applied from the branch:**
+  - **Before:** backup `cv-20261008T013031Z.sql.gz`; row baseline 1/7/3/2/30/30 at V2; state `2026-10-08/pre-t054.tfstate`.
+  - **Plan:** policy, S3 object, hash, and the instance + EIP association + volume attachment replaced. **4 added, 2 changed, 3 destroyed.** The policy was created before the instance (the ordering fix). New host `i-0ec8607bffc070d6a`; the public CV was back to 200 after **138 s**.
+  - **Host:** cloud-init done. Both apps run `awslogs` with the exact options (domain-service also has the datetime format); mysql stays on json-file. Rows identical (1/7/3/2/30/30, V2). Volume `/dev/nvme1n1` mounted, backup timer enabled. `docker logs` still works (dual logging).
+  - **CloudWatch:**
+    - domain-service stream `domain-service-i-0ec8607bffc070d6a`: 26 events, including the request-driven `DispatcherServlet` lines; the Spring banner is one multi-line event.
+    - bff-node: the "listening" line.
+    - A regex scan for password/secret/Bearer/JWT found nothing.
+  - **`cv-redeploy bff-node`** (its SSM document): Success. The new container kept the driver, the stream went from 1 to 2 events, and the CV was 200.
+  - **IAM:** the live policy was read back, exact. **The IAM simulator can't evaluate CloudWatch Logs resource ARNs**: even a `Resource: "*"` policy returns implicitDeny for any concrete log-stream ARN. So it was replaced by real probes from the host. CreateLogStream in the doorbell's group, CreateLogGroup and GetLogEvents on its own group are all **AccessDenied**. Neither managed policy on the role grants a `logs:` action.
+  - The branch plans **No changes**.
 
 ## Why
 
@@ -59,10 +83,10 @@ Decided at [T-052](T-052-observability-scope-decision.md) (2026-10-07). Today pr
 
 ## Acceptance criteria
 
-- [ ] Applied (one host replacement, done the way T-044/T-035 did it). After it, both groups receive log events from the running containers, including one request's log line made through CloudFront.
-- [ ] `cv-redeploy domain-service` keeps the driver (the new container still logs to the group).
-- [ ] The role can write only to those groups (IAM simulator), and no secret shows up in the shipped logs (spot-check the startup lines).
-- [ ] Gates green; `/security-review` clean.
+- [x] Applied (one host replacement, done the way T-044/T-035 did it). After it, both groups receive log events from the running containers, including one request's log line made through CloudFront.
+- [x] `cv-redeploy domain-service` keeps the driver (the new container still logs to the group).
+- [x] The role can write only to those groups (IAM simulator), and no secret shows up in the shipped logs (spot-check the startup lines).
+- [x] Gates green; `/security-review` clean.
 
 ## Watch-outs
 
