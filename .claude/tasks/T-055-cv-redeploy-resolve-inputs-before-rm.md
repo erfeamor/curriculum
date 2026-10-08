@@ -2,7 +2,7 @@
 id: T-055
 title: "cv-infra: `cv-redeploy` removes the running container before reading its SSM parameters — a failed read leaves the service down"
 repo: cv-infra
-status: in_review
+status: done
 owner: tech-product-owner
 branch: fix/cv-redeploy-resolve-before-rm
 pr: https://github.com/erfeamor/cv-infra/pull/43
@@ -10,11 +10,11 @@ depends_on: [T-054]
 risk: normal   # changes cv-app.sh/cv-redeploy, so applying replaces the app host
 security_review: true   # touches the code path that handles the DB password and the BFF client secret
 checkpoint:
-  stage: h2   # applied from the branch 2026-10-08; host i-05c8e011117d30b34; both SSM redeploys green; awaiting H2
+  stage: done   # merged 676e279 (squash of cv-infra#43), 2026-10-08 — applied from the branch first; H2 accepted; master plans No changes
   repo: cv-infra
   branch: fix/cv-redeploy-resolve-before-rm
   worktree: none
-  commit: 680a6ba
+  commit: 676e279
   pr: https://github.com/erfeamor/cv-infra/pull/43
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
