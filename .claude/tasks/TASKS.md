@@ -21,6 +21,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - [T-504](T-504-m2-release-tag-all-repos.md): tag `M2` in all 9 repos after T-502, pinned by a manifest, with immutable tags.
 
 **Anytime**
+- [T-056](T-056-cv-infra-readme-free-tier-drift.md) and [T-057](T-057-cv-observability-docs-reflect-decision.md): trivial README fixes from T-502's audit.
 - [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), from **2026-10-12**. Small.
 
 **Human**
@@ -125,6 +126,8 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
+| [T-056](T-056-cv-infra-readme-free-tier-drift.md) | cv-infra README still says 'kept within the AWS Free Tier' (from T-502's audit) | cv-infra | todo | | — | |
+| [T-057](T-057-cv-observability-docs-reflect-decision.md) | cv-observability docs predate T-052/T-054 (logging 'not wired up yet'; pipeline) (from T-502's audit) | cv-observability | todo | | — | |
 
 <details>
 <summary>Infra & ops — 53 done</summary>
