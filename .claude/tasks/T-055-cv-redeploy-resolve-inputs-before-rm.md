@@ -2,25 +2,25 @@
 id: T-055
 title: "cv-infra: `cv-redeploy` removes the running container before reading its SSM parameters — a failed read leaves the service down"
 repo: cv-infra
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: fix/cv-redeploy-resolve-before-rm
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/43
 depends_on: [T-054]
 risk: normal   # changes cv-app.sh/cv-redeploy, so applying replaces the app host
 security_review: true   # touches the code path that handles the DB password and the BFF client secret
 checkpoint:
-  stage: implement   # H1 2026-10-08
+  stage: apply   # reviews clean; CHECKPOINT before the apply (/usage 40–75%). Next: backup + row baseline, plan (expect the T-054 shape: S3 object + hash in place, instance/EIP assoc/volume attachment replaced), apply, live checks, both SSM redeploys, H2
   repo: cv-infra
   branch: fix/cv-redeploy-resolve-before-rm
   worktree: none
-  commit:
-  pr:
+  commit: 680a6ba
+  pr: https://github.com/erfeamor/cv-infra/pull/43
   developer: infrastructure-engineer
   reviewers: [code-review, security-review]
   risk: normal
   security_review: true
-  review_round: 0
+  review_round: 2
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -29,8 +29,8 @@ checkpoint:
   budget:
     turns: 0
     total_tokens: 0
-    subagent_tokens: 0
-    spawns: 0
+    subagent_tokens: 146000   # developer ~102k (build + 2 fix rounds), security sub-task ~44k
+    spawns: 2   # infrastructure-engineer (fresh, resumed twice) + security sub-task
     status: ok   # human-reported /usage 40–75%: implement + review, checkpoint before the apply
     checked: 2026-10-08T12:00:00+02:00
 ---
@@ -40,6 +40,35 @@ checkpoint:
 1. **Split resolve / start.** Each service gets `cv_resolve_<svc>`, which does every SSM read plus the instance id into non-exported shell variables, and `cv_start_<svc>`, which runs the `docker run` with exactly today's arguments. `cv_run_<svc>` is resolve then start, so the bootstrap path is unchanged. `roll` becomes pull → resolve → `docker rm -f` → start. There is still one definition of the run arguments. Rejected: start-new-then-swap (collides on the published ports 8080/3000; a redesign).
 2. **Apply:** one host replacement (as in T-054), with a backup and row baseline first, then both SSM redeploy documents proven live.
 3. **Budget:** `/usage` 40–75%: implement and review, then **checkpoint before the apply**.
+
+## Implement + review — 2026-10-08 (cv-infra#43, 680a6ba)
+
+- **Developer, first pass (0cd8022):** the split H1 asked for (`cv_resolve_*` / `cv_start_*` / `cv_clear_*`, with global non-exported secrets).
+- **`/code-review` high:** behaviour correct, but **three mutations passed all 159 checks**:
+  - swapping `bff/token-url` and `bff/token-scope` (the stub returned identical values);
+  - `return "$rc"` changed to a bare `return`;
+  - a cut-down `cv_clear_bff_node`.
+- The reviewer proposed a simpler shape that **keeps H1's intent while replacing its mechanism**. The driver accepted it.
+  - `cv_run_<svc>` declares its inputs `local`, resolves them all, then runs an optional pre-start hook (`"$@"`), then `docker run` last.
+  - `roll` = `cv_run_<svc> docker rm -f <svc>`; the bootstrap calls it unchanged.
+  - The secrets are function-local, so `cv_resolve_*`, `cv_start_*` and `cv_clear_*` are gone.
+- **Round 1 fixes (b06a377):**
+  - unique stub values per parameter, with the golden regenerated from master;
+  - the `docker run` failure path is tested;
+  - no-leak tests on every path;
+  - `cv_need` for `db/password` in Flyway and the boot MySQL run;
+  - check 23 rewritten: it strips comments and rejects `|| true` and a bare `rm`;
+  - stale comments and docs updated.
+  - Every mutation is now caught.
+- **Driver finding (680a6ba):** bash 5.3 `local` **inherits an existing export flag**. With a pre-exported `CV_DS_DB_PASSWORD`, child processes (`aws`, `docker`) would receive the SSM secret in their environment; verified in a shell.
+  - Inputs are now `local +x`.
+  - Case 15 failed 3 checks without it and passes with it.
+  - Gate: harness 191/191, `terraform test` 28/28, check-static 28 OK.
+- **Security review (680a6ba): no findings.**
+  - `cv_need`'s errors name the parameter, never the value.
+  - No xtrace, export, `set -a` or `declare -x` anywhere.
+  - Nothing new is written to disk.
+  - The `printf -v` targets are literals, and dispatch comes from a fixed `case` behind parameterless SSM documents.
 
 ## Why
 

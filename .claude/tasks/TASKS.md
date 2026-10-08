@@ -124,7 +124,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
 | [T-051](T-051-cost-remeasure-after-trims.md) | Re-measure the run rate after the EIP release + Graviton — **not before Friday 2026-10-09** | cv-project (meta) | todo |  | — |  |
 | [T-053](T-053-cv-infra-cost-table-refresh.md) | cv-infra CLAUDE.md cost table from T-051's measurement | cv-infra | todo |  | T-051 |  |
-| [T-055](T-055-cv-redeploy-resolve-inputs-before-rm.md) | `cv-redeploy` removes the running container before reading its SSM parameters; a failed read leaves the service down (from T-054's review) | cv-infra | in_progress | tech-product-owner | T-054 ✔ | |
+| [T-055](T-055-cv-redeploy-resolve-inputs-before-rm.md) | `cv-redeploy` removes the running container before reading its SSM parameters; a failed read leaves the service down (from T-054's review) | cv-infra | in_review | tech-product-owner | T-054 ✔ | [cv-infra#43](https://github.com/erfeamor/cv-infra/pull/43) |
 
 <details>
 <summary>Infra & ops — 50 done</summary>
