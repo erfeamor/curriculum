@@ -2,14 +2,45 @@
 id: T-502
 title: "Final documentation and architecture diagram (the roadmap's last unchecked item)"
 repo: cv-project (meta)
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: docs/final-architecture
 pr:
 depends_on: [T-501, T-052, T-054]
 risk: low
 security_review: false
+checkpoint:
+  stage: implement   # H1 2026-10-08
+  repo: cv-project (meta)
+  branch: docs/final-architecture
+  worktree: none
+  commit:
+  pr:
+  developer: tech-product-owner   # driver-written docs, as in T-501
+  reviewers: [code-review]
+  risk: low
+  security_review: false
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  env_slot: n/a
+  updated: 2026-10-08T17:00:00+02:00
+  budget:
+    turns: 0
+    total_tokens: 0
+    subagent_tokens: 0
+    spawns: 0
+    status: ok   # human-reported /usage under ~40%
+    checked: 2026-10-08T17:00:00+02:00
 ---
+
+## H1 — decided by the human, 2026-10-08
+
+1. **Diagram:** a Mermaid block **inline in `docs/architecture.md`** (renders on GitHub). **`diagrams/architecture.mmd` is deleted**, and the README layout lines (EN + ES) drop `diagrams/`.
+2. **Per-repo READMEs:** audit all 8 siblings' README/CLAUDE.md for claims that contradict the live system, and **file one small docs task per repo with drift**. T-502 stays a meta-repo PR.
+3. **Writer:** the driver writes it (as in T-501), checking every claim against Terraform and the account; one `/code-review` pass on the committed diff.
+4. **Budget:** `/usage` under ~40%: the whole task this window.
 
 ## Why
 

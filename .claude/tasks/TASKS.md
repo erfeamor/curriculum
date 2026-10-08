@@ -39,7 +39,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-502](T-502-final-docs-architecture-diagram.md) | Final documentation and architecture diagram (the roadmap's last item) | cv-project (meta) | todo |  | T-501 ✔, T-052 ✔, T-054 ✔ |  |
+| [T-502](T-502-final-docs-architecture-diagram.md) | Final documentation and architecture diagram (the roadmap's last item) | cv-project (meta) | in_progress | tech-product-owner | T-501 ✔, T-052 ✔, T-054 ✔ |  |
 | [T-504](T-504-m2-release-tag-all-repos.md) | Tag `M2` in all 9 repos, pinned by a meta-repo manifest, with checkout/verify scripts and immutable tags | cv-project (meta) + all repos | todo | | T-502 | |
 
 <details>
