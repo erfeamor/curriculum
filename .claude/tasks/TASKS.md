@@ -17,6 +17,9 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - **[T-051](T-051-cost-remeasure-after-trims.md)** cost re-measure **done 2026-10-08** (~$0.51/day), with [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table), then [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table).
 - **[T-502](T-502-final-docs-architecture-diagram.md)** (final docs + diagram; its drift list was narrowed by T-501): **claimable** (T-054 put app logs in CloudWatch, 2026-10-08).
 
+**Then**
+- [T-504](T-504-m2-release-tag-all-repos.md): tag `M2` in all 9 repos after T-502, pinned by a manifest, with immutable tags.
+
 **Anytime**
 - [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), from **2026-10-12**. Small.
 
@@ -37,6 +40,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-502](T-502-final-docs-architecture-diagram.md) | Final documentation and architecture diagram (the roadmap's last item) | cv-project (meta) | todo |  | T-501 ✔, T-052 ✔, T-054 ✔ |  |
+| [T-504](T-504-m2-release-tag-all-repos.md) | Tag `M2` in all 9 repos, pinned by a meta-repo manifest, with checkout/verify scripts and immutable tags | cv-project (meta) + all repos | todo | | T-502 | |
 
 <details>
 <summary>M2 — 17 done</summary>
