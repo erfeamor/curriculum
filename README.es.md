@@ -127,8 +127,8 @@ Separación explícita entre métricas y logs.
 #### Logs
 - Logs estructurados en JSON.
 - Almacenamiento:
-  - **MongoDB Atlas (free tier)** para eventos y auditoría.
-  - Alternativa: CloudWatch Logs para simplificar en AWS.
+  - Diseño: **MongoDB Atlas (free tier)** para eventos y auditoría, o CloudWatch Logs dentro de AWS.
+  - **Desplegado (T-052/T-054):** la salida de los contenedores del servicio de dominio y del BFF va a CloudWatch Logs. El logging JSON estructurado y Atlas no están construidos.
 
 **Repositorio:** `cv-observability`
 
@@ -142,7 +142,7 @@ El sistema utiliza **AWS Cognito** para gestionar usuarios y sesiones.
 - Java Domain Service → Validación de JWT.
 - Node BFF → Validación de JWT y propagación de claims.
 
-Cognito entra dentro del **AWS Free Tier**, por lo que es adecuado para esta demo.
+La cuota gratuita de Cognito cubre a los usuarios de esta demo. Los tokens máquina a máquina del BFF se cobran por petición, céntimos al mes (T-043). La cuenta está en el plan Paid de AWS.
 
 ---
 
@@ -190,7 +190,7 @@ Desplegada con Terraform. La cuenta está en el plan Paid de AWS desde el 2026-0
 - **AWS Cognito**  
   Autenticación.
 - **CloudWatch Logs**  
-  Existen grupos de logs para ambos servicios, pero ningún contenedor les envía logs todavía (solo las Lambdas doorbell y reaper del host de CI escriben logs allí). MongoDB Atlas es una opción de diseño, no desplegada, y Prometheus/Grafana solo corren en el stack local de desarrollo (decisión de alcance: T-052).
+  Los logs de los contenedores del servicio de dominio y del BFF (desde T-054), más las Lambdas doorbell y reaper del host de CI. MongoDB Atlas es una opción de diseño, no desplegada. Prometheus/Grafana solo corren en el stack local de desarrollo, por diseño (T-052).
 - **SSM Parameter Store**  
   Gestión de secretos.
 
@@ -207,8 +207,7 @@ Este repositorio (`cv-project`) es el **meta repo**: no contiene código de apli
 ```
 cv-project/          ← este repo (meta repo, sin submódulos)
   scripts/            lint-all.sh, test-all.sh, build-all.sh
-  docs/                notas de arquitectura
-  diagrams/            architecture.mmd
+  docs/                notas de arquitectura y el diagrama del sistema (Mermaid)
   devcontainers/       devcontainer global multi-stack
   clone-all.sh
   update-all.sh
@@ -256,14 +255,12 @@ Cada repo de producto también incluye su propio `.devcontainer/devcontainer.jso
 - [x] Crear React Admin (CRUD de la persona y de las cuatro secciones; desplegado en `/admin/`)
 - [x] Crear Vanilla Landing (CV completo; desplegado en la raíz de CloudFront)
 - [x] Crear el sitio público optimizado con Next.js (CV completo; ISR desde el BFF desplegado; en Vercel)
-- [x] Configurar observabilidad (métricas solo en el stack local de desarrollo; aún sin métricas ni pipeline de logs en la nube, decisión de alcance T-052)
+- [x] Configurar observabilidad (logs de las apps en CloudWatch en producción; métricas solo en el stack local de desarrollo, por diseño: T-052/T-054)
 - [x] Desplegar infraestructura AWS — Terraform aplicado en eu-west-3 (un host EC2 de aplicación con el servicio de dominio y el BFF junto a un contenedor MySQL 8.4 autoalojado, S3+CloudFront para el admin y el sitio vanilla, Cognito, ECR, un host de CI bajo demanda para Jenkins y Drone)
 - [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); el servicio de dominio y el BFF se despliegan solos en cada push a master, cv-database migra producción cuando llega una migración a master, el admin se despliega desde Drone y el sitio vanilla desde GitHub Actions
-- [ ] Documentación final y diagrama de arquitectura
+- [x] Documentación final y diagrama de arquitectura ([docs/architecture.md](docs/architecture.md))
 
 ### Backlog
 
-- Logging JSON estructurado hacia MongoDB Atlas o CloudWatch (ver `cv-observability/docs/logging.md`); si se hace o no es T-052
-- ECR conserva todas las imágenes de deploy `:<sha>`; la regla de retención es T-050
 - Dashboard inicial de Grafana
 - Animaciones / Web Components del sitio público
