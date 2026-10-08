@@ -262,6 +262,5 @@ Cada repo de producto también incluye su propio `.devcontainer/devcontainer.jso
 
 ### Backlog
 
-- Logging JSON estructurado dentro de las apps (ver `cv-observability/docs/logging.md`): fuera de alcance desde T-052; la salida de los contenedores ya llega a CloudWatch (T-054)
 - Dashboard inicial de Grafana
 - Animaciones / Web Components del sitio público

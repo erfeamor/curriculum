@@ -2,25 +2,25 @@
 id: T-502
 title: "Final documentation and architecture diagram (the roadmap's last unchecked item)"
 repo: cv-project (meta)
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: docs/final-architecture
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/122
 depends_on: [T-501, T-052, T-054]
 risk: low
 security_review: false
 checkpoint:
-  stage: implement   # H1 2026-10-08
+  stage: h2   # reviewed (round 1: 8 findings, all fixed); awaiting H2
   repo: cv-project (meta)
   branch: docs/final-architecture
   worktree: none
-  commit:
-  pr:
+  commit: see PR head
+  pr: https://github.com/erfeamor/curriculum/pull/122
   developer: tech-product-owner   # driver-written docs, as in T-501
   reviewers: [code-review]
   risk: low
   security_review: false
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
@@ -67,6 +67,17 @@ checkpoint:
 - **Per-repo audit (H1 2):** all 8 READMEs and CLAUDE.md files were scanned for stale deployment claims, and each repo's deploy section was read.
   - **Drift in 2 repos, filed:** [T-056](T-056-cv-infra-readme-free-tier-drift.md) (cv-infra README: "Free Tier", "six repos") and [T-057](T-057-cv-observability-docs-reflect-decision.md) (cv-observability: logging "not wired up yet", pipeline "Jenkins or GitHub Actions").
   - cv-database, cv-domain-service, cv-bff-node, cv-admin-react, cv-public-vanilla and cv-public-react match the live system.
+
+- **`/code-review` medium on 9990f1f: 8 findings, all fixed.**
+  - The diagram lacked the browser calls: the admin to `/api/*` with a user JWT, and the vanilla site's fetch of `/bff/*`.
+  - Webhooks come from the GitHub repos (every push and PR), not from Actions.
+  - The doorbell redelivers **only cv-admin-react's Drone hook**; the Jenkins repos rely on Jenkins' scan.
+  - Skills and assignments are **not** versioned.
+  - One OIDC role per service does both the ECR push and the SSM send, so it can overwrite `:latest`.
+  - Any rendered user_data change replaces the host, not only the script.
+  - The self-contradicting backlog line ("out of scope") is removed, EN + ES.
+  - This checkpoint was stale.
+  - The reviewer confirmed the Mermaid syntax by reading, not by rendering; GitHub's render of the PR is the check.
 
 ## Why
 

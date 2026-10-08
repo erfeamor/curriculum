@@ -262,6 +262,5 @@ Each product repo also ships its own `.devcontainer/devcontainer.json` for worki
 
 ### Backlog
 
-- Structured JSON logging inside the apps (see `cv-observability/docs/logging.md`): not in scope since T-052; raw container output already ships to CloudWatch (T-054)
 - Grafana starter dashboard
 - Vanilla-site animations / Web Components
