@@ -69,6 +69,23 @@ docker volume rm curriculum_cv-dev-mysql-data   # real name carries the
   # above is not what Docker stores it under
 ```
 
+## Releases (T-504)
+
+A release is a tag of the same name (`M2`, `M3`, …) in all nine repos. `releases/<name>.json` records each sibling's commit, and the meta repo's tag is the commit that adds that file, so **the meta repo at `M2` defines `M2` everywhere**. A GitHub tag ruleset, "Protect release tags", in every repo blocks updating or deleting `refs/tags/M*` with no bypass, admins included.
+
+```bash
+git checkout M2 && scripts/release-checkout.sh M2   # every sibling at its M2 tag (detached); refuses dirty repos, moves none
+scripts/release-verify.sh M2                        # read-only: tags local + on GitHub, on the manifest's commits, working copies on them
+```
+
+Cutting the next one:
+1. `scripts/release-manifest.sh M3` on a branch (it fetches each sibling's `origin/master`; never edit the JSON by hand).
+2. Merge it through a PR.
+3. On the meta repo's updated `master`, run `scripts/release-tag.sh M3`. It checks everything before tagging anything, and a re-run is a no-op.
+4. Run `scripts/release-protect.sh` only if the ruleset itself changes. It's idempotent.
+
+Tag pushes deploy nothing: Actions and Vercel only act on `master`, Drone has no `tag` trigger, and Jenkins discovers branches only. A tag push does, however, wake the CI host through the doorbell (T-059 fixes that). `scripts/test_release.py` covers all five scripts offline.
+
 ## Environment gotchas (this machine)
 
 - Toolchains are user-space in `~/.local`: `mvn` is a wrapper pinning Temurin JDK 17 (system `java` is a bare JRE 25 — don't use it directly), Node 20 via nvm symlinks, Terraform 1.9.8.

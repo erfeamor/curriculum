@@ -35,7 +35,7 @@ Tasks in [T-501](T-501-e2e-cv-milestone.md)'s transitive `depends_on` — **comp
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-504](T-504-m2-release-tag-all-repos.md) | Tag `M2` in all 9 repos, pinned by a meta-repo manifest, with checkout/verify scripts and immutable tags | cv-project (meta) + all repos | todo | | T-502 | |
+| [T-504](T-504-m2-release-tag-all-repos.md) | Tag `M2` in all 9 repos, pinned by a meta-repo manifest, with checkout/verify scripts and immutable tags | cv-project (meta) + all repos | in_progress | tech-product-owner | T-502 | |
 
 <details>
 <summary>M2 — 18 done</summary>
@@ -121,6 +121,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
 | [T-058](T-058-rotate-jenkins-github-pat-2027.md) | Rotate Jenkins' GitHub token again — expires 2027-01-30 (**due 2026-12-30**) | cv-infra | todo | | T-040 ✔ | none |
+| [T-059](T-059-doorbell-skip-tag-pushes.md) | Doorbell: ignore tag pushes, so a release tag doesn't wake the CI host (before M3) | cv-infra | todo | | T-504 | |
 
 <details>
 <summary>Infra & ops — 56 done</summary>

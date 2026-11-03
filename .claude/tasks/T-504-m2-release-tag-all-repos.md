@@ -2,14 +2,28 @@
 id: T-504
 title: "Tag `M2` in all 9 repos, pinned by a manifest in the meta repo, with checkout/verify scripts and immutable tags"
 repo: cv-project (meta) + all eight sibling repos (tags and rulesets only)
-status: todo
-owner:
+status: in_progress
+owner: tech-product-owner
 branch: feat/release-m2-tag
 pr:
 depends_on: [T-502]   # T-502 (final docs + diagram) is the roadmap's last item; M2 is tagged after it merges
 risk: normal   # new tooling, tags pushed to 9 repos, GitHub rulesets: no AWS or app changes
 security_review: false
+checkpoint:
+  stage: implement
+  h1: approved 2026-11-03
+  branch: feat/release-m2-tag
+  worktree: none   # meta repo, main checkout
 ---
+
+## H1 — approved 2026-11-03
+
+- **CI wake:** accepted. The tag pushes to cv-admin-react, cv-database and cv-domain-service wake the CI host once through the doorbell; record it. The doorbell fix is filed as [T-059](T-059-doorbell-skip-tag-pushes.md).
+- **Verify wiring:** standalone, run by hand and documented in CLAUDE.md. No `post-checkout` hook, and not wired into `test-all.sh` or `board-check` (verify fails whenever a sibling isn't on its tag, which is normal day to day). The scripts' offline tests (`scripts/test_release.py`) do run in `test-all.sh`.
+- **Lock scope:** one ruleset per repo on `refs/tags/M*`: blocks update and deletion, no bypass, creation allowed.
+- **Stage-0 facts** (checked 2026-11-03): Drone's `trigger.event` is `[push, pull_request]` (a tag push is a `tag` event, so no build); both Jenkins jobs use `gitHubBranchDiscovery` only; every GitHub Actions workflow is master-only; no repo had tags or a tag ruleset.
+- **Implementation:** the driver implements (meta repo tooling), plus `release-manifest.sh` and `release-tag.sh` so that the manifest and tags are generated, never typed. `release-protect.sh` applies the ruleset idempotently.
+
 
 ## Why
 
