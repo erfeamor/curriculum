@@ -20,11 +20,15 @@ for repo in "${SIBLINGS[@]}"; do
 done
 
 mkdir -p "$ROOT/releases"
-python3 - "$name" "$GITHUB_ORG" "${entries[@]}" > "$out" <<'PY'
+# Written aside and moved into place, so a failure never leaves a stub that
+# the "already exists" guard above would then refuse forever.
+trap 'rm -f "$out.tmp"' EXIT
+python3 - "$name" "$GITHUB_ORG" "${entries[@]}" > "$out.tmp" <<'PY'
 import json, sys
 name, org, rest = sys.argv[1], sys.argv[2], sys.argv[3:]
 repos = {rest[i]: {"github": f"{org}/{rest[i]}", "commit": rest[i + 1]} for i in range(0, len(rest), 2)}
 json.dump({"release": name, "repos": repos}, sys.stdout, indent=2)
 print()
 PY
+mv "$out.tmp" "$out"
 echo "wrote $out"

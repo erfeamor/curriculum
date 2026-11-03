@@ -163,6 +163,16 @@ class TestManifest(ReleaseTestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertFalse((self.ws.meta / "releases").exists())
 
+    def test_leaves_no_file_behind_when_writing_fails(self):
+        bin_dir = self.tmp / "failing-python"
+        bin_dir.mkdir()
+        (bin_dir / "python3").write_text("#!/bin/sh\nexit 1\n")
+        (bin_dir / "python3").chmod(0o755)
+        r = self.ws.run("release-manifest.sh", "M2", env={"PATH": f"{bin_dir}:{os.environ['PATH']}"})
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse((self.ws.meta / "releases" / "M2.json").exists())
+        self.assertEqual(self.ws.run("release-manifest.sh", "M2").returncode, 0)
+
     def test_refuses_a_missing_sibling(self):
         shutil.rmtree(self.sib("cv-observability"))
         r = self.ws.run("release-manifest.sh", "M2")
