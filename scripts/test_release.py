@@ -118,6 +118,22 @@ class ReleaseTestCase(unittest.TestCase):
     def sib(self, name):
         return self.ws.meta / name
 
+    def tag_short_manifest(self, name="M3"):
+        """A meta tag whose manifest omits cv-infra, made by hand: the
+        scripts would never produce one, but verify and checkout read
+        whatever the tag holds."""
+        path = self.ws.meta / "releases" / f"{name}.json"
+        path.parent.mkdir(exist_ok=True)
+        repos = {n: {"github": f"erfeamor/{n}", "commit": self.ws.head(self.sib(n))} for n in SIBLINGS[:-1]}
+        path.write_text(json.dumps({"release": name, "repos": repos}))
+        self.ws.git(self.ws.meta, "add", str(path))
+        self.ws.git(self.ws.meta, "commit", "-q", "-m", "short manifest")
+        self.ws.git(self.ws.meta, "tag", "-a", name, "-m", name)
+        for n in SIBLINGS[:-1]:
+            self.ws.git(self.sib(n), "tag", "-a", name, "-m", name)
+            self.ws.git(self.sib(n), "push", "-q", "origin", f"refs/tags/{name}")
+        self.ws.git(self.ws.meta, "push", "-q", "origin", "master", f"refs/tags/{name}")
+
 
 class TestManifest(ReleaseTestCase):
     def test_records_each_siblings_origin_master_after_fetching(self):
@@ -186,13 +202,108 @@ class TestTag(ReleaseTestCase):
         self.assertIn("releases/M2.json", r.stderr)
         self.assertIsNone(self.ws.remote_tag("cv-infra"))
 
-    def test_refuses_when_meta_head_is_not_origin_master(self):
+    def test_tags_the_meta_commit_that_added_the_manifest_not_a_later_one(self):
         self.ws.manifest_and_merge()
-        self.ws.commit(self.ws.meta, "unpushed", push=False)
+        added = self.ws.head(self.ws.meta)
+        self.ws.commit(self.ws.meta, "a later board update")
+
+        r = self.ws.run("release-tag.sh", "M2")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.ws.remote_tag("curriculum"), added)
+
+    def test_refuses_a_manifest_that_is_not_on_origin_master(self):
+        r = self.ws.run("release-manifest.sh", "M2")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.ws.git(self.ws.meta, "add", "releases/M2.json")
+        self.ws.git(self.ws.meta, "commit", "-q", "-m", "unmerged manifest")
         r = self.ws.run("release-tag.sh", "M2")
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("origin/master", r.stderr)
         self.assertIsNone(self.ws.remote_tag("curriculum"))
+
+    def test_refuses_a_manifest_changed_after_it_was_added(self):
+        self.ws.manifest_and_merge()
+        path = self.ws.meta / "releases" / "M2.json"
+        data = json.loads(path.read_text())
+        data["repos"]["cv-infra"]["commit"] = self.ws.head(self.ws.meta)
+        path.write_text(json.dumps(data))
+        self.ws.git(self.ws.meta, "commit", "-q", "-am", "hand edit")
+        self.ws.git(self.ws.meta, "push", "-q", "origin", "master")
+        r = self.ws.run("release-tag.sh", "M2")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("changed", r.stderr)
+
+    def _merge_broken_manifest(self, mutate):
+        self.ws.manifest_and_merge()
+        path = self.ws.meta / "releases" / "M2.json"
+        # Replace the manifest with a broken one in the commit that adds it.
+        self.ws.git(self.ws.meta, "reset", "-q", "--hard", "HEAD~1")
+        self.ws.run("release-manifest.sh", "M2")
+        data = json.loads(path.read_text())
+        path.write_text(mutate(data))
+        self.ws.git(self.ws.meta, "add", "releases/M2.json")
+        self.ws.git(self.ws.meta, "commit", "-q", "-m", "broken manifest")
+        self.ws.git(self.ws.meta, "push", "-q", "-f", "origin", "master")
+
+    def _assert_tag_refused_and_nothing_tagged(self):
+        r = self.ws.run("release-tag.sh", "M2")
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn("manifest", r.stderr)
+        for name in ["curriculum", *SIBLINGS]:
+            self.assertIsNone(self.ws.remote_tag(name), name)
+
+    def test_refuses_a_manifest_missing_a_sibling(self):
+        def drop(d):
+            del d["repos"]["cv-infra"]
+            return json.dumps(d)
+        self._merge_broken_manifest(drop)
+        self._assert_tag_refused_and_nothing_tagged()
+
+    def test_refuses_a_manifest_with_an_unknown_repo(self):
+        def extra(d):
+            d["repos"]["../elsewhere"] = dict(d["repos"]["cv-infra"])
+            return json.dumps(d)
+        self._merge_broken_manifest(extra)
+        self._assert_tag_refused_and_nothing_tagged()
+
+    def test_refuses_malformed_json(self):
+        self._merge_broken_manifest(lambda d: "{not json")
+        self._assert_tag_refused_and_nothing_tagged()
+
+    def test_refuses_when_a_remote_is_unreachable_and_tags_nothing(self):
+        self.ws.manifest_and_merge()
+        origin = self.ws.origins / "cv-observability.git"
+        origin.rename(origin.with_suffix(".gone"))
+        r = self.ws.run("release-tag.sh", "M2")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("cv-observability", r.stderr)
+        origin.with_suffix(".gone").rename(origin)
+        for name in ["curriculum", *SIBLINGS]:
+            self.assertIsNone(self.ws.remote_tag(name), name)
+
+    def test_refuses_a_sibling_that_is_not_cloned(self):
+        self.ws.manifest_and_merge()
+        shutil.rmtree(self.sib("cv-bff-node"))
+        r = self.ws.run("release-tag.sh", "M2")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("cv-bff-node", r.stderr)
+        self.assertIsNone(self.ws.remote_tag("cv-database"))
+
+    def test_a_push_rejected_midway_leaves_meta_untagged_and_a_rerun_completes(self):
+        self.ws.manifest_and_merge()
+        hook = self.ws.origins / "cv-public-react.git" / "hooks" / "pre-receive"
+        hook.write_text("#!/bin/sh\necho rejected >&2\nexit 1\n")
+        hook.chmod(0o755)
+
+        r = self.ws.run("release-tag.sh", "M2")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIsNone(self.ws.remote_tag("curriculum"))  # meta goes last
+
+        hook.unlink()
+        r = self.ws.run("release-tag.sh", "M2")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        for name in ["curriculum", *SIBLINGS]:
+            self.assertIsNotNone(self.ws.remote_tag(name), name)
 
     def test_refuses_an_existing_tag_on_another_commit_and_tags_nothing(self):
         self.ws.manifest_and_merge()
@@ -274,6 +385,26 @@ class TestVerify(ReleaseTestCase):
         self.assertEqual(before, {n: self.ws.head(self.sib(n)) for n in SIBLINGS})
 
 
+    def test_fails_on_a_manifest_missing_a_sibling(self):
+        self.tag_short_manifest()
+        self.ws.git(self.ws.meta, "checkout", "-q", "M3")
+        r = self.ws.run("release-verify.sh", "M3")
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn("manifest", r.stderr)
+        self.assertNotIn("all 9 repos", r.stdout)
+
+    def test_fails_when_origin_is_unreachable(self):
+        self.ws.release()
+        self.ws.git(self.ws.meta, "checkout", "-q", "M2")
+        self.ws.run("release-checkout.sh", "M2")
+        origin = self.ws.origins / "cv-infra.git"
+        origin.rename(origin.with_suffix(".gone"))
+        r = self.ws.run("release-verify.sh", "M2")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("FAIL cv-infra: can't read origin", r.stdout)
+        # Every other repo is still reported, not cut short.
+        self.assertIn("ok   cv-database", r.stdout)
+
 class TestCheckout(ReleaseTestCase):
     def test_puts_every_sibling_on_its_tag_detached(self):
         self.ws.release()
@@ -326,6 +457,41 @@ class TestCheckout(ReleaseTestCase):
         self.assertIn("M3", r.stderr)
 
 
+    def test_refuses_an_untracked_file_and_moves_none(self):
+        self.ws.release()
+        for name in SIBLINGS:
+            self.ws.commit(self.sib(name), "after the release")
+        before = {n: self.ws.head(self.sib(n)) for n in SIBLINGS}
+        (self.sib("cv-infra") / "stray.txt").write_text("untracked\n")
+
+        r = self.ws.run("release-checkout.sh", "M2")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("cv-infra", r.stderr)
+        self.assertEqual(before, {n: self.ws.head(self.sib(n)) for n in SIBLINGS})
+
+    def test_refuses_a_local_meta_tag_that_differs_from_origins(self):
+        self.ws.release()
+        self.ws.commit(self.ws.meta, "after the release")
+        self.ws.git(self.ws.meta, "tag", "-f", "M2", "HEAD")  # stale local tag
+
+        r = self.ws.run("release-checkout.sh", "M2")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("origin", r.stderr)
+
+    def test_refuses_a_local_sibling_tag_that_differs_from_origins(self):
+        self.ws.release()
+        sib = self.sib("cv-observability")
+        self.ws.git(sib, "tag", "-f", "M2", self.ws.commit(sib, "moved", push=False))
+        r = self.ws.run("release-checkout.sh", "M2")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("cv-observability", r.stderr)
+
+    def test_refuses_a_manifest_missing_a_sibling(self):
+        self.tag_short_manifest()
+        r = self.ws.run("release-checkout.sh", "M3")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("manifest", r.stderr)
+
 class TestProtect(ReleaseTestCase):
     def setUp(self):
         super().setUp()
@@ -359,6 +525,11 @@ class TestProtect(ReleaseTestCase):
         self.assertEqual(payload["bypass_actors"], [])
         self.assertEqual(payload["conditions"]["ref_name"]["include"], ["refs/tags/M*"])
         self.assertEqual(sorted(r["type"] for r in payload["rules"]), ["deletion", "update"])
+
+    def test_lists_only_the_repos_own_rulesets_across_all_pages(self):
+        self.ws.run("release-protect.sh", env=self.env)
+        log = self.log.read_text()
+        self.assertIn("api repos/erfeamor/cv-infra/rulesets?includes_parents=false --paginate", log)
 
     def test_updates_an_existing_ruleset_in_place(self):
         self.existing.write_text("cv-infra\n")

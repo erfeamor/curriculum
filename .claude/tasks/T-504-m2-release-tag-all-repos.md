@@ -2,15 +2,16 @@
 id: T-504
 title: "Tag `M2` in all 9 repos, pinned by a manifest in the meta repo, with checkout/verify scripts and immutable tags"
 repo: cv-project (meta) + all eight sibling repos (tags and rulesets only)
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: feat/release-m2-tag
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/125
 depends_on: [T-502]   # T-502 (final docs + diagram) is the roadmap's last item; M2 is tagged after it merges
 risk: normal   # new tooling, tags pushed to 9 repos, GitHub rulesets: no AWS or app changes
 security_review: false
 checkpoint:
-  stage: implement
+  stage: review
+  review_round: 1
   h1: approved 2026-11-03
   branch: feat/release-m2-tag
   worktree: none   # meta repo, main checkout
@@ -24,6 +25,18 @@ checkpoint:
 - **Stage-0 facts** (checked 2026-11-03): Drone's `trigger.event` is `[push, pull_request]` (a tag push is a `tag` event, so no build); both Jenkins jobs use `gitHubBranchDiscovery` only; every GitHub Actions workflow is master-only; no repo had tags or a tag ruleset.
 - **Implementation:** the driver implements (meta repo tooling), plus `release-manifest.sh` and `release-tag.sh` so that the manifest and tags are generated, never typed. `release-protect.sh` applies the ruleset idempotently.
 
+
+## Review round 1 (2026-11-03)
+
+`/code-review` (10 findings) and the infrastructure-engineer lens (no blockers, 3 should-fix) agreed on the substance. All accepted and fixed test-first:
+- A manifest parsed inside `< <(…)` failed silently. It is now captured with `|| die` and must name exactly the eight siblings with full commit ids.
+- `ls-remote` failures read as "no tag". They are now fatal in tag, reported as `can't read origin` in verify, and refused in checkout.
+- Checkout's pre-check now refuses untracked files and compares every local tag with origin's.
+- The meta tag now goes on the commit that **added** the manifest, not a later `master` HEAD, and is refused if the manifest changed after it was added.
+- `release-protect.sh` lists only the repo's own rulesets (`includes_parents=false`), across every page.
+- Added tests: a push rejected midway leaves the meta repo untagged and a re-run completes; a sibling that isn't cloned is refused.
+
+38 release tests. Every guard is mutation-checked except `release-tag.sh`'s "can't read origin", which is redundant behind pass 1's fetch and kept as defence in depth.
 
 ## Why
 

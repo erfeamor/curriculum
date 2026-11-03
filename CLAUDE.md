@@ -71,7 +71,7 @@ docker volume rm curriculum_cv-dev-mysql-data   # real name carries the
 
 ## Releases (T-504)
 
-A release is a tag of the same name (`M2`, `M3`, …) in all nine repos. `releases/<name>.json` records each sibling's commit, and the meta repo's tag is the commit that adds that file, so **the meta repo at `M2` defines `M2` everywhere**. A GitHub tag ruleset, "Protect release tags", in every repo blocks updating or deleting `refs/tags/M*` with no bypass, admins included.
+A release is a tag of the same name (`M2`, `M3`, …) in all nine repos. `releases/<name>.json` records each sibling's commit, and the meta repo's tag is the commit that adds that file, so **the meta repo at `M2` defines `M2` everywhere**. A GitHub tag ruleset, "Protect release tags", in every repo blocks updating or deleting `refs/tags/M*` with no bypass, admins included. The only way back from a wrong tag is deliberate: an admin disables or deletes that repo's ruleset, fixes the tag, and re-runs `scripts/release-protect.sh`.
 
 ```bash
 git checkout M2 && scripts/release-checkout.sh M2   # every sibling at its M2 tag (detached); refuses dirty repos, moves none

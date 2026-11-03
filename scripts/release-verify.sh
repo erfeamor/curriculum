@@ -13,8 +13,8 @@ check_name "$name"
 
 meta_commit="$(local_tag_commit "$ROOT" "$name")"
 [ -n "$meta_commit" ] || die "meta repo: no local tag $name (git fetch --tags)"
-manifest="$(git -C "$ROOT" show "refs/tags/$name:releases/$name.json" 2>/dev/null)" \
-  || die "meta repo: tag $name has no releases/$name.json"
+pairs="$(git -C "$ROOT" show "refs/tags/$name:releases/$name.json" 2>/dev/null | manifest_commits)" \
+  || die "meta repo: tag $name has no valid releases/$name.json manifest"
 
 failed=()
 check() {
@@ -23,13 +23,17 @@ check() {
     echo "FAIL $label: not cloned at $dir"; failed+=("$label"); return
   fi
   have="$(local_tag_commit "$dir" "$name")"
-  remote="$(remote_tag_commit "$dir" "$name")"
+  remote="$(remote_tag_commit "$dir" "$name")" || remote="unreadable"
   head="$(git -C "$dir" rev-parse HEAD)"
   local why=()
   [ -n "$have" ] || why+=("no local tag")
   [ -z "$have" ] || [ "$have" = "$want" ] || why+=("local tag is ${have:0:12}")
-  [ -n "$remote" ] || why+=("no tag on origin")
-  [ -z "$remote" ] || [ "$remote" = "$want" ] || why+=("origin's tag is ${remote:0:12}")
+  case "$remote" in
+    unreadable) why+=("can't read origin") ;;
+    "") why+=("no tag on origin") ;;
+    "$want") ;;
+    *) why+=("origin's tag is ${remote:0:12}") ;;
+  esac
   [ "$head" = "$want" ] || why+=("working copy at ${head:0:12}, not on $name")
   if [ "${#why[@]}" -eq 0 ]; then
     echo "ok   $label: $name ${want:0:12}"
@@ -42,10 +46,10 @@ check() {
 check "curriculum" "$ROOT" "$meta_commit"
 while read -r repo commit; do
   check "$repo" "$ROOT/$repo" "$commit"
-done < <(manifest_commits <<<"$manifest")
+done <<<"$pairs"
 
 if [ "${#failed[@]}" -gt 0 ]; then
   echo "error: not at $name: ${failed[*]}" >&2
   exit 1
 fi
-echo "all 9 repos at $name"
+echo "all $((1 + ${#SIBLINGS[@]})) repos at $name"
