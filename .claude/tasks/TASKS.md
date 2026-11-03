@@ -4,29 +4,26 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-10-08 (T-502 merged: the roadmap is complete; next T-504, the M2 tag)
+## Now / Next / Later — refreshed 2026-11-02 (T-040 done: Jenkins on a new token until 2027-01-30; next T-504, T-038)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
-- **[T-040](T-040-jenkins-github-pat-expiry.md)** as soon as the human has the token (**due 2026-10-30**).
+- **[T-504](T-504-m2-release-tag-all-repos.md)**: tag `M2` in all 9 repos, pinned by a manifest, with immutable tags.
 
 **Next**
-- **[T-051](T-051-cost-remeasure-after-trims.md)** cost re-measure **done 2026-10-08** (~$0.51/day), with [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table), then [T-053](T-053-cv-infra-cost-table-refresh.md) (cv-infra's table).
-
-**Then**
-- **[T-504](T-504-m2-release-tag-all-repos.md)**: tag `M2` in all 9 repos, pinned by a manifest, with immutable tags. **Claimable: T-502 is done.**
+- [T-058](T-058-rotate-jenkins-github-pat-2027.md): rotate Jenkins' token again, **due 2026-12-30** (it expires 2027-01-30). A tfvars change plus one apply since T-040.
 
 **Anytime**
-- [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review), from **2026-10-12**. Small.
+- [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review): claimable since 2026-10-12. Small.
 
 **Human**
-- **By 2026-10-30:** create a replacement CI GitHub token for Jenkins ([T-040](T-040-jenkins-github-pat-expiry.md)). The current one expires **2026-11-06**.
+- **By 2026-12-30:** create a new fine-grained token for Jenkins ([T-058](T-058-rotate-jenkins-github-pat-2027.md)); the current one expires **2027-01-30**.
 - Paid plan since 2026-09-29; all five credit activities done (grant $200). **$116.15** left on 2026-10-08 at **~$0.51/day** (T-051), enough until about late May 2027, before the credits expire on 2027-07-12. Charges past them bill the card; the budget alarms are the guard.
 
-Recent close-outs: 2026-10-08 T-056 + T-057 (README drift from T-502's audit); 2026-10-08 **T-502** (final docs + Mermaid diagram; the roadmap is complete); 2026-10-08 **T-055** (`cv-redeploy` resolves every input before removing the running container; app host now `i-05c8e011117d30b34`); 2026-10-08 **T-054** (app logs in CloudWatch; app host now `i-0ec8607bffc070d6a`); 2026-10-07 T-052 (decided: app logs to CloudWatch via T-054, metrics local by design); T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
+Recent close-outs: 2026-11-02 **T-040** (Jenkins token rotated; rotations now re-provision on apply); 2026-10-08 T-056 + T-057 (README drift from T-502's audit); 2026-10-08 **T-502** (final docs + Mermaid diagram; the roadmap is complete); 2026-10-08 **T-055** (`cv-redeploy` resolves every input before removing the running container; app host now `i-05c8e011117d30b34`); 2026-10-08 **T-054** (app logs in CloudWatch; app host now `i-0ec8607bffc070d6a`); 2026-10-07 T-052 (decided: app logs to CloudWatch via T-054, metrics local by design); T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
 
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): T-004 decided **not** to rotate `db_password`, so this has no trigger today. Claim it **before** anyone changes `db_password` for any reason.
@@ -123,13 +120,14 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 |----|-------|------|--------|-------|------------|----|
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
 | [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | todo | | T-032 | |
-| [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (**due 2026-10-30**) | cv-infra | todo | | — | |
+| [T-058](T-058-rotate-jenkins-github-pat-2027.md) | Rotate Jenkins' GitHub token again — expires 2027-01-30 (**due 2026-12-30**) | cv-infra | todo | | T-040 ✔ | none |
 
 <details>
-<summary>Infra & ops — 55 done</summary>
+<summary>Infra & ops — 56 done</summary>
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
+| [T-040](T-040-jenkins-github-pat-expiry.md) | The CI GitHub token Jenkins uses expires 2026-11-06 — rotate it (rotated 2026-11-02; next expiry 2027-01-30, T-058) | cv-infra | done | tech-product-owner | — | [cv-infra#46](https://github.com/erfeamor/cv-infra/pull/46) |
 | [T-057](T-057-cv-observability-docs-reflect-decision.md) | cv-observability docs predate T-052/T-054 (logging 'not wired up yet'; pipeline) (from T-502's audit) | cv-observability | done | tech-product-owner | — | [cv-observability#3](https://github.com/erfeamor/cv-observability/pull/3) |
 | [T-056](T-056-cv-infra-readme-free-tier-drift.md) | cv-infra README still says 'kept within the AWS Free Tier' (from T-502's audit) | cv-infra | done | tech-product-owner | — | [cv-infra#45](https://github.com/erfeamor/cv-infra/pull/45) |
 | [T-053](T-053-cv-infra-cost-table-refresh.md) | cv-infra CLAUDE.md cost table from T-051's measurement | cv-infra | done | tech-product-owner | T-051 | [cv-infra#44](https://github.com/erfeamor/cv-infra/pull/44) |
