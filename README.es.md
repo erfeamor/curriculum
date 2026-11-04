@@ -260,6 +260,8 @@ Cada repo de producto también incluye su propio `.devcontainer/devcontainer.jso
 - [x] Configurar pipelines CI/CD (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); el servicio de dominio y el BFF se despliegan solos en cada push a master, cv-database migra producción cuando llega una migración a master, el admin se despliega desde Drone y el sitio vanilla desde GitHub Actions
 - [x] Documentación final y diagrama de arquitectura ([docs/architecture.md](docs/architecture.md))
 
+La hoja de ruta terminada está etiquetada como **`M2`** en los nueve repos. [`releases/M2.json`](releases/M2.json) fija el commit de cada repo, y las etiquetas no se pueden mover ni borrar. Para reproducirla: `git checkout M2 && scripts/release-checkout.sh M2 && scripts/release-verify.sh M2`.
+
 ### Backlog
 
 - Dashboard inicial de Grafana

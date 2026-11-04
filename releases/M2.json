@@ -1,0 +1,37 @@
+{
+  "release": "M2",
+  "repos": {
+    "cv-database": {
+      "github": "erfeamor/cv-database",
+      "commit": "0e7a566993f0d192d40baefec150210fb5a669db"
+    },
+    "cv-domain-service": {
+      "github": "erfeamor/cv-domain-service",
+      "commit": "b0a32e62dd529c977b0ff50384089cab1ded3e86"
+    },
+    "cv-bff-node": {
+      "github": "erfeamor/cv-bff-node",
+      "commit": "1037ea6023b537565adb3dabedb00f52b0f9a10e"
+    },
+    "cv-admin-react": {
+      "github": "erfeamor/cv-admin-react",
+      "commit": "22ea9a41fdea6359994f62dcd0d318c4748e141b"
+    },
+    "cv-public-vanilla": {
+      "github": "erfeamor/cv-public-vanilla",
+      "commit": "609342d48ae9614d6ba1bd67592ad72ffa69689e"
+    },
+    "cv-public-react": {
+      "github": "erfeamor/cv-public-react",
+      "commit": "2c785cbed14e6dbd33fca11562aedc1ac2c11f23"
+    },
+    "cv-observability": {
+      "github": "erfeamor/cv-observability",
+      "commit": "99b4711cdf926c611999434ef9781676efb07fd9"
+    },
+    "cv-infra": {
+      "github": "erfeamor/cv-infra",
+      "commit": "ee18956512542d1b26833c9606d07af67ccf8482"
+    }
+  }
+}

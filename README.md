@@ -260,6 +260,8 @@ Each product repo also ships its own `.devcontainer/devcontainer.json` for worki
 - [x] Configure CI/CD pipelines (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); the domain service and the BFF deploy themselves on a master push, cv-database migrates production when a migration lands on master, the admin deploys from Drone and the vanilla site from GitHub Actions
 - [x] Final documentation and architecture diagram ([docs/architecture.md](docs/architecture.md))
 
+The finished roadmap is tagged **`M2`** in all nine repos. [`releases/M2.json`](releases/M2.json) pins each repo's commit, and the tags can't be moved or deleted. To reproduce it: `git checkout M2 && scripts/release-checkout.sh M2 && scripts/release-verify.sh M2`.
+
 ### Backlog
 
 - Grafana starter dashboard
