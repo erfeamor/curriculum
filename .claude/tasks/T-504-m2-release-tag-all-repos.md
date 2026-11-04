@@ -2,20 +2,22 @@
 id: T-504
 title: "Tag `M2` in all 9 repos, pinned by a manifest in the meta repo, with checkout/verify scripts and immutable tags"
 repo: cv-project (meta) + all eight sibling repos (tags and rulesets only)
-status: in_review
+status: done
 owner: tech-product-owner
 branch: feat/release-m2-tag
 pr: https://github.com/erfeamor/curriculum/pull/125
 depends_on: [T-502]   # T-502 (final docs + diagram) is the roadmap's last item; M2 is tagged after it merges
 risk: normal   # new tooling, tags pushed to 9 repos, GitHub rulesets: no AWS or app changes
 security_review: false
-checkpoint:
-  stage: review
-  review_round: 1
-  h1: approved 2026-11-03
-  branch: feat/release-m2-tag
-  worktree: none   # meta repo, main checkout
 ---
+
+## ✅ DONE 2026-11-04: `M2` is tagged in all 9 repos ([curriculum#125](https://github.com/erfeamor/curriculum/pull/125))
+
+- **Rulesets:** `scripts/release-protect.sh` created "Protect release tags" in all 9 repos. Read back from GitHub, all 9 are identical: active, `refs/tags/M*`, rules `update` + `deletion`, 0 bypass actors, `current_user_can_bypass: never`.
+- **Tags:** `scripts/release-tag.sh M2` (14:42Z) tagged the siblings at the manifest's commits and the meta repo at `df3b41d` (#125's merge, the commit that adds `releases/M2.json`). Each sibling's tag is its `origin/master` from 2026-11-03, unchanged at tagging time.
+- **Verify:** a fresh HTTPS clone set (`git clone --branch M2` + `./clone-all.sh` + `release-checkout.sh M2`) verified with `all 9 repos at M2`. With one sibling moved to a new commit, verify exited 1 naming `cv-public-react` only. (`clone --branch` on an annotated tag prints a harmless "is not a commit" warning.)
+- **Immutability:** tried live on **cv-observability**, through SSH as a repo admin. Both a force-move and a delete were rejected with `GH013` ("Cannot update this protected ref", "Cannot delete this tag"), and the tag was unchanged. The same attempts on the other 8 repos were **not run**, because the session's auto-mode classifier blocks destructive git pushes. The human accepted the identical read-back above as the evidence for those 8.
+- **Side effects:** none deployed. There were 0 Actions runs in any repo after tagging, and Vercel's last deployment is still `2c785cb` (10-04). The doorbell woke the CI host **once**, at 14:43:31Z, on the cv-database tag push, as accepted at H1. Jenkins and Drone build branches only, so the reaper stops it on idle. [T-059](T-059-doorbell-skip-tag-pushes.md) removes the wake before `M3`.
 
 ## H1 — approved 2026-11-03
 
@@ -66,8 +68,8 @@ Requested by the human, 2026-10-08. The demo is a deliberate multi-repo, **not**
 
 ## Acceptance criteria
 
-- [ ] `M2` exists in all 9 repos on GitHub, each on the commit the manifest records (the meta repo's on the manifest's own commit).
-- [ ] `release-verify.sh M2` passes on a fresh clone set. After a sibling is checked out elsewhere it fails and names that repo.
-- [ ] `release-checkout.sh M2` restores every sibling to its `M2` tag, and refuses a sibling with uncommitted changes.
-- [ ] Moving or deleting `M2` is rejected by GitHub in every repo (tried once and rejected).
-- [ ] No deploy and no CI-host wake caused by the tag pushes (or, if the doorbell wakes it, recorded and the doorbell change filed).
+- [x] `M2` exists in all 9 repos on GitHub, each on the commit the manifest records (the meta repo's on the manifest's own commit).
+- [x] `release-verify.sh M2` passes on a fresh clone set. After a sibling is checked out elsewhere it fails and names that repo.
+- [x] `release-checkout.sh M2` restores every sibling to its `M2` tag, and refuses a sibling with uncommitted changes.
+- [x] Moving or deleting `M2` is rejected by GitHub in every repo. Tried live on cv-observability; the other 8 are evidenced by the ruleset read back from each, as accepted by the human 2026-11-04.
+- [x] No deploy and no CI-host wake caused by the tag pushes (or, if the doorbell wakes it, recorded and the doorbell change filed).
