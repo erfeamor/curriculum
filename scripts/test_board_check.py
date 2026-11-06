@@ -2575,7 +2575,7 @@ class LinkIntegrityT038LiveUseReview(TempDirCase):
         self.assertEqual(line, 7)
 
     def test_guard_identical_spans_are_matched_in_order(self):
-        # Both spans normalize to "x y"; only the second crosses a line.
+        # Two spans with the same content; only the second crosses a line.
         line = self._dead_line("`x y` and `x\ny` then\n[T-972](T-972-ghost.md)\n")
         self.assertEqual(line, 7)
 
@@ -2589,8 +2589,7 @@ class LinkIntegrityT038LiveUseReview(TempDirCase):
         self.assertEqual(line, 6)
 
     def test_guard_padded_span_across_a_line_still_counts(self):
-        # markdown_it strips one leading and one trailing space when both
-        # are present; the match must apply the same rule (mutant t5).
+        # A padded span (markdown_it strips one space each side) that wraps.
         line = self._dead_line("text ` padded\nspan ` then [T-972](T-972-ghost.md)\n")
         self.assertEqual(line, 6)
 
@@ -2620,7 +2619,7 @@ class LinkIntegrityT038LiveUseReview(TempDirCase):
         line = self._dead_line("text `never closed\nthen [T-972](T-972-ghost.md)\n")
         self.assertEqual(line, 6)
 
-    def test_guard_blockquote_and_list_item_lines(self):
+    def test_guard_blockquote_lines(self):
         line = self._dead_line("> quoted `wraps\n> here` then\n> [T-972](T-972-ghost.md)\n")
         self.assertEqual(line, 7)
 

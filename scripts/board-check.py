@@ -133,8 +133,6 @@ except ModuleNotFoundError:
 # ruling above already rejected for check 1. No optional fallback.
 try:
     from markdown_it import MarkdownIt
-    from markdown_it.rules_inline import image as _md_image_rule
-    from markdown_it.rules_inline import link as _md_link_rule
 except ImportError:
     # ImportError, not the narrower ModuleNotFoundError (round 3 review,
     # item 9): a partially-broken install (a C-extension mismatch, a
@@ -146,6 +144,16 @@ except ImportError:
     sys.exit("board-check: markdown-it-py is required "
               "(pip install markdown-it-py, or the python3-markdown-it "
               "package on Debian/Ubuntu).")
+
+# Check 8's line numbers wrap these two inline rules (T-038). They are
+# markdown-it-py internals, so a missing one means an incompatible version,
+# not a missing package, and says so.
+try:
+    from markdown_it.rules_inline import image as _md_image_rule
+    from markdown_it.rules_inline import link as _md_link_rule
+except ImportError:
+    sys.exit("board-check: this markdown-it-py has no rules_inline.link/image "
+              "(check 8 wraps them); it was written against 3.0.")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TASKS_DIR = REPO_ROOT / ".claude" / "tasks"
@@ -777,13 +785,15 @@ def _record_source_position(rule, token_type: str):
     such token after the call starts is the rule's own: a link pushes
     its `link_open` before tokenizing its text (where a nested image is
     tagged by its own wrapped call), and an image pushes only itself. A
-    silent (lookahead) call pushes nothing, so nothing is tagged."""
+    silent (lookahead) call pushes nothing, so nothing is tagged. A
+    link inside image alt text is tagged too, with an offset into the
+    alt text rather than the block; nothing reads image children."""
     def wrapped(state, silent):
         start, pushed = state.pos, len(state.tokens)
         matched = rule(state, silent)
-        for token in state.tokens[pushed:]:
-            if token.type == token_type:
-                token.meta["src_pos"] = start
+        for k in range(pushed, len(state.tokens)):
+            if state.tokens[k].type == token_type:
+                state.tokens[k].meta["src_pos"] = start
                 break
         return matched
     return wrapped
@@ -856,7 +866,9 @@ def _iter_markdown_links(path: Path):
         base_line = block.map[0] + 1  # 0-indexed block-start line -> file line
 
         def line_of(token):
-            return base_line + block.content[:token.meta.get("src_pos", 0)].count("\n")
+            # Indexed, not .get(): a link token the wrapped rules didn't
+            # tag (a plugin, linkify) must fail loudly, not report line 1.
+            return base_line + block.content.count("\n", 0, token.meta["src_pos"])
 
         children = block.children or []
         i = 0
