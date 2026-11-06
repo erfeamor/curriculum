@@ -133,6 +133,8 @@ except ModuleNotFoundError:
 # ruling above already rejected for check 1. No optional fallback.
 try:
     from markdown_it import MarkdownIt
+    from markdown_it.rules_inline import image as _md_image_rule
+    from markdown_it.rules_inline import link as _md_link_rule
 except ImportError:
     # ImportError, not the narrower ModuleNotFoundError (round 3 review,
     # item 9): a partially-broken install (a C-extension mismatch, a
@@ -746,18 +748,17 @@ def check_board_agreement(tasks_dir: Path, board_path: Path, task_files: dict) -
 # blockquotes, indented code, HTML, escapes) is structurally absent from
 # that stream in the first place, not filtered out by us.
 #
-# Line numbers come from the enclosing block token's `.map` (its 0-indexed
-# [start, end) line range) rather than the exact line within it, per this
-# round's instructions. This is coarser than the old per-line regex scan
-# for one real case on this board: TASKS.md's lifecycle tables have no
-# blank line between rows, so CommonMark (with no GFM table extension
-# available in this environment -- confirmed, no mdit_py_plugins package
-# installed) folds an entire table into ONE paragraph token, and every
-# link in it reports the table's first line rather than its own row.
-# Traded deliberately for parser-grade correctness on the things that
-# were actually wrong; see the task file's round-2 section for the
-# `TASKS.md`-table check confirming this doesn't create a NEW false
-# positive/negative, only a less-specific line number.
+# Line numbers are exact (T-038). The `link` and `image` inline rules are
+# wrapped to record where each token starts in its inline block's source
+# (`token.meta["src_pos"]`), and the line is the block's first line plus
+# the line endings before that offset. A block's inline source keeps every
+# line ending of its lines (container prefixes like `> ` or list indents
+# are stripped, line endings never are), so this holds in paragraphs,
+# table cells (the GFM table rule gives each row its own inline token),
+# lists and blockquotes alike, whatever sits before the link: softbreaks,
+# code spans that wrap a line (a space to markdown_it, not a softbreak),
+# wrapped image alt text, raw HTML. It replaced T-032's softbreak counting,
+# which missed every one of those but the first.
 #
 # Reference-style links (`[x][ref]` + a `[ref]: dest` definition
 # elsewhere in the same file) are resolved by markdown_it automatically,
@@ -768,6 +769,28 @@ def check_board_agreement(tasks_dir: Path, board_path: Path, task_files: dict) -
 # --------------------------------------------------------------------------
 
 _MD = MarkdownIt("commonmark").enable("table")
+
+
+def _record_source_position(rule, token_type: str):
+    """Wraps markdown_it's inline `rule` so the `token_type` token it
+    pushes carries the source offset it started at (T-038). The first
+    such token after the call starts is the rule's own: a link pushes
+    its `link_open` before tokenizing its text (where a nested image is
+    tagged by its own wrapped call), and an image pushes only itself. A
+    silent (lookahead) call pushes nothing, so nothing is tagged."""
+    def wrapped(state, silent):
+        start, pushed = state.pos, len(state.tokens)
+        matched = rule(state, silent)
+        for token in state.tokens[pushed:]:
+            if token.type == token_type:
+                token.meta["src_pos"] = start
+                break
+        return matched
+    return wrapped
+
+
+_MD.inline.ruler.at("link", _record_source_position(_md_link_rule, "link_open"))
+_MD.inline.ruler.at("image", _record_source_position(_md_image_rule, "image"))
 
 # Bare filename only (no further `/`) after stripping the two prefixes this
 # board actually uses; the anchor, if any, is discarded (captured OUTSIDE
@@ -822,30 +845,6 @@ def _mask_frontmatter(path: Path, text: str) -> str:
     return "\n".join(lines)
 
 
-def _code_span_line_breaks(raw: str, token, cursor: int):
-    """(line breaks inside `token`'s own source, cursor past it) for a
-    code_inline token of the inline block whose source is `raw` (T-038).
-    markdown_it turns a line ending INSIDE a code span into a space, not
-    a softbreak token, so the softbreak count alone misses it. The span
-    is found by scanning `raw` from `cursor` (spans come in order) for a
-    backtick run of the token's exact length and its closer, and
-    accepted only if it normalizes, as markdown_it's backtick rule does,
-    to the token's own content, so an escaped or unrelated backtick
-    can't be mistaken for it. No match leaves the offset as it was."""
-    run = re.compile(r'(?<!`)' + re.escape(token.markup) + r'(?!`)')
-    for opener in run.finditer(raw, cursor):
-        closer = run.search(raw, opener.end())
-        if closer is None:
-            break
-        body = raw[opener.end():closer.start()]
-        content = body.replace("\n", " ")
-        if content.startswith(" ") and content.endswith(" ") and content.strip():
-            content = content[1:-1]
-        if content == token.content:
-            return body.count("\n"), closer.end()
-    return 0, cursor
-
-
 def _iter_markdown_links(path: Path):
     """Yields (line_no, visible_text, target) for every task-file-shaped
     markdown link OR image in `path`, found by walking markdown_it's own
@@ -855,34 +854,26 @@ def _iter_markdown_links(path: Path):
         if block.type != "inline" or not block.map:
             continue
         base_line = block.map[0] + 1  # 0-indexed block-start line -> file line
+
+        def line_of(token):
+            return base_line + block.content[:token.meta.get("src_pos", 0)].count("\n")
+
         children = block.children or []
-        offset = 0  # softbreaks/hardbreaks seen so far in THIS block (finding #2)
-        cursor = 0  # how far into block.content code spans are matched (T-038)
         i = 0
         while i < len(children):
             child = children[i]
-            if child.type in ("softbreak", "hardbreak"):
-                offset += 1
-                i += 1
-                continue
-            if child.type == "code_inline":
-                breaks, cursor = _code_span_line_breaks(block.content, child, cursor)
-                offset += breaks
-                i += 1
-                continue
             if child.type == "image":
                 # A self-contained token, not an open/close pair
                 # (round-3 finding #6) -- its own .content is the alt
                 # text, its `src` the destination.
                 target = _normalize_link_destination(child.attrs.get("src", ""))
                 if target is not None:
-                    yield base_line + offset, child.content, target
+                    yield line_of(child), child.content, target
                 i += 1
                 continue
             if child.type != "link_open":
                 i += 1
                 continue
-            link_line = base_line + offset
             target = _normalize_link_destination(child.attrs.get("href", ""))
             j = i + 1
             text_parts = []
@@ -890,20 +881,14 @@ def _iter_markdown_links(path: Path):
                 ctype = children[j].type
                 if ctype in ("text", "code_inline"):
                     text_parts.append(children[j].content)
-                    if ctype == "code_inline":
-                        breaks, cursor = _code_span_line_breaks(block.content, children[j], cursor)
-                        offset += breaks
                 elif ctype in ("softbreak", "hardbreak"):
-                    # Renders as a space (round-3 finding #8) -- and
-                    # still advances the shared line-offset for
-                    # whatever comes after this link in the same block.
+                    # Renders as a space (round-3 finding #8).
                     text_parts.append(" ")
-                    offset += 1
                 # else (raw HTML, etc.): contributes nothing to the
                 # visible text, per finding #8.
                 j += 1
             if target is not None:
-                yield link_line, "".join(text_parts), target
+                yield line_of(child), "".join(text_parts), target
             i = j + 1
 
 
