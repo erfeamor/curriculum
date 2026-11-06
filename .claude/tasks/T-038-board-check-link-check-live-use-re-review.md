@@ -8,7 +8,7 @@ branch: chore/board-check-link-re-review
 depends_on: [T-032]
 risk: normal
 security_review: false   # read-only tooling in the meta repo; no adapter §5 path
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/128
 checkpoint:
   stage: review
   h1: approved 2026-11-06

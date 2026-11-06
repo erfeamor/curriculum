@@ -117,7 +117,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
-| [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | in_review | tech-product-owner | T-032 | |
+| [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | in_review | tech-product-owner | T-032 | [#128](https://github.com/erfeamor/curriculum/pull/128) |
 | [T-058](T-058-rotate-jenkins-github-pat-2027.md) | Rotate Jenkins' GitHub token again — expires 2027-01-30 (**due 2026-12-30**) | cv-infra | todo | | T-040 ✔ | none |
 | [T-059](T-059-doorbell-skip-tag-pushes.md) | Doorbell: ignore tag pushes, so a release tag doesn't wake the CI host (before M3) | cv-infra | done | tech-product-owner | T-504 ✔ | [cv-infra#47](https://github.com/erfeamor/cv-infra/pull/47) |
 
