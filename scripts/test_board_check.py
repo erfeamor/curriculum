@@ -2529,6 +2529,85 @@ class LinkIntegrityRound3Findings(TempDirCase):
 # End-to-end / CLI
 # --------------------------------------------------------------------------
 
+class LinkIntegrityT038LiveUseReview(TempDirCase):
+    """T-038 (2026-11-06), check 8's live-use re-review. Replaying the
+    board's 107 trees since T-032 found no check-8 finding to classify,
+    and a planted-link control found one real defect: markdown_it turns
+    a line ending INSIDE an inline code span into a space, not a
+    softbreak token, so every link after such a span in the same
+    paragraph reported one line too early. Never hit by a real board
+    edit (all links on the live board report their true line), but the
+    shape is ordinary prose."""
+
+    def _write_task(self, task_id: str) -> None:
+        fm = textwrap.dedent(f"""\
+            id: {task_id}
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """)
+        (self.root / f"{task_id}-x.md").write_text(f"---\n{fm}---\nbody.\n")
+
+    def _dead_line(self, paragraph: str) -> int:
+        self._write_task("T-971")
+        rows = [board_line("T-971", "Task", "todo")]
+        # header(1) sep(2) row(3) blank(4): the paragraph starts on line 5.
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n\n" + paragraph)
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link" and f.file.name == "TASKS.md"]
+        self.assertEqual(len(dead), 1, [str(f) for f in findings])
+        return dead[0].line
+
+    def test_red_line_break_inside_a_code_span_counts(self):
+        line = self._dead_line("text `a code span\nthat wraps` then [T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 6)
+
+    def test_red_line_break_inside_a_code_span_in_link_text_counts(self):
+        line = self._dead_line(
+            "[T-971 `wrapped\ncode`](T-971-x.md) and then\n[T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 7)
+
+    def test_guard_identical_spans_are_matched_in_order(self):
+        # Both spans normalize to "x y"; only the second crosses a line.
+        line = self._dead_line("`x y` and `x\ny` then\n[T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 7)
+
+    def test_guard_escaped_backticks_are_not_a_span(self):
+        line = self._dead_line(
+            "\\`not code\\` and `real\nspan` then\n[T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 7)
+
+    def test_guard_single_line_spans_change_nothing(self):
+        line = self._dead_line("`one` and `two`\nthen [T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 6)
+
+    def test_guard_padded_span_across_a_line_still_counts(self):
+        # markdown_it strips one leading and one trailing space when both
+        # are present; the match must apply the same rule (mutant t5).
+        line = self._dead_line("text ` padded\nspan ` then [T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 6)
+
+    def test_red_table_cells_keep_backticks_from_pairing_across_rows(self):
+        """Mutant m30 (table rule disabled), argued equivalent in T-032
+        on line numbers alone, is not: without the table rule the rows
+        fold into one paragraph, a stray backtick in one row pairs with
+        one in the next, and the dead link between them becomes code."""
+        self._write_task("T-971")
+        rows = [
+            "| [T-971](T-971-x.md) | a stray ` backtick | repo | todo |  |  |  |",
+            "| [T-972](T-972-ghost.md) | closes ` here | repo | todo |  |  |  |",
+        ]
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link" and f.file.name == "TASKS.md"]
+        self.assertEqual([f.line for f in dead], [4], [str(f) for f in findings])
+
+
 class MissingDependencyPaths(unittest.TestCase):
     """Round 3 review, item 9, 2026-09-28: the markdown_it import must
     catch ImportError, not just the narrower ModuleNotFoundError -- and

@@ -822,6 +822,30 @@ def _mask_frontmatter(path: Path, text: str) -> str:
     return "\n".join(lines)
 
 
+def _code_span_line_breaks(raw: str, token, cursor: int):
+    """(line breaks inside `token`'s own source, cursor past it) for a
+    code_inline token of the inline block whose source is `raw` (T-038).
+    markdown_it turns a line ending INSIDE a code span into a space, not
+    a softbreak token, so the softbreak count alone misses it. The span
+    is found by scanning `raw` from `cursor` (spans come in order) for a
+    backtick run of the token's exact length and its closer, and
+    accepted only if it normalizes, as markdown_it's backtick rule does,
+    to the token's own content, so an escaped or unrelated backtick
+    can't be mistaken for it. No match leaves the offset as it was."""
+    run = re.compile(r'(?<!`)' + re.escape(token.markup) + r'(?!`)')
+    for opener in run.finditer(raw, cursor):
+        closer = run.search(raw, opener.end())
+        if closer is None:
+            break
+        body = raw[opener.end():closer.start()]
+        content = body.replace("\n", " ")
+        if content.startswith(" ") and content.endswith(" ") and content.strip():
+            content = content[1:-1]
+        if content == token.content:
+            return body.count("\n"), closer.end()
+    return 0, cursor
+
+
 def _iter_markdown_links(path: Path):
     """Yields (line_no, visible_text, target) for every task-file-shaped
     markdown link OR image in `path`, found by walking markdown_it's own
@@ -833,11 +857,17 @@ def _iter_markdown_links(path: Path):
         base_line = block.map[0] + 1  # 0-indexed block-start line -> file line
         children = block.children or []
         offset = 0  # softbreaks/hardbreaks seen so far in THIS block (finding #2)
+        cursor = 0  # how far into block.content code spans are matched (T-038)
         i = 0
         while i < len(children):
             child = children[i]
             if child.type in ("softbreak", "hardbreak"):
                 offset += 1
+                i += 1
+                continue
+            if child.type == "code_inline":
+                breaks, cursor = _code_span_line_breaks(block.content, child, cursor)
+                offset += breaks
                 i += 1
                 continue
             if child.type == "image":
@@ -860,6 +890,9 @@ def _iter_markdown_links(path: Path):
                 ctype = children[j].type
                 if ctype in ("text", "code_inline"):
                     text_parts.append(children[j].content)
+                    if ctype == "code_inline":
+                        breaks, cursor = _code_span_line_breaks(block.content, children[j], cursor)
+                        offset += breaks
                 elif ctype in ("softbreak", "hardbreak"):
                     # Renders as a space (round-3 finding #8) -- and
                     # still advances the shared line-offset for
