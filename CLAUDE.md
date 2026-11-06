@@ -84,7 +84,7 @@ Cutting the next one:
 3. On the meta repo's updated `master`, run `scripts/release-tag.sh M3`. It checks everything before tagging anything, and a re-run is a no-op.
 4. Run `scripts/release-protect.sh` only if the ruleset itself changes. It's idempotent.
 
-Tag pushes deploy nothing: Actions and Vercel only act on `master`, Drone has no `tag` trigger, and Jenkins discovers branches only. A tag push does, however, wake the CI host through the doorbell (T-059 fixes that). `scripts/test_release.py` covers all five scripts offline.
+Tag pushes deploy nothing and build nothing: Actions and Vercel only act on `master`, Drone has no `tag` trigger, and Jenkins discovers branches only. The doorbell ignores them too (`202 ignored: tag push`, T-059), so they don't wake the CI host either. `scripts/test_release.py` covers all five scripts offline.
 
 ## Environment gotchas (this machine)
 
