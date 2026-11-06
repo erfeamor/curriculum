@@ -2529,6 +2529,142 @@ class LinkIntegrityRound3Findings(TempDirCase):
 # End-to-end / CLI
 # --------------------------------------------------------------------------
 
+class LinkIntegrityT038LiveUseReview(TempDirCase):
+    """T-038 (2026-11-06), check 8's live-use re-review. Replaying the
+    board's 107 trees since T-032 found no check-8 finding to classify,
+    and a planted-link control found one real defect: markdown_it turns
+    a line ending INSIDE an inline code span into a space, not a
+    softbreak token, so every link after such a span in the same
+    paragraph reported one line too early. Never hit by a real board
+    edit (all links on the live board report their true line), but the
+    shape is ordinary prose. Review round 1 then showed a heuristic fix
+    (re-matching code spans in the raw text) still missed alt text,
+    escapes and raw HTML, so line numbers now come from source offsets
+    recorded by the parser itself; every shape below pins that."""
+
+    def _write_task(self, task_id: str) -> None:
+        fm = textwrap.dedent(f"""\
+            id: {task_id}
+            status: todo
+            owner:
+            risk: normal
+            security_review: false
+            depends_on: []
+            pr:
+            """)
+        (self.root / f"{task_id}-x.md").write_text(f"---\n{fm}---\nbody.\n")
+
+    def _dead_line(self, paragraph: str) -> int:
+        self._write_task("T-971")
+        rows = [board_line("T-971", "Task", "todo")]
+        # header(1) sep(2) row(3) blank(4): the paragraph starts on line 5.
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n\n" + paragraph)
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link" and f.file.name == "TASKS.md"]
+        self.assertEqual(len(dead), 1, [str(f) for f in findings])
+        return dead[0].line
+
+    def test_red_line_break_inside_a_code_span_counts(self):
+        line = self._dead_line("text `a code span\nthat wraps` then [T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 6)
+
+    def test_red_line_break_inside_a_code_span_in_link_text_counts(self):
+        line = self._dead_line(
+            "[T-971 `wrapped\ncode`](T-971-x.md) and then\n[T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 7)
+
+    def test_guard_identical_spans_are_matched_in_order(self):
+        # Two spans with the same content; only the second crosses a line.
+        line = self._dead_line("`x y` and `x\ny` then\n[T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 7)
+
+    def test_guard_escaped_backticks_are_not_a_span(self):
+        line = self._dead_line(
+            "\\`not code\\` and `real\nspan` then\n[T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 7)
+
+    def test_guard_single_line_spans_change_nothing(self):
+        line = self._dead_line("`one` and `two`\nthen [T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 6)
+
+    def test_guard_padded_span_across_a_line_still_counts(self):
+        # A padded span (markdown_it strips one space each side) that wraps.
+        line = self._dead_line("text ` padded\nspan ` then [T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 6)
+
+    # -- review round 1: shapes the heuristic matcher got wrong ---------
+
+    def test_red_identical_span_in_image_alt_text_first(self):
+        line = self._dead_line("x\n![`a b`](T-971-x.md) `a\nb` [T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 7)
+
+    def test_red_line_break_inside_image_alt_text(self):
+        line = self._dead_line("x\n![alt\nmore](T-971-x.md) [T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 7)
+
+    def test_red_span_right_after_an_escaped_backtick(self):
+        line = self._dead_line("x\n\\``a\nb` then [T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 7)
+
+    def test_red_backticks_inside_a_raw_html_attribute(self):
+        line = self._dead_line('<a title="`x\ny`">z</a> `x\ny` [T-972](T-972-ghost.md)\n')
+        self.assertEqual(line, 7)
+
+    def test_red_wrapped_image_nested_in_link_text(self):
+        line = self._dead_line("[![a\nb](i.png)](T-971-x.md) and\n[T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 7)
+
+    def test_guard_unclosed_backtick_counts_its_line(self):
+        line = self._dead_line("text `never closed\nthen [T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 6)
+
+    def test_guard_blockquote_lines(self):
+        line = self._dead_line("> quoted `wraps\n> here` then\n> [T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 7)
+
+    def test_guard_list_item_continuation(self):
+        line = self._dead_line("- item `wraps\n  here` and\n  [T-972](T-972-ghost.md)\n")
+        self.assertEqual(line, 7)
+
+    # -- mutation round: positions, not just "the last line" -----------
+
+    def test_guard_link_on_the_first_line_of_a_longer_paragraph(self):
+        # Not the block's last line (mutant p5: count every line ending).
+        line = self._dead_line("[T-972](T-972-ghost.md) first\nsecond\nthird\n")
+        self.assertEqual(line, 5)
+
+    def test_guard_wrapped_link_reports_the_line_it_starts_on(self):
+        # Mutant p3: recording the offset after the rule ran.
+        line = self._dead_line("x [T-\n972](T-972-ghost.md) y\n")
+        self.assertEqual(line, 5)
+
+    def test_guard_dead_image_on_a_later_line(self):
+        # Mutant p2: the image rule left unwrapped.
+        line = self._dead_line("x\n![T-972](T-972-ghost.md) y\nz\n")
+        self.assertEqual(line, 6)
+
+    def test_guard_crlf_file(self):
+        line = self._dead_line("one `two\r\nthree` four\r\n[T-972](T-972-ghost.md)\r\n")
+        self.assertEqual(line, 7)
+
+    def test_red_table_cells_keep_backticks_from_pairing_across_rows(self):
+        """Mutant m30 (table rule disabled), argued equivalent in T-032
+        on line numbers alone, is not: without the table rule the rows
+        fold into one paragraph, a stray backtick in one row pairs with
+        one in the next, and the dead link between them becomes code."""
+        self._write_task("T-971")
+        rows = [
+            "| [T-971](T-971-x.md) | a stray ` backtick | repo | todo |  |  |  |",
+            "| [T-972](T-972-ghost.md) | closes ` here | repo | todo |  |  |  |",
+        ]
+        (self.root / "TASKS.md").write_text(
+            "\n".join([TABLE_HEADER, TABLE_SEP, *rows]) + "\n")
+        findings = bc.run(self.root)
+        dead = [f for f in findings if f.key == "link" and f.file.name == "TASKS.md"]
+        self.assertEqual([f.line for f in dead], [4], [str(f) for f in findings])
+
+
 class MissingDependencyPaths(unittest.TestCase):
     """Round 3 review, item 9, 2026-09-28: the markdown_it import must
     catch ImportError, not just the narrower ModuleNotFoundError -- and
