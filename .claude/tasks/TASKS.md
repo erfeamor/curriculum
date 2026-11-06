@@ -4,14 +4,14 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-11-06 (T-059 done: tag pushes no longer wake the CI host)
+## Now / Next / Later — refreshed 2026-11-06 (T-038 done: check 8 converged; the board is down to maintenance)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
 **Now**
-- [T-038](T-038-board-check-link-check-live-use-re-review.md) (check 8's live-use re-review): claimable since 2026-10-12. Small.
+- Nothing claimable. Every open task is dated or conditional.
 
 **Next**
 - [T-058](T-058-rotate-jenkins-github-pat-2027.md): rotate Jenkins' token again, **due 2026-12-30** (it expires 2027-01-30). A tfvars change plus one apply since T-040.
@@ -21,7 +21,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - **By 2026-12-30:** create a new fine-grained token for Jenkins ([T-058](T-058-rotate-jenkins-github-pat-2027.md)); the current one expires **2027-01-30**.
 - Paid plan since 2026-09-29; all five credit activities done (grant $200). **$104.05** left on 2026-11-02. The rate is **~$0.47/day** (October flat at $0.456/day plus the hosted zone; T-051 modelled $0.51), enough until about mid-June 2027, before the credits expire on 2027-07-12. Charges past them bill the card; the budget alarms are the guard.
 
-Recent close-outs: 2026-11-06 T-059 (the doorbell ignores tag pushes); 2026-11-04 **T-504** (`M2` tagged in all 9 repos, pinned by `releases/M2.json`, immutable through tag rulesets); 2026-11-02 **T-040** (Jenkins token rotated; rotations now re-provision on apply); 2026-10-08 T-056 + T-057 (README drift from T-502's audit); 2026-10-08 **T-502** (final docs + Mermaid diagram; the roadmap is complete); 2026-10-08 **T-055** (`cv-redeploy` resolves every input before removing the running container; app host now `i-05c8e011117d30b34`); 2026-10-08 **T-054** (app logs in CloudWatch; app host now `i-0ec8607bffc070d6a`); 2026-10-07 T-052 (decided: app logs to CloudWatch via T-054, metrics local by design); T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
+Recent close-outs: 2026-11-06 **T-038** (check 8 converged: 0 false positives and 0 misses over 107 trees; line numbers now come from parser source offsets); 2026-11-06 T-059 (the doorbell ignores tag pushes); 2026-11-04 **T-504** (`M2` tagged in all 9 repos, pinned by `releases/M2.json`, immutable through tag rulesets); 2026-11-02 **T-040** (Jenkins token rotated; rotations now re-provision on apply); 2026-10-08 T-056 + T-057 (README drift from T-502's audit); 2026-10-08 **T-502** (final docs + Mermaid diagram; the roadmap is complete); 2026-10-08 **T-055** (`cv-redeploy` resolves every input before removing the running container; app host now `i-05c8e011117d30b34`); 2026-10-08 **T-054** (app logs in CloudWatch; app host now `i-0ec8607bffc070d6a`); 2026-10-07 T-052 (decided: app logs to CloudWatch via T-054, metrics local by design); T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
 
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): T-004 decided **not** to rotate `db_password`, so this has no trigger today. Claim it **before** anyone changes `db_password` for any reason.
@@ -117,7 +117,7 @@ Real defects, security fixes and CI debt in the product repos that **T-501 does 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-021](T-021-mysql-password-rotation-persistent-datadir.md) | Rotating `db_password` breaks silently now the datadir persists | cv-infra | todo | | T-018 | |
-| [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | in_review | tech-product-owner | T-032 | [#128](https://github.com/erfeamor/curriculum/pull/128) |
+| [T-038](T-038-board-check-link-check-live-use-re-review.md) | Re-review board-check's check 8 (link integrity) after two weeks of real edits — not before 2026-10-12 | cv-project (meta) | done | tech-product-owner | T-032 | [#128](https://github.com/erfeamor/curriculum/pull/128) |
 | [T-058](T-058-rotate-jenkins-github-pat-2027.md) | Rotate Jenkins' GitHub token again — expires 2027-01-30 (**due 2026-12-30**) | cv-infra | todo | | T-040 ✔ | none |
 | [T-059](T-059-doorbell-skip-tag-pushes.md) | Doorbell: ignore tag pushes, so a release tag doesn't wake the CI host (before M3) | cv-infra | done | tech-product-owner | T-504 ✔ | [cv-infra#47](https://github.com/erfeamor/cv-infra/pull/47) |
 

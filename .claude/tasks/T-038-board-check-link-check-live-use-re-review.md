@@ -2,22 +2,16 @@
 id: T-038
 title: "Re-review board-check's check 8 (link integrity) after two weeks of real board edits — it did not converge in synthetic review"
 repo: cv-project (meta)
-status: in_review
+status: done
 owner: tech-product-owner
 branch: chore/board-check-link-re-review
 depends_on: [T-032]
 risk: normal
 security_review: false   # read-only tooling in the meta repo; no adapter §5 path
 pr: https://github.com/erfeamor/curriculum/pull/128
-checkpoint:
-  stage: review
-  review_round: 2
-  h1: approved 2026-11-06
-  branch: chore/board-check-link-re-review
-  worktree: none   # meta repo, main checkout
 ---
 
-## Verdict (2026-11-06): **converged**, after one bounded fix
+## ✅ DONE 2026-11-06 ([#128](https://github.com/erfeamor/curriculum/pull/128)): verdict **converged**, after one bounded fix
 
 **H1 (2026-11-06):**
 - **Method:** only this session's transcript survives, so the live findings from the window (the hook's and the driver's runs) can't be recovered. The human accepted a replay instead: today's check 8 against every board commit since T-032 merged, with an independent miss-hunt over the same trees. Uncommitted intermediate states are not observable either way.
