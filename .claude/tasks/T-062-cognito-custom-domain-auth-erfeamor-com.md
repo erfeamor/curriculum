@@ -2,10 +2,10 @@
 id: T-062
 title: "Cognito custom domain auth.erfeamor.com"
 repo: cv-infra
-status: todo
-owner: 
+status: in_review
+owner: claude
 branch: feat/cognito-custom-domain
-pr:
+pr: cv-infra#51
 depends_on: [T-061]
 risk: high
 security_review: true

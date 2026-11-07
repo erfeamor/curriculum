@@ -67,7 +67,7 @@ Recent close-outs: 2026-11-07 **T-410** (react.erfeamor.com serves cv-public-rea
 |----|-------|------|--------|-------|------------|----|
 | [T-060](T-060-m3-policy-ci-normalization-cost-first.md) | The rules allow normalizing CI and put cost first; file M3 | cv-project (meta) | done | tech-product-owner | — | [#129](https://github.com/erfeamor/curriculum/pull/129) |
 | [T-061](T-061-erfeamor-com-on-cloudfront.md) | erfeamor.com on CloudFront: ACM (us-east-1), aliases, IPv6, apex/www/react DNS, redirects, CORS via SSM | cv-infra | done | tech-product-owner | T-060 | [cv-infra#48](https://github.com/erfeamor/cv-infra/pull/48) |
-| [T-062](T-062-cognito-custom-domain-auth-erfeamor-com.md) | Cognito custom domain auth.erfeamor.com | cv-infra | todo |  | T-061 | |
+| [T-062](T-062-cognito-custom-domain-auth-erfeamor-com.md) | Cognito custom domain auth.erfeamor.com | cv-infra | in_review | claude | T-061 | |
 | [T-410](T-410-react-erfeamor-com.md) | cv-public-react on react.erfeamor.com | cv-public-react | done | claude | T-061 | |
 | [T-063](T-063-oidc-role-cv-admin-react.md) | OIDC deploy role for cv-admin-react (replaces Drone's static key) | cv-infra | todo |  | T-060 | |
 | [T-117](T-117-jenkins-to-github-actions.md) | Jenkins replaced by GitHub Actions | cv-domain-service | todo |  | T-060, T-061 | |
