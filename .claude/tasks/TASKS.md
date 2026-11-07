@@ -13,7 +13,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 **Now** (all unblocked by T-061)
 - [T-306](T-306-admin-auth-erfeamor-com.md): needs [T-305](T-305-drone-to-github-actions.md) first (admin build on `auth.erfeamor.com`; T-062 is done).
 - Phase B, in parallel: [T-063](T-063-oidc-role-cv-admin-react.md) → [T-305](T-305-drone-to-github-actions.md); [T-117](T-117-jenkins-to-github-actions.md), [T-159](T-159-jenkins-to-github-actions.md), [T-212](T-212-smoke-url-erfeamor-com.md).
-- Also free: [T-065](T-065-app-host-spot.md) (Spot) and [T-067](T-067-spike-no-public-ipv4.md) (the no-IPv4 spike).
+- Also free: [T-066](T-066-shrink-mysql-data-volume.md) (shrink the MySQL volume) and [T-067](T-067-spike-no-public-ipv4.md) (the no-IPv4 spike). T-065 (Spot) was decided against on 2026-11-07.
 
 **Next**
 - Phase B ([T-117](T-117-jenkins-to-github-actions.md), [T-159](T-159-jenkins-to-github-actions.md), [T-305](T-305-drone-to-github-actions.md), then [T-064](T-064-delete-ci-host-stack.md)) **before mid-December**, which makes T-058 obsolete.
@@ -24,7 +24,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - **By 2026-12-30:** create a new fine-grained token for Jenkins ([T-058](T-058-rotate-jenkins-github-pat-2027.md)); the current one expires **2027-01-30**.
 - Paid plan since 2026-09-29; all five credit activities done (grant $200). **$104.05** left on 2026-11-02. The rate is **~$0.47/day** (October flat at $0.456/day plus the hosted zone; T-051 modelled $0.51), enough until about mid-June 2027, before the credits expire on 2027-07-12. Charges past them bill the card; the budget alarms are the guard.
 
-Recent close-outs: 2026-11-07 **T-062** (Cognito hosted UI and token endpoint at `auth.erfeamor.com`; the BFF uses it; the prefix domain stays until T-306); 2026-11-07 **T-410** (react.erfeamor.com serves cv-public-react from Vercel; `/react` is a 301; `metadataBase` set); 2026-11-07 **T-061** (erfeamor.com serves the apex, `/admin/`, `/bff`, `/api` over a us-east-1 certificate; `www` and `/react` redirect; CORS origins are an SSM parameter; app host now `i-009de3a4d696f6213`); 2026-11-06 **T-038** (check 8 converged: 0 false positives and 0 misses over 107 trees; line numbers now come from parser source offsets); 2026-11-06 T-059 (the doorbell ignores tag pushes); 2026-11-04 **T-504** (`M2` tagged in all 9 repos, pinned by `releases/M2.json`, immutable through tag rulesets); 2026-11-02 **T-040** (Jenkins token rotated; rotations now re-provision on apply); 2026-10-08 T-056 + T-057 (README drift from T-502's audit); 2026-10-08 **T-502** (final docs + Mermaid diagram; the roadmap is complete); 2026-10-08 **T-055** (`cv-redeploy` resolves every input before removing the running container; app host now `i-05c8e011117d30b34`); 2026-10-08 **T-054** (app logs in CloudWatch; app host now `i-0ec8607bffc070d6a`); 2026-10-07 T-052 (decided: app logs to CloudWatch via T-054, metrics local by design); T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
+Recent close-outs: 2026-11-07 **T-065** (decided against Spot: eu-west-3a has scarce Spot capacity and a stopped instance could not be restarted; the ghost-instance guard was proven; the app host stays on-demand); 2026-11-07 **T-062** (Cognito hosted UI and token endpoint at `auth.erfeamor.com`; the BFF uses it; the prefix domain stays until T-306); 2026-11-07 **T-410** (react.erfeamor.com serves cv-public-react from Vercel; `/react` is a 301; `metadataBase` set); 2026-11-07 **T-061** (erfeamor.com serves the apex, `/admin/`, `/bff`, `/api` over a us-east-1 certificate; `www` and `/react` redirect; CORS origins are an SSM parameter; app host now `i-009de3a4d696f6213`); 2026-11-06 **T-038** (check 8 converged: 0 false positives and 0 misses over 107 trees; line numbers now come from parser source offsets); 2026-11-06 T-059 (the doorbell ignores tag pushes); 2026-11-04 **T-504** (`M2` tagged in all 9 repos, pinned by `releases/M2.json`, immutable through tag rulesets); 2026-11-02 **T-040** (Jenkins token rotated; rotations now re-provision on apply); 2026-10-08 T-056 + T-057 (README drift from T-502's audit); 2026-10-08 **T-502** (final docs + Mermaid diagram; the roadmap is complete); 2026-10-08 **T-055** (`cv-redeploy` resolves every input before removing the running container; app host now `i-05c8e011117d30b34`); 2026-10-08 **T-054** (app logs in CloudWatch; app host now `i-0ec8607bffc070d6a`); 2026-10-07 T-052 (decided: app logs to CloudWatch via T-054, metrics local by design); T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
 
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): T-004 decided **not** to rotate `db_password`, so this has no trigger today. Claim it **before** anyone changes `db_password` for any reason.
@@ -33,13 +33,13 @@ Recent close-outs: 2026-11-07 **T-062** (Cognito hosted UI and token endpoint at
 
 **Goal:** cut the monthly bill before the credits expire on **2027-07-12**, which they do whatever is saved, so the prize is the bill after that date. Move the project onto `erfeamor.com` at the same time.
 - **Today:** ~$14.2/month.
-- **Target:** **~$2.6/month** if T-067 says go, **~$6.2** if not, plus the domain renewal (~$15/year).
+- **Target:** **~$8.4/month** if T-067 says go, **~$12.0** if not (was ~$2.6 / ~$6.2 before T-065 was dropped), plus the domain renewal (~$15/year).
 
 **Decisions (human, 2026-11-07):**
 - trim the EC2 now; price serverless later (T-506);
 - move Jenkins and Drone to GitHub Actions and delete the CI host;
 - serve the Next.js site at `react.erfeamor.com`;
-- accept Spot for the app host.
+- accept Spot for the app host (reversed the same day by T-065's evidence: no Spot).
 
 **Routing:**
 
@@ -52,14 +52,14 @@ Recent close-outs: 2026-11-07 **T-062** (Cognito hosted UI and token endpoint at
 | `auth.erfeamor.com` | Cognito |
 | `www.erfeamor.com`, `/react*` | 301 redirects |
 
-**Savings per month:** CI host ~$2.0; Spot ~$5.8; data volume from 8 to 2 GB ~$0.6; no public IPv4 $3.6 (only if T-067 says go).
+**Savings per month:** CI host ~$2.0; Spot ~$5.8 (dropped, T-065); data volume from 8 to 2 GB ~$0.6; no public IPv4 $3.6 (only if T-067 says go).
 
 **Order:**
 1. T-060 → T-061 → T-062 / T-410.
 2. T-061 → T-117, T-159, T-212.
 3. T-063 → T-305 → T-306.
 4. T-117 + T-159 + T-305 → T-064 (before mid-December).
-5. T-061 → T-065 → T-066.
+5. T-066 (independent; T-065 was dropped).
 6. T-067 → T-068.
 7. T-069 closes M3.
 
@@ -76,10 +76,10 @@ Recent close-outs: 2026-11-07 **T-062** (Cognito hosted UI and token endpoint at
 | [T-306](T-306-admin-auth-erfeamor-com.md) | Admin build on auth.erfeamor.com; drop the old callbacks and the prefix domain | cv-admin-react | todo |  | T-062, T-305 | |
 | [T-212](T-212-smoke-url-erfeamor-com.md) | Smoke test on erfeamor.com (and the arm64-only decision) | cv-bff-node | todo |  | T-061 | |
 | [T-064](T-064-delete-ci-host-stack.md) | Delete the CI host stack (Jenkins, Drone, doorbell, reaper) | cv-infra | todo |  | T-117, T-159, T-305 | |
-| [T-065](T-065-app-host-spot.md) | App host on Spot (persistent, stop on interruption) with alerts | cv-infra | todo |  | T-061 | |
-| [T-066](T-066-shrink-mysql-data-volume.md) | Shrink the MySQL data volume from 8 GB to 2 GB | cv-infra | todo |  | T-065 | |
+| [T-065](T-065-app-host-spot.md) | App host on Spot (persistent, stop on interruption) with alerts | cv-infra | done | claude | T-061 | |
+| [T-066](T-066-shrink-mysql-data-volume.md) | Shrink the MySQL data volume from 8 GB to 2 GB | cv-infra | todo |  | | |
 | [T-067](T-067-spike-no-public-ipv4.md) | Spike: run the app host with no public IPv4 (CloudFront VPC origin + IPv6 egress) | cv-infra | todo |  | T-061 | |
-| [T-068](T-068-app-host-vpc-origin-no-eip.md) | App host behind a CloudFront VPC origin; release the EIP | cv-infra | todo |  | T-067, T-065 | |
+| [T-068](T-068-app-host-vpc-origin-no-eip.md) | App host behind a CloudFront VPC origin; release the EIP | cv-infra | todo |  | T-067 | |
 | [T-069](T-069-m3-hygiene-budgets-remeasure-close.md) | M3 close: hygiene, budgets, re-measure, docs, tag M3 | cv-infra + cv-project (meta) | todo |  | T-064, T-066, T-068 | |
 | [T-506](T-506-spike-serverless.md) | Spike: serverless (Lambda + a database off MySQL) priced against the trimmed host | cross-repo | todo |  | T-069 | |
 

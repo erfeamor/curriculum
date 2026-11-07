@@ -30,4 +30,4 @@ Close M3 on measured numbers. Depend on T-068 only if T-067 said go; otherwise d
 
 ## Acceptance criteria
 
-- [ ] The measured rate is about $0.09/day (go) or $0.20/day (no-go); budgets retuned; `M3` tagged in all 9 repos.
+- [ ] The measured rate is about $0.28/day (go) or $0.40/day (no-go) (T-065 dropped Spot, 2026-11-07); budgets retuned; `M3` tagged in all 9 repos.
