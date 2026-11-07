@@ -6,7 +6,7 @@ status: todo
 owner: 
 branch: feat/shrink-mysql-volume
 pr:
-depends_on: [T-065]
+depends_on: []
 risk: high
 security_review: true
 ---

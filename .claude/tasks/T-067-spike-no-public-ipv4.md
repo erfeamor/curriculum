@@ -20,7 +20,7 @@ The EIP costs $3.60/month. A CloudFront VPC origin plus IPv6-only egress (a free
 ## Scope
 
 - **First, pin production's subnet:** add `filter { name = "default-for-az", values = ["true"] }` to `data.aws_subnets.domain_service` (`network.tf:23-35`). Otherwise a new subnet in eu-west-3a can capture the host on the next apply.
-- **Then test a throwaway Spot `t4g.nano`** in a new private dual-stack subnet with no public IPv4. Check each item:
+- **Then test a throwaway on-demand `t4g.nano`** (not Spot: eu-west-3a has scarce Spot capacity, see T-065) in a new private dual-stack subnet with no public IPv4. Check each item:
   - **CloudFront VPC origin:** can it be created in eu-west-3, and does it reach :8080 and :3000?
   - **ECR:** dual-stack pulls (the hostname differs)
   - **SSM:** Run Command and Session Manager with `UseDualStackEndpoint`

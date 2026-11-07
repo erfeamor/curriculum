@@ -6,7 +6,7 @@ status: todo
 owner: 
 branch: feat/vpc-origin-no-eip
 pr:
-depends_on: [T-067, T-065]
+depends_on: [T-067]
 risk: high
 security_review: true
 ---
