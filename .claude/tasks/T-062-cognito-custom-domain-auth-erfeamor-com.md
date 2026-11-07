@@ -2,7 +2,7 @@
 id: T-062
 title: "Cognito custom domain auth.erfeamor.com"
 repo: cv-infra
-status: in_review
+status: done
 owner: claude
 branch: feat/cognito-custom-domain
 pr: cv-infra#51
@@ -27,5 +27,13 @@ Replace the prefix domain `cv-project-dev.auth.eu-west-3.amazoncognito.com` with
 
 ## Acceptance criteria
 
-- [ ] The BFF gets its service token from `auth.erfeamor.com`, and the public CV still returns 200.
-- [ ] The hosted UI answers at `https://auth.erfeamor.com/login?...`.
+- [x] The BFF gets its service token from `auth.erfeamor.com`, and the public CV still returns 200.
+- [x] The hosted UI answers at `https://auth.erfeamor.com/login?...`.
+
+## DONE 2026-11-07
+
+- cv-infra#51: `aws_cognito_user_pool_domain.custom` (`auth.erfeamor.com`, validated us-east-1 certificate, `managed_login_version = 1`) beside the prefix domain; `auth_alias` A/AAAA to Cognito's distribution; `bff/token-url` and the `cognito_hosted_ui_domain` output use the new name.
+- Review: code-review (7 findings: 4 fixed, the main one being that `bff/token-url` now waits for the alias record; 1 rejected: the output now names the full hostname, no consumer; 2 test hardenings) and security-review (no findings). check-static check 26, 9 mutants red.
+- Apply (by the human): 3 added, 1 changed, 0 destroyed, no host replacement; plan afterwards: no changes.
+- Live: `https://auth.erfeamor.com/login?...` 200 (and the prefix domain 200); the token endpoint 400 without credentials; `cv-redeploy-bff-node` Success; `/bff/api/v1/people/1/cv` 200, `/api/v1/people/1` 401 without a token, `react.erfeamor.com` 200; no token errors in the BFF log.
+- T-306 can now move the admin build to `auth.erfeamor.com` and drop the prefix domain.
