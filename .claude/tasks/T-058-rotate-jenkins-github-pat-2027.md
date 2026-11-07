@@ -12,6 +12,10 @@ security_review: false
 due: 2026-12-30
 ---
 
+## M3 note (2026-11-07)
+
+[T-064](T-064-delete-ci-host-stack.md) deletes Jenkins with the CI host, which makes this rotation obsolete. **If T-064 hasn't landed by mid-December, rotate anyway**, because the token expires 2027-01-30.
+
 ## Why
 
 Filed at [T-040](T-040-jenkins-github-pat-expiry.md)'s H2 (2026-11-02). The fine-grained token Jenkins uses (cv-domain-service + cv-database; Commit statuses read/write, Contents and Pull requests read-only) **expires 2027-01-30**. When it lapses, Jenkins can't scan or post commit statuses, so the domain-service deploy and the cv-database migration (both wait for Jenkins' status) stop.
