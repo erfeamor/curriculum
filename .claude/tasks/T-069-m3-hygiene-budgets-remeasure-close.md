@@ -20,6 +20,7 @@ Close M3 on measured numbers. Depend on T-068 only if T-067 said go; otherwise d
 ## Scope
 
 - Lifecycle expiry for noncurrent object versions in the artifacts bucket.
+- **Retire T-066's old MySQL volume** `vol-092113db466c84bc1` (detached, ~$0.74/month): snapshot, delete (`cv-infra/docs/runbooks/mysql-volume.md` step 6, not before 2026-11-14), then remove the `removed` block in `storage.tf`; delete the snapshot a few weeks later.
 - `gross_usage` budget from $30 to about 2× the measured rate. Retire `credit_runway` (`budgets.tf:207-250`) after 2027-07-12, or now with a note.
 - **One week after the last host change:** measure in Cost Explorer (`RECORD_TYPE=Usage`; the zone fee posts on the 1st) and `aws freetier get-account-plan-state`.
 - **Refresh the docs:**
