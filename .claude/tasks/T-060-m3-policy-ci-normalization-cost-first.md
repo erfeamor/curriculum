@@ -2,10 +2,10 @@
 id: T-060
 title: "The rules allow normalizing CI and put cost first; file M3"
 repo: cv-project (meta)
-status: in_progress
+status: in_review
 owner: tech-product-owner
 branch: docs/m3-policy
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/129
 depends_on: []
 risk: trivial
 security_review: false

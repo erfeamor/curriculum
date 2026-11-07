@@ -63,7 +63,7 @@ Recent close-outs: 2026-11-06 **T-038** (check 8 converged: 0 false positives an
 
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
-| [T-060](T-060-m3-policy-ci-normalization-cost-first.md) | The rules allow normalizing CI and put cost first; file M3 | cv-project (meta) | in_progress | tech-product-owner | — | |
+| [T-060](T-060-m3-policy-ci-normalization-cost-first.md) | The rules allow normalizing CI and put cost first; file M3 | cv-project (meta) | in_review | tech-product-owner | — | [#129](https://github.com/erfeamor/curriculum/pull/129) |
 | [T-061](T-061-erfeamor-com-on-cloudfront.md) | erfeamor.com on CloudFront: ACM (us-east-1), aliases, IPv6, apex/www/react DNS, redirects, CORS via SSM | cv-infra | todo |  | T-060 | |
 | [T-062](T-062-cognito-custom-domain-auth-erfeamor-com.md) | Cognito custom domain auth.erfeamor.com | cv-infra | todo |  | T-061 | |
 | [T-410](T-410-react-erfeamor-com.md) | cv-public-react on react.erfeamor.com | cv-public-react | todo |  | T-061 | |
