@@ -2,7 +2,7 @@
 id: T-060
 title: "The rules allow normalizing CI and put cost first; file M3"
 repo: cv-project (meta)
-status: in_review
+status: done
 owner: tech-product-owner
 branch: docs/m3-policy
 pr: https://github.com/erfeamor/curriculum/pull/129
@@ -25,5 +25,5 @@ Two rules forbid M3's Phase B today. The dev-loop adapter says *"Different CI pe
 
 ## Acceptance criteria
 
-- [ ] Neither rule still says "never normalize CI".
-- [ ] Every M3 task is filed, and `board-check` is clean.
+- [x] Neither rule still says "never normalize CI".
+- [x] Every M3 task is filed, and `board-check` is clean.
