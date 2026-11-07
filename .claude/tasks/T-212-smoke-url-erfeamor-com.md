@@ -2,10 +2,10 @@
 id: T-212
 title: "Smoke test on erfeamor.com (and the arm64-only decision)"
 repo: cv-bff-node
-status: todo
-owner: 
+status: in_review
+owner: claude
 branch: chore/smoke-erfeamor-com
-pr:
+pr: cv-bff-node#15
 depends_on: [T-061]
 risk: low
 security_review: false
@@ -25,3 +25,7 @@ The deploy smoke test hard-codes `https://dvdlxl0zqepqi.cloudfront.net` (`ci.yml
 ## Acceptance criteria
 
 - [ ] The master deploy's smoke test passes against erfeamor.com.
+
+## H1 decision 2026-11-07
+
+Smoke URL only. The arm64-only item is **declined**: it saves cents of ECR storage and needs matching changes in cv-infra (`CLAUDE.md`, `registry.tf`), more risk than value. Revisit only if T-117 wants it.

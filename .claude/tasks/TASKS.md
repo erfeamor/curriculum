@@ -74,7 +74,7 @@ Recent close-outs: 2026-11-07 **T-066** (MySQL data volume 8 → 2 GiB as a new 
 | [T-159](T-159-jenkins-to-github-actions.md) | Jenkins migration gate replaced by GitHub Actions | cv-database | todo |  | T-060, T-061 | |
 | [T-305](T-305-drone-to-github-actions.md) | Drone replaced by GitHub Actions (OIDC deploy) | cv-admin-react | todo |  | T-063 | |
 | [T-306](T-306-admin-auth-erfeamor-com.md) | Admin build on auth.erfeamor.com; drop the old callbacks and the prefix domain | cv-admin-react | todo |  | T-062, T-305 | |
-| [T-212](T-212-smoke-url-erfeamor-com.md) | Smoke test on erfeamor.com (and the arm64-only decision) | cv-bff-node | todo |  | T-061 | |
+| [T-212](T-212-smoke-url-erfeamor-com.md) | Smoke test on erfeamor.com (and the arm64-only decision) | cv-bff-node | in_review | claude | T-061 | |
 | [T-064](T-064-delete-ci-host-stack.md) | Delete the CI host stack (Jenkins, Drone, doorbell, reaper) | cv-infra | todo |  | T-117, T-159, T-305 | |
 | [T-065](T-065-app-host-spot.md) | App host on Spot (persistent, stop on interruption) with alerts | cv-infra | done | claude | T-061 | |
 | [T-066](T-066-shrink-mysql-data-volume.md) | Shrink the MySQL data volume from 8 GB to 2 GB | cv-infra | done | claude | | |
