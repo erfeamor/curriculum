@@ -2,10 +2,10 @@
 id: T-410
 title: "cv-public-react on react.erfeamor.com"
 repo: cv-public-react
-status: todo
-owner: 
+status: done
+owner: claude
 branch: feat/react-erfeamor-com
-pr:
+pr: cv-infra#49, cv-infra#50, cv-public-react#10
 depends_on: [T-061]
 risk: low
 security_review: false
@@ -28,3 +28,10 @@ Serve the Next.js site at `react.erfeamor.com` through a Vercel custom domain. T
 
 - [ ] `https://react.erfeamor.com` renders the CV over a valid certificate.
 - [ ] `erfeamor.com/react` redirects there (via T-061).
+
+## DONE 2026-11-07
+
+- Vercel: `react.erfeamor.com` added to the project (CNAME target `9385db129d53c7e9.vercel-dns-017.com`); `BFF_URL=https://erfeamor.com`, redeployed.
+- cv-infra#49: the `react` CNAME in `domain.tf` (`var.react_cname_target`). cv-infra#50: `/react` is now a 301.
+- cv-public-react#10: `metadataBase`, test first; `CLAUDE.md` records the new `BFF_URL` and the domain.
+- Live: `react.erfeamor.com` 200 on Vercel with a valid certificate (to 2027-02-05) and the real CV; `erfeamor.com/react/x` and `www.erfeamor.com/react` both 301 to `https://react.erfeamor.com`.
