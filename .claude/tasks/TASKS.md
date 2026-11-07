@@ -77,7 +77,7 @@ Recent close-outs: 2026-11-07 **T-065** (decided against Spot: eu-west-3a has sc
 | [T-212](T-212-smoke-url-erfeamor-com.md) | Smoke test on erfeamor.com (and the arm64-only decision) | cv-bff-node | todo |  | T-061 | |
 | [T-064](T-064-delete-ci-host-stack.md) | Delete the CI host stack (Jenkins, Drone, doorbell, reaper) | cv-infra | todo |  | T-117, T-159, T-305 | |
 | [T-065](T-065-app-host-spot.md) | App host on Spot (persistent, stop on interruption) with alerts | cv-infra | done | claude | T-061 | |
-| [T-066](T-066-shrink-mysql-data-volume.md) | Shrink the MySQL data volume from 8 GB to 2 GB | cv-infra | todo |  | | |
+| [T-066](T-066-shrink-mysql-data-volume.md) | Shrink the MySQL data volume from 8 GB to 2 GB | cv-infra | in_review | claude | | |
 | [T-067](T-067-spike-no-public-ipv4.md) | Spike: run the app host with no public IPv4 (CloudFront VPC origin + IPv6 egress) | cv-infra | todo |  | T-061 | |
 | [T-068](T-068-app-host-vpc-origin-no-eip.md) | App host behind a CloudFront VPC origin; release the EIP | cv-infra | todo |  | T-067 | |
 | [T-069](T-069-m3-hygiene-budgets-remeasure-close.md) | M3 close: hygiene, budgets, re-measure, docs, tag M3 | cv-infra + cv-project (meta) | todo |  | T-064, T-066, T-068 | |

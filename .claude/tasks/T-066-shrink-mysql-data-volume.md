@@ -2,10 +2,10 @@
 id: T-066
 title: "Shrink the MySQL data volume from 8 GB to 2 GB"
 repo: cv-infra
-status: todo
-owner: 
+status: in_review
+owner: claude
 branch: feat/shrink-mysql-volume
-pr:
+pr: cv-infra#52
 depends_on: []
 risk: high
 security_review: true
