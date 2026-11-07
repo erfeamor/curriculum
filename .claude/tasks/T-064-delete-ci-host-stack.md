@@ -44,6 +44,8 @@ With every pipeline on Actions, the CI host only costs money: its 20 GB EBS bill
   - remove the `drone_*`, `jenkins_*` and `github_*` lines from `terraform.tfvars`
 - **Board:** cancel T-058, closing it as obsolete.
 
+- **Rename `data.aws_route53_zone.ci`** to a neutral name (T-061 kept it, to avoid touching ~10 CI files that this task deletes anyway). It is referenced by `domain.tf` and `tests/plan.tftest.hcl`.
+
 ## Acceptance criteria
 
 - [ ] `describe-instances` shows no CI host; `plan` is clean afterwards.

@@ -4,14 +4,17 @@ Protocol: [README.md](README.md) · Contract: [docs/api-contract.md](../../docs/
 
 One line per task; the task file holds the detail. Merge narratives and superseded reasoning live in HISTORY.md — when a note below stops being current, move it there rather than striking it in place. Done rows are folded under each table.
 
-## Now / Next / Later — refreshed 2026-11-07 (M3 planned: cost first, on erfeamor.com)
+## Now / Next / Later — refreshed 2026-11-07 (T-061 done: erfeamor.com is live)
 
 The order to claim in. It is **advice, refreshed at every board-sync**. `depends_on` is authoritative wherever the two disagree, and a lane entry that has gone stale is a board-sync finding, not a rule.
 
 **Sizing:** plan by **plan windows and the human's `/usage` figure**, not by the budget probe — it doesn't count subagent spend, which dominates infra work (sessions 1–5, 2026-09-28 → 10-01, measured it; close-outs in [HISTORY.md](HISTORY.md)). High-risk infra has run about 2× its estimates. Host-up work follows `cv-infra/docs/runbooks/` (`drone.md`, `ci-host-replace.md`); pause the reaper with the **`CIKeepAlive` tag**, never by disabling the rule.
 
-**Now**
-- [T-061](T-061-erfeamor-com-on-cloudfront.md): erfeamor.com on CloudFront. It unblocks most of M3. In parallel: [T-063](T-063-oidc-role-cv-admin-react.md) (the admin's OIDC role) and [T-067](T-067-spike-no-public-ipv4.md) (the no-IPv4 spike).
+**Now** (all unblocked by T-061)
+- [T-062](T-062-cognito-custom-domain-auth-erfeamor-com.md): Cognito at `auth.erfeamor.com`; then [T-306](T-306-admin-auth-erfeamor-com.md).
+- [T-410](T-410-react-erfeamor-com.md): needs **you** in the Vercel dashboard (add `react.erfeamor.com`, set `BFF_URL`, redeploy). Until then `/react` redirects to a name that doesn't resolve.
+- Phase B, in parallel: [T-063](T-063-oidc-role-cv-admin-react.md) → [T-305](T-305-drone-to-github-actions.md); [T-117](T-117-jenkins-to-github-actions.md), [T-159](T-159-jenkins-to-github-actions.md), [T-212](T-212-smoke-url-erfeamor-com.md).
+- Also free: [T-065](T-065-app-host-spot.md) (Spot) and [T-067](T-067-spike-no-public-ipv4.md) (the no-IPv4 spike).
 
 **Next**
 - Phase B ([T-117](T-117-jenkins-to-github-actions.md), [T-159](T-159-jenkins-to-github-actions.md), [T-305](T-305-drone-to-github-actions.md), then [T-064](T-064-delete-ci-host-stack.md)) **before mid-December**, which makes T-058 obsolete.
@@ -22,7 +25,7 @@ The order to claim in. It is **advice, refreshed at every board-sync**. `depends
 - **By 2026-12-30:** create a new fine-grained token for Jenkins ([T-058](T-058-rotate-jenkins-github-pat-2027.md)); the current one expires **2027-01-30**.
 - Paid plan since 2026-09-29; all five credit activities done (grant $200). **$104.05** left on 2026-11-02. The rate is **~$0.47/day** (October flat at $0.456/day plus the hosted zone; T-051 modelled $0.51), enough until about mid-June 2027, before the credits expire on 2027-07-12. Charges past them bill the card; the budget alarms are the guard.
 
-Recent close-outs: 2026-11-06 **T-038** (check 8 converged: 0 false positives and 0 misses over 107 trees; line numbers now come from parser source offsets); 2026-11-06 T-059 (the doorbell ignores tag pushes); 2026-11-04 **T-504** (`M2` tagged in all 9 repos, pinned by `releases/M2.json`, immutable through tag rulesets); 2026-11-02 **T-040** (Jenkins token rotated; rotations now re-provision on apply); 2026-10-08 T-056 + T-057 (README drift from T-502's audit); 2026-10-08 **T-502** (final docs + Mermaid diagram; the roadmap is complete); 2026-10-08 **T-055** (`cv-redeploy` resolves every input before removing the running container; app host now `i-05c8e011117d30b34`); 2026-10-08 **T-054** (app logs in CloudWatch; app host now `i-0ec8607bffc070d6a`); 2026-10-07 T-052 (decided: app logs to CloudWatch via T-054, metrics local by design); T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
+Recent close-outs: 2026-11-07 **T-061** (erfeamor.com serves the apex, `/admin/`, `/bff`, `/api` over a us-east-1 certificate; `www` and `/react` redirect; CORS origins are an SSM parameter; app host now `i-009de3a4d696f6213`); 2026-11-06 **T-038** (check 8 converged: 0 false positives and 0 misses over 107 trees; line numbers now come from parser source offsets); 2026-11-06 T-059 (the doorbell ignores tag pushes); 2026-11-04 **T-504** (`M2` tagged in all 9 repos, pinned by `releases/M2.json`, immutable through tag rulesets); 2026-11-02 **T-040** (Jenkins token rotated; rotations now re-provision on apply); 2026-10-08 T-056 + T-057 (README drift from T-502's audit); 2026-10-08 **T-502** (final docs + Mermaid diagram; the roadmap is complete); 2026-10-08 **T-055** (`cv-redeploy` resolves every input before removing the running container; app host now `i-05c8e011117d30b34`); 2026-10-08 **T-054** (app logs in CloudWatch; app host now `i-0ec8607bffc070d6a`); 2026-10-07 T-052 (decided: app logs to CloudWatch via T-054, metrics local by design); T-050 (ECR keeps latest + 4 shas per repo); **T-501: milestone M2** (absorbs T-015); **T-049 + T-158** (production migrations run from cv-database's master after Jenkins is green; schema-first ordering rule in both repos); 2026-10-06 T-503 (the human's CV is live), T-005, T-048, T-047/T-112/T-203 (automated deploys); 2026-10-05 T-035, T-025, T-116, T-044, T-303. Narratives are in each task file and [HISTORY.md](HISTORY.md).
 
 **Later / conditional**
 - [T-021](T-021-mysql-password-rotation-persistent-datadir.md): T-004 decided **not** to rotate `db_password`, so this has no trigger today. Claim it **before** anyone changes `db_password` for any reason.
@@ -64,7 +67,7 @@ Recent close-outs: 2026-11-06 **T-038** (check 8 converged: 0 false positives an
 | ID | Title | Repo | Status | Owner | Depends on | PR |
 |----|-------|------|--------|-------|------------|----|
 | [T-060](T-060-m3-policy-ci-normalization-cost-first.md) | The rules allow normalizing CI and put cost first; file M3 | cv-project (meta) | done | tech-product-owner | — | [#129](https://github.com/erfeamor/curriculum/pull/129) |
-| [T-061](T-061-erfeamor-com-on-cloudfront.md) | erfeamor.com on CloudFront: ACM (us-east-1), aliases, IPv6, apex/www/react DNS, redirects, CORS via SSM | cv-infra | todo |  | T-060 | |
+| [T-061](T-061-erfeamor-com-on-cloudfront.md) | erfeamor.com on CloudFront: ACM (us-east-1), aliases, IPv6, apex/www/react DNS, redirects, CORS via SSM | cv-infra | done | tech-product-owner | T-060 | [cv-infra#48](https://github.com/erfeamor/cv-infra/pull/48) |
 | [T-062](T-062-cognito-custom-domain-auth-erfeamor-com.md) | Cognito custom domain auth.erfeamor.com | cv-infra | todo |  | T-061 | |
 | [T-410](T-410-react-erfeamor-com.md) | cv-public-react on react.erfeamor.com | cv-public-react | todo |  | T-061 | |
 | [T-063](T-063-oidc-role-cv-admin-react.md) | OIDC deploy role for cv-admin-react (replaces Drone's static key) | cv-infra | todo |  | T-060 | |
