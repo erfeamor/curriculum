@@ -2,13 +2,28 @@
 id: T-117
 title: "Jenkins replaced by GitHub Actions"
 repo: cv-domain-service
-status: todo
-owner: 
+status: in_progress
+owner: infrastructure-engineer
 branch: feat/ci-github-actions
 pr:
 depends_on: [T-060, T-061]
 risk: normal
-security_review: false
+security_review: true
+checkpoint:
+  stage: 1
+  repo: cv-domain-service
+  branch: feat/ci-github-actions
+  worktree: /home/erfeamor/work/cvdl-worktrees/T-117-cv-domain-service
+  developer: infrastructure-engineer
+  reviewers: [backend-developer]
+  risk: normal
+  security_review: true
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  updated: 2026-11-08T21:00:00Z
+  budget: {turns: 0, spawns: 0, status: ok}
 ---
 
 ## Why
