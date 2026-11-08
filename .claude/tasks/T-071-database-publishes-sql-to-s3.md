@@ -25,3 +25,7 @@ Counterpart of T-070: the host now reads the migration SQL from `s3://<backup bu
 
 - [ ] A master run uploads the tarball and the migration still succeeds; the object matches `git archive` of `sql/`.
 - [ ] A PR run uploads nothing.
+
+## DONE (2026-11-08)
+
+cv-database#9 and #10 merged. #9's first master run uploaded the object, then failed on a `head-object` read-back (the role is write-only by design, T-070); #10 dropped the read-back. Live proof for T-070/T-071: with the object published, `cv-redeploy migrate` on the app host printed `migration SQL: s3://cv-project-mysql-backup-dev/migrations/cv-database-sql.tgz` (no git fallback) and Flyway reported schema `cv` up to date. T-068 is unblocked.

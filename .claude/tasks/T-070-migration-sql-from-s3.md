@@ -2,7 +2,7 @@
 id: T-070
 title: "cv-redeploy migrate reads the migration SQL from S3 (git stays as fallback)"
 repo: cv-infra
-status: in_review
+status: done
 owner: claude
 branch: feat/migration-sql-from-s3
 pr: https://github.com/erfeamor/cv-infra/pull/54
