@@ -2,7 +2,7 @@
 id: T-070
 title: "cv-redeploy migrate reads the migration SQL from S3 (git stays as fallback)"
 repo: cv-infra
-status: in_review
+status: done
 owner: claude
 branch: feat/migration-sql-from-s3
 pr: https://github.com/erfeamor/cv-infra/pull/54
@@ -28,3 +28,11 @@ Split out of T-068 at its H1 (2026-11-08). The no-public-IPv4 host cannot reach 
 - [ ] Plan test and check-static pin the two scoped statements (write: cv-database role, `migrations/*`; read: app host, `migrations/*`).
 - [ ] The harness proves: object present -> used; object missing -> git fallback; any other S3 error -> `cv-redeploy migrate` fails without touching the running container.
 - [ ] After apply and a manual upload of the tarball, `cv-redeploy migrate` runs from S3 on the live host.
+
+## DONE (2026-11-08)
+
+cv-infra#54 merged and applied (app host replaced, data volume reattached). Acceptance 3 proven live together with T-071: with the object published, `cv-redeploy migrate` read it from S3 with no git fallback. Before the publish it took the 404 → git fallback, as designed.
+
+## DONE (2026-11-08)
+
+cv-infra#54 merged and applied (app host replaced, data volume reattached). Acceptance 3 proven live together with T-071: with the object published, `cv-redeploy migrate` read it from S3 with no git fallback. Before the publish it took the 404 → git fallback, as designed.
