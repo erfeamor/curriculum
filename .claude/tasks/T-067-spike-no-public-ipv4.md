@@ -2,7 +2,7 @@
 id: T-067
 title: "Spike: run the app host with no public IPv4 (CloudFront VPC origin + IPv6 egress)"
 repo: cv-infra
-status: in_review
+status: done
 owner: claude
 branch: spike/no-public-ipv4
 pr: https://github.com/erfeamor/cv-infra/pull/53
