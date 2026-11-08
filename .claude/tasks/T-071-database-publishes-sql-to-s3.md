@@ -2,10 +2,10 @@
 id: T-071
 title: "cv-database migrate workflow publishes sql/ to S3 before the redeploy"
 repo: cv-database
-status: todo
-owner: 
+status: in_review
+owner: claude
 branch: feat/publish-sql-to-s3
-pr:
+pr: https://github.com/erfeamor/cv-database/pull/9
 depends_on: [T-070]
 risk: normal
 security_review: true
