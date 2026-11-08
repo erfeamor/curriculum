@@ -32,3 +32,7 @@ Split out of T-068 at its H1 (2026-11-08). The no-public-IPv4 host cannot reach 
 ## DONE (2026-11-08)
 
 cv-infra#54 merged and applied (app host replaced, data volume reattached). Acceptance 3 proven live together with T-071: with the object published, `cv-redeploy migrate` read it from S3 with no git fallback. Before the publish it took the 404 → git fallback, as designed.
+
+## DONE (2026-11-08)
+
+cv-infra#54 merged and applied (app host replaced, data volume reattached). Acceptance 3 proven live together with T-071: with the object published, `cv-redeploy migrate` read it from S3 with no git fallback. Before the publish it took the 404 → git fallback, as designed.

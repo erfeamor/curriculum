@@ -79,8 +79,8 @@ Recent close-outs: 2026-11-07 **T-212** (the BFF deploy smoke test runs against 
 | [T-065](T-065-app-host-spot.md) | App host on Spot (persistent, stop on interruption) with alerts | cv-infra | done | claude | T-061 | |
 | [T-066](T-066-shrink-mysql-data-volume.md) | Shrink the MySQL data volume from 8 GB to 2 GB | cv-infra | done | claude | | |
 | [T-067](T-067-spike-no-public-ipv4.md) | Spike: run the app host with no public IPv4 (CloudFront VPC origin + IPv6 egress) | cv-infra | done | claude | T-061 | [cv-infra#53](https://github.com/erfeamor/cv-infra/pull/53) |
-| [T-070](T-070-migration-sql-from-s3.md) | cv-redeploy migrate reads the migration SQL from S3 | cv-infra | in_review | claude | T-067 | [cv-infra#54](https://github.com/erfeamor/cv-infra/pull/54) |
-| [T-071](T-071-database-publishes-sql-to-s3.md) | cv-database publishes sql/ to S3 before the redeploy | cv-database | in_review | claude | T-070 | |
+| [T-070](T-070-migration-sql-from-s3.md) | cv-redeploy migrate reads the migration SQL from S3 | cv-infra | done | claude | T-067 | [cv-infra#54](https://github.com/erfeamor/cv-infra/pull/54) |
+| [T-071](T-071-database-publishes-sql-to-s3.md) | cv-database publishes sql/ to S3 before the redeploy | cv-database | done | claude | T-070 | [cv-database#9](https://github.com/erfeamor/cv-database/pull/9), [#10](https://github.com/erfeamor/cv-database/pull/10) |
 | [T-068](T-068-app-host-vpc-origin-no-eip.md) | App host behind a CloudFront VPC origin; release the EIP | cv-infra | todo |  | T-067, T-070, T-071 | |
 | [T-069](T-069-m3-hygiene-budgets-remeasure-close.md) | M3 close: hygiene, budgets, re-measure, docs, tag M3 | cv-infra + cv-project (meta) | todo |  | T-064, T-066, T-068 | |
 | [T-506](T-506-spike-serverless.md) | Spike: serverless (Lambda + a database off MySQL) priced against the trimmed host | cross-repo | todo |  | T-069 | |
