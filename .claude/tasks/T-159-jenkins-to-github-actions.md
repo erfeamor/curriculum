@@ -2,7 +2,7 @@
 id: T-159
 title: "Jenkins migration gate replaced by GitHub Actions"
 repo: cv-database
-status: in_review
+status: done
 owner: infrastructure-engineer
 branch: feat/ci-github-actions
 pr: https://github.com/erfeamor/cv-database/pull/11
@@ -10,10 +10,10 @@ depends_on: [T-060, T-061]
 risk: normal
 security_review: true
 checkpoint:
-  stage: H2
+  stage: done
   repo: cv-database
   branch: feat/ci-github-actions
-  worktree: /home/erfeamor/work/cvdl-worktrees/T-159-cv-database
+  worktree: none
   developer: infrastructure-engineer
   reviewers: [backend-developer]
   risk: normal
@@ -41,4 +41,10 @@ This repo's Jenkinsfile runs Flyway 13.7.0 against a throwaway MySQL 8.4. `migra
 
 ## Acceptance criteria
 
-- [ ] A PR that adds a broken migration goes red; a dispatch still migrates production.
+- [x] A PR that adds a broken migration goes red; a dispatch still migrates production.
+
+## DONE (2026-11-08)
+
+cv-database#11 merged. `gate.yml` (reusable: `mysql:8.4` service container with the real-query health check, `flyway/flyway:13.7.0 migrate` on the job network with `?allowPublicKeyRetrieval=true`, plus the structural workflow tests) runs on every PR through `ci.yml` and before production in `migrate.yml` (`migrate` needs it; the caller job is pinned to `contents: read`). `Jenkinsfile` deleted, smoke URL moved to `https://erfeamor.com`.
+
+Proof: a throwaway PR with a broken migration failed at the Flyway step (closed unmerged). The master run after the merge, and a `workflow_dispatch` on master at H2, both ran gate, S3 publish, SSM migrate (schema `cv` up to date) and the smoke check, all green. The doorbell webhook `663035258` was deleted at H2 (none left on the repo).

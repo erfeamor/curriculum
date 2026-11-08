@@ -70,8 +70,8 @@ Recent close-outs: 2026-11-07 **T-212** (the BFF deploy smoke test runs against 
 | [T-062](T-062-cognito-custom-domain-auth-erfeamor-com.md) | Cognito custom domain auth.erfeamor.com | cv-infra | done | claude | T-061 | |
 | [T-410](T-410-react-erfeamor-com.md) | cv-public-react on react.erfeamor.com | cv-public-react | done | claude | T-061 | |
 | [T-063](T-063-oidc-role-cv-admin-react.md) | OIDC deploy role for cv-admin-react (replaces Drone's static key) | cv-infra | todo |  | T-060 | |
-| [T-117](T-117-jenkins-to-github-actions.md) | Jenkins replaced by GitHub Actions | cv-domain-service | in_review | infrastructure-engineer | T-060, T-061 | [cv-domain-service#19](https://github.com/erfeamor/cv-domain-service/pull/19) |
-| [T-159](T-159-jenkins-to-github-actions.md) | Jenkins migration gate replaced by GitHub Actions | cv-database | in_review | infrastructure-engineer | T-060, T-061 | [cv-database#11](https://github.com/erfeamor/cv-database/pull/11) |
+| [T-117](T-117-jenkins-to-github-actions.md) | Jenkins replaced by GitHub Actions | cv-domain-service | done | infrastructure-engineer | T-060, T-061 | [cv-domain-service#19](https://github.com/erfeamor/cv-domain-service/pull/19) |
+| [T-159](T-159-jenkins-to-github-actions.md) | Jenkins migration gate replaced by GitHub Actions | cv-database | done | infrastructure-engineer | T-060, T-061 | [cv-database#11](https://github.com/erfeamor/cv-database/pull/11) |
 | [T-305](T-305-drone-to-github-actions.md) | Drone replaced by GitHub Actions (OIDC deploy) | cv-admin-react | todo |  | T-063 | |
 | [T-306](T-306-admin-auth-erfeamor-com.md) | Admin build on auth.erfeamor.com; drop the old callbacks and the prefix domain | cv-admin-react | todo |  | T-062, T-305 | |
 | [T-212](T-212-smoke-url-erfeamor-com.md) | Smoke test on erfeamor.com (and the arm64-only decision) | cv-bff-node | done | claude | T-061 | |
