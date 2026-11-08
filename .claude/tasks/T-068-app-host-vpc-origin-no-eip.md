@@ -2,10 +2,10 @@
 id: T-068
 title: "App host behind a CloudFront VPC origin; release the EIP"
 repo: cv-infra
-status: todo
-owner: 
+status: in_review
+owner: claude
 branch: feat/vpc-origin-no-eip
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/55
 depends_on: [T-067, T-070, T-071]
 risk: high
 security_review: true
