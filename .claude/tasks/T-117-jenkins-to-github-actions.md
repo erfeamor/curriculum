@@ -2,13 +2,28 @@
 id: T-117
 title: "Jenkins replaced by GitHub Actions"
 repo: cv-domain-service
-status: todo
-owner: 
+status: done
+owner: infrastructure-engineer
 branch: feat/ci-github-actions
-pr:
+pr: https://github.com/erfeamor/cv-domain-service/pull/19
 depends_on: [T-060, T-061]
 risk: normal
-security_review: false
+security_review: true
+checkpoint:
+  stage: done
+  repo: cv-domain-service
+  branch: feat/ci-github-actions
+  worktree: none
+  developer: infrastructure-engineer
+  reviewers: [backend-developer]
+  risk: normal
+  security_review: true
+  review_round: 1
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  updated: 2026-11-08T21:00:00Z
+  budget: {turns: 420, spawns: 3, status: ok}
 ---
 
 ## Why
@@ -27,5 +42,11 @@ Phase B of M3 deletes the CI host. This repo's Jenkinsfile is its PR gate, and `
 
 ## Acceptance criteria
 
-- [ ] A PR run and a master run are green; a master push still deploys and the smoke test passes.
-- [ ] No webhook points at the doorbell.
+- [x] A PR run and a master run are green; a master push still deploys and the smoke test passes.
+- [x] No webhook points at the doorbell.
+
+## DONE (2026-11-08)
+
+cv-domain-service#19 merged. `gate.yml` (reusable: checkstyle, `mvn test` 237 tests, package, amd64 `docker build`, plus the repo's structural workflow tests) runs on every PR through `ci.yml` and on master through `deploy.yml`, whose `build` job needs it. The gate caller job is pinned to `contents: read`; no `environment:` anywhere, so the OIDC `sub` is unchanged. `Jenkinsfile` deleted, smoke URL moved to `https://erfeamor.com`. Multi-arch images kept (arm64-only declined at H1, as in T-212).
+
+Live proof: the master run after the merge was green end to end (gate, both native builds, manifest merge, SSM roll, smoke: BFF aggregate 200, domain API 401). The doorbell webhook `663034880` was deleted at H2 (none left on the repo).
