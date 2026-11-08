@@ -2,13 +2,28 @@
 id: T-063
 title: "OIDC deploy role for cv-admin-react (replaces Drone's static key)"
 repo: cv-infra
-status: todo
-owner: 
+status: in_progress
+owner: infrastructure-engineer
 branch: feat/admin-oidc-role
 pr:
 depends_on: [T-060]
 risk: normal
 security_review: true
+checkpoint:
+  stage: 1
+  repo: cv-infra
+  branch: feat/admin-oidc-role
+  worktree: /home/erfeamor/work/cvdl-worktrees/T-063-cv-infra
+  developer: infrastructure-engineer
+  reviewers: [infrastructure-engineer]
+  risk: normal
+  security_review: true
+  review_round: 0
+  open_findings: 0
+  qa_bounces: 0
+  fix_attempts: 0
+  updated: 2026-11-08T23:00:00Z
+  budget: {turns: 0, spawns: 0, status: ok}
 ---
 
 ## Why
