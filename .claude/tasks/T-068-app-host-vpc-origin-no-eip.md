@@ -2,7 +2,7 @@
 id: T-068
 title: "App host behind a CloudFront VPC origin; release the EIP"
 repo: cv-infra
-status: in_review
+status: done
 owner: claude
 branch: feat/vpc-origin-no-eip
 pr: https://github.com/erfeamor/cv-infra/pull/55
@@ -28,5 +28,17 @@ Only if T-067 says go. Saves $3.60/month. As a side benefit, the origins become 
 
 ## Acceptance criteria
 
-- [ ] `describe-addresses` is empty and the host has no public IP; direct `:8080` is unreachable.
-- [ ] A deploy, a migration and a backup all succeed through the new path.
+- [x] `describe-addresses` is empty and the host has no public IP; direct `:8080` is unreachable.
+- [x] A deploy, a migration and a backup all succeed through the new path.
+
+## DONE (2026-11-08)
+
+cv-infra#55 merged and applied: the EIP is released, the host has no public IPv4 and sits in the private dual-stack subnet, and CloudFront reaches it through two VPC origins. Three follow-ups were needed before the host was reproducible from code, all merged:
+
+- **#56, containers need IPv6 egress too.** T-067 tested only the host. After the first apply the BFF could not reach Cognito (502) and the JVM hung on IPv4-first (504). Docker IPv6 + NAT66 in `daemon.json`, the `cv` network created with an IPv6 subnet, `accept_ra=2`, and `-Djava.net.preferIPv6Addresses=true` on the domain service. Hot-patched live first, then codified.
+- **#57, CI host subnet.** `data.aws_subnets.default` also listed the new private subnet, so the plan moved the CI host into it (no IPv4 route). Added the `default-for-az` filter; check-static 30.
+- **#58, VPC origins replaced create-before-destroy.** AWS answers 409 `CannotUpdateEntityWhileInUse` to an update or delete of an origin a distribution uses, and the provider plans a new instance ARN as an in-place update, so replacing the host (the #56 apply) failed half-applied. The origins now carry `replace_triggered_by` the instance, `create_before_destroy` and a name with the instance id; check-static 31. Recovered with `-replace` on both origins.
+
+Live proof on the host built from master (`i-0f2999fd101493bcd`, no hand patches): `describe-addresses` empty, no public IP; `https://erfeamor.com/` 200, `/api/v1/people/1` 401, `/bff/api/v1/people/1/cv` 200; `daemon.json`, `accept_ra`, the `cv` IPv6 subnet and the JVM flag all came from the script; `cv-redeploy migrate` read the SQL from S3 (schema `cv` up to date, version 2); a manual backup uploaded a new dump.
+
+Left for T-069: refresh the cost docs (the EIP's $0.12/day is gone from the run rate) and delete the old 8 GB MySQL volume `vol-092113db466c84bc1` after 2026-11-14.
