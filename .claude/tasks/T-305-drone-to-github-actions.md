@@ -2,15 +2,15 @@
 id: T-305
 title: "Drone replaced by GitHub Actions (OIDC deploy)"
 repo: cv-admin-react
-status: in_progress
+status: in_review
 owner: infrastructure-engineer
 branch: feat/ci-github-actions
-pr:
+pr: https://github.com/erfeamor/cv-admin-react/pull/18
 depends_on: [T-063]
 risk: normal
 security_review: true
 checkpoint:
-  stage: 1
+  stage: H2
   repo: cv-admin-react
   branch: feat/ci-github-actions
   worktree: /home/erfeamor/work/cvdl-worktrees/T-305-cv-admin-react
@@ -18,12 +18,12 @@ checkpoint:
   reviewers: [infrastructure-engineer]
   risk: normal
   security_review: true
-  review_round: 0
+  review_round: 1
   open_findings: 0
   qa_bounces: 0
   fix_attempts: 0
   updated: 2026-11-09T08:00:00Z
-  budget: {turns: 0, spawns: 0, status: ok}
+  budget: {turns: 70, spawns: 2, status: ok}
 ---
 
 ## Why
