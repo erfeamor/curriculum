@@ -73,9 +73,9 @@ Recent close-outs: 2026-11-07 **T-212** (the BFF deploy smoke test runs against 
 | [T-117](T-117-jenkins-to-github-actions.md) | Jenkins replaced by GitHub Actions | cv-domain-service | done | infrastructure-engineer | T-060, T-061 | [cv-domain-service#19](https://github.com/erfeamor/cv-domain-service/pull/19) |
 | [T-159](T-159-jenkins-to-github-actions.md) | Jenkins migration gate replaced by GitHub Actions | cv-database | done | infrastructure-engineer | T-060, T-061 | [cv-database#11](https://github.com/erfeamor/cv-database/pull/11) |
 | [T-305](T-305-drone-to-github-actions.md) | Drone replaced by GitHub Actions (OIDC deploy) | cv-admin-react | done | infrastructure-engineer | T-063 | [cv-admin-react#18](https://github.com/erfeamor/cv-admin-react/pull/18) |
-| [T-306](T-306-admin-auth-erfeamor-com.md) | Admin build on auth.erfeamor.com; drop the old callbacks and the prefix domain | cv-admin-react | todo |  | T-062, T-305 | |
+| [T-306](T-306-admin-auth-erfeamor-com.md) | Admin build on auth.erfeamor.com; drop the old callbacks and the prefix domain | cv-admin-react | in_progress | infrastructure-engineer | T-062, T-305 | |
 | [T-212](T-212-smoke-url-erfeamor-com.md) | Smoke test on erfeamor.com (and the arm64-only decision) | cv-bff-node | done | claude | T-061 | |
-| [T-064](T-064-delete-ci-host-stack.md) | Delete the CI host stack (Jenkins, Drone, doorbell, reaper) | cv-infra | todo |  | T-117, T-159, T-305 | |
+| [T-064](T-064-delete-ci-host-stack.md) | Delete the CI host stack (Jenkins, Drone, doorbell, reaper) | cv-infra | in_progress | infrastructure-engineer | T-117, T-159, T-305 | |
 | [T-065](T-065-app-host-spot.md) | App host on Spot (persistent, stop on interruption) with alerts | cv-infra | done | claude | T-061 | |
 | [T-066](T-066-shrink-mysql-data-volume.md) | Shrink the MySQL data volume from 8 GB to 2 GB | cv-infra | done | claude | | |
 | [T-067](T-067-spike-no-public-ipv4.md) | Spike: run the app host with no public IPv4 (CloudFront VPC origin + IPv6 egress) | cv-infra | done | claude | T-061 | [cv-infra#53](https://github.com/erfeamor/cv-infra/pull/53) |

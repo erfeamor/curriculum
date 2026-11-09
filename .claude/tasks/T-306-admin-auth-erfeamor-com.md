@@ -2,8 +2,8 @@
 id: T-306
 title: "Admin build on auth.erfeamor.com; drop the old callbacks and the prefix domain"
 repo: cv-admin-react
-status: todo
-owner: 
+status: in_progress
+owner: infrastructure-engineer
 branch: feat/admin-auth-domain
 pr:
 depends_on: [T-062, T-305]

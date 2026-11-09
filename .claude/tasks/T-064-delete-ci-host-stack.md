@@ -2,8 +2,8 @@
 id: T-064
 title: "Delete the CI host stack (Jenkins, Drone, doorbell, reaper)"
 repo: cv-infra
-status: todo
-owner: 
+status: in_progress
+owner: infrastructure-engineer
 branch: feat/delete-ci-host
 pr:
 depends_on: [T-117, T-159, T-305]
