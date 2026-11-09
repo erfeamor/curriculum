@@ -2,7 +2,7 @@
 id: T-305
 title: "Drone replaced by GitHub Actions (OIDC deploy)"
 repo: cv-admin-react
-status: in_review
+status: done
 owner: infrastructure-engineer
 branch: feat/ci-github-actions
 pr: https://github.com/erfeamor/cv-admin-react/pull/18
@@ -10,10 +10,10 @@ depends_on: [T-063]
 risk: normal
 security_review: true
 checkpoint:
-  stage: H2
+  stage: done
   repo: cv-admin-react
   branch: feat/ci-github-actions
-  worktree: /home/erfeamor/work/cvdl-worktrees/T-305-cv-admin-react
+  worktree: none
   developer: infrastructure-engineer
   reviewers: [infrastructure-engineer]
   risk: normal
@@ -40,4 +40,12 @@ Drone builds and deploys the admin on the CI host with a static IAM key.
 
 ## Acceptance criteria
 
-- [ ] A master push deploys the admin, and a human login and save work.
+- [x] A master push deploys the admin, and a human login and save work.
+
+## DONE (2026-11-09)
+
+[cv-admin-react#18](https://github.com/erfeamor/cv-admin-react/pull/18) merged. `.github/workflows/ci.yml`: a `test` job on Node 22 (lint, typecheck, test, build, a guard that `dist/` has no `localhost:8080`, build-storybook, 25 structural tests) and a master-only `deploy` job that assumes the T-063 role by OIDC (no `environment:`), syncs `admin/` in two passes (immutable assets, then `index.html` no-cache with `--delete`), invalidates `/admin/*` and smoke-tests `https://erfeamor.com/admin/` with a retry. `.drone.yml` is deleted. An independent security review found no blockers.
+
+First master run (`9b72347`) green: assume-role, both syncs and the invalidation worked under the role's exact permissions. Live `/admin/` serves the new bundle with the right cache headers, no `localhost:8080`, and the old Cognito hosted-UI domain. Human acceptance by the user: login and save work.
+
+**Not done here, carried to T-064:** the two cv-admin-react webhooks (Drone `687961843`, doorbell `689017760`) are still in place. They are harmless (Drone's pipeline is gone) and the user has not yet OK'd deleting them; T-064 removes the doorbell Lambda anyway, so delete them first. Drone's static deploy key stays until T-064.
