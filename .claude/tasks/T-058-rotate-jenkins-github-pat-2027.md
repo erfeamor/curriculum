@@ -2,8 +2,8 @@
 id: T-058
 title: "Rotate Jenkins' GitHub token again: the current one expires 2027-01-30"
 repo: cv-infra
-status: todo
-owner:
+status: done
+owner: infrastructure-engineer
 branch: chore/rotate-jenkins-pat-2027
 pr: none   # a rotation through terraform.tfvars + apply needs no code change since T-040
 depends_on: [T-040]
@@ -33,3 +33,7 @@ Follow `cv-infra/CLAUDE.md` § "Rotating Jenkins' GitHub token":
 
 - [ ] New token in SSM and in Jenkins; a new green commit status after the cutover.
 - [ ] Old token revoked; the next expiry recorded and its reminder filed.
+
+## DONE (2026-11-09): closed as obsolete
+
+Not carried out. [T-064](T-064-delete-ci-host-stack.md) deleted the CI host and the user revoked the Jenkins token, so there is nothing to rotate.
