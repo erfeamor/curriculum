@@ -69,25 +69,12 @@ flowchart LR
     DOM -.->|logs| CWL
 
     subgraph GitHub
-        HOOKS["GitHub repos<br/>webhooks and commit statuses"]
-        GHA["GitHub Actions<br/>master pushes"]
+        GHA["GitHub Actions<br/>tests on PRs, deploys on master"]
     end
 
-    subgraph CI["CI host: EC2 t3.small, on demand"]
-        JENKINS["Jenkins<br/>cv-domain-service, cv-database"]
-        DRONE["Drone<br/>cv-admin-react"]
-    end
-
-    DOORBELL["doorbell Lambda<br/>function URL"]
-    REAPER["reaper Lambda<br/>every 5 min"]
     SSMDOC["SSM documents<br/>cv-redeploy-domain-service<br/>cv-redeploy-bff-node<br/>cv-redeploy-migrate"]
 
-    HOOKS -.->|"HMAC-signed"| DOORBELL
-    DOORBELL -.->|"start host"| CI
-    DOORBELL -.->|"redeliver Drone hook"| HOOKS
-    REAPER -.->|"stop when idle"| CI
-    JENKINS -.->|"commit status"| HOOKS
-    DRONE -.->|"admin build to S3"| S3
+    GHA -.->|"OIDC: admin build"| S3
     GHA -.->|"OIDC: push images"| ECR
     GHA -.->|"OIDC: vanilla site"| S3
     GHA -.->|"OIDC: send command"| SSMDOC
@@ -121,27 +108,22 @@ The two edge prefixes are the routing contract (`docs/api-contract.md` § BFF, a
 
 ## Deploys
 
-Every service deploys itself from `master`; no deploy credential lives on the CI host, with one exception (the admin's Drone key, below).
+Every service deploys itself from `master` with GitHub Actions and keyless OIDC roles; no deploy credential is stored anywhere.
 
 - **cv-domain-service and cv-bff-node:**
-  1. A master push runs a GitHub Actions workflow. The domain service's first waits for Jenkins' green status on that commit.
+  1. A master push runs a GitHub Actions workflow whose first job is the repo's shared test gate (checkstyle, tests, package and an image build for the domain service); the deploy job runs only if it passes.
   2. The workflow assumes the service's **master-only OIDC role**. That one role may push to the service's own ECR repository and send exactly one SSM document (`cv-redeploy-<service>`) to the app host, found by tag. It builds a multi-arch image on native amd64 and arm64 runners, pushes `:latest` and `:<sha>`, then sends the document. Because it can overwrite `:latest`, the master-only trust is what protects production.
   3. On the host, `cv-redeploy` pulls the image and resolves every input (SSM parameters, instance id) **before** removing the running container (T-055), then starts the new one with the same arguments the boot script uses (one shared definition in `/usr/local/lib/cv-app.sh`).
-- **cv-database:** a master push that changes `sql/migrations/**` waits for Jenkins, then sends `cv-redeploy-migrate` (Flyway, migrations only, never the dev seeds) through its own OIDC role (T-049/T-158). **Schema first:** a migration merges and migrates before the domain change that needs it, because the domain service runs Hibernate with `ddl-auto: validate`.
+- **cv-database:** a master push that changes `sql/migrations/**` first passes the migration gate (Flyway 13.7.0 against a MySQL 8.4 service container), then sends `cv-redeploy-migrate` (Flyway, migrations only, never the dev seeds) through its own OIDC role (T-049/T-158). **Schema first:** a migration merges and migrates before the domain change that needs it, because the domain service runs Hibernate with `ddl-auto: validate`.
 - **cv-public-vanilla:** GitHub Actions with its own OIDC role syncs the build to the bucket root and invalidates CloudFront (T-403/T-045).
-- **cv-admin-react:** Drone builds on the CI host and syncs `admin/` with a static IAM key kept in Drone, the one deploy credential on the CI host. It may write anywhere in the frontend bucket and create invalidations, nothing else (Drone runs cv-admin-react untrusted, T-005).
+- **cv-admin-react:** GitHub Actions tests and builds, then a master-only OIDC role (`cv-project-admin-deploy`, T-063/T-305) syncs `admin/` and invalidates `/admin/*`. The role can write only the `admin/` prefix of the frontend bucket and create invalidations on this distribution, nothing else. The admin signs in through Cognito at `auth.erfeamor.com` (T-306).
 - **cv-public-react:** Vercel builds from `master`; the production build fails without a valid `BFF_URL` (T-404).
 - **Images:** ECR keeps `:latest` plus the four previous `:<sha>` images per repo, and enough untagged per-arch children for all of them (T-050).
 - **The app host itself** boots from a small hash-checked user_data stub that fetches the real provisioning script from S3 (T-044); the containers' run arguments live in that script. Any change to the rendered user_data replaces the host (`user_data_replace_on_change`): the stub, its inputs, or the script, whose hash the stub embeds. So does a deliberate `-replace`, for example for a new AMI. New images and migrations never do.
 
-## CI on demand
+## CI
 
-The CI host (Jenkins and Drone behind Caddy with Let's Encrypt, at `ci.erfeamor.com`) runs only for builds:
-
-- **Doorbell:** the repos' GitHub webhooks (every push and PR, not only master) hit a Lambda function URL. It verifies the HMAC signature and a repo allowlist, ignores events with nothing to build (branch deletions, non-build PR actions), and starts the host if needed (T-019/T-034/T-042). For **cv-admin-react only**, it then asks GitHub to redeliver Drone's own signed hook once the host is up. The Jenkins repos rely on Jenkins' scan on boot and every 5 minutes instead. A push while the host is already up is tagged `CILastPush` so the reaper waits for Jenkins' scan (T-048).
-- **Reaper:** an EventBridge schedule runs a Lambda every 5 minutes that stops the host once Jenkins reports nothing queued or running **and** CloudWatch shows its CPU quiet for a 20-minute window (Drone can't be queried from a Lambda, so CPU stands in for its builds). It also waits out a 15-minute post-start grace and a 10-minute grace after the last push. Tag the host `CIKeepAlive` to pause it.
-- **DNS:** the host has no Elastic IP. It updates `ci.erfeamor.com` to its new public IP on boot and sets the record to the `192.0.2.1` sentinel on shutdown (T-034/T-041).
-- **Least privilege:** each host's role can read only its own SSM parameters (T-005). A Jenkins build is effectively root on the CI host, which is documented accepted risk.
+Every repo's checks run on GitHub Actions (Vercel builds the Next.js site). Each deploying repo keeps its gate in a reusable workflow (`gate.yml` or the `test` job of `ci.yml`) that its pull-request run and its master deploy both call, so a deploy can't skip the tests. Deploy jobs run without a GitHub `environment`, because that would change the OIDC subject the roles trust (`ref:refs/heads/master` exactly). There is no CI host: Jenkins, Drone, the doorbell and reaper Lambdas, `ci.erfeamor.com` and the stored deploy key were removed on 2026-11-09 (T-064) to cut cost. The `ci-artifacts` bucket stays, because the app host's provisioning script lives in it.
 
 ## Data
 
@@ -151,7 +133,7 @@ MySQL 8.4 runs in a container on the app host (no RDS), with its data directory 
 
 Decided at [T-052](../.claude/tasks/T-052-observability-scope-decision.md) (2026-10-07):
 
-- **Logs:** the domain service's and the BFF's container output ships to CloudWatch Logs (`/cv-project/cv-domain-service`, `/cv-project/cv-bff-node`, 14-day retention) through Docker's awslogs driver in non-blocking mode (T-054). Read it with `aws logs tail <group> --region eu-west-3`. MySQL's logs stay on the host. The CI Lambdas log to their own groups.
+- **Logs:** the domain service's and the BFF's container output ships to CloudWatch Logs (`/cv-project/cv-domain-service`, `/cv-project/cv-bff-node`, 14-day retention) through Docker's awslogs driver in non-blocking mode (T-054). Read it with `aws logs tail <group> --region eu-west-3`. MySQL's logs stay on the host.
 - **Metrics:** Prometheus and Grafana (`cv-observability`) run **only in the local dev stack, by design**. Nothing scrapes the deployed services, and the edge returns `403` for `/metrics`.
 - **Not deployed:** structured JSON logging inside the apps and MongoDB Atlas (the README's original logging design).
 

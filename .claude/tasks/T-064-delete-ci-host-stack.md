@@ -2,10 +2,10 @@
 id: T-064
 title: "Delete the CI host stack (Jenkins, Drone, doorbell, reaper)"
 repo: cv-infra
-status: todo
-owner: 
+status: done
+owner: infrastructure-engineer
 branch: feat/delete-ci-host
-pr:
+pr: https://github.com/erfeamor/cv-infra/pull/60
 depends_on: [T-117, T-159, T-305]
 risk: high
 security_review: true
@@ -48,6 +48,14 @@ With every pipeline on Actions, the CI host only costs money: its 20 GB EBS bill
 
 ## Acceptance criteria
 
-- [ ] `describe-instances` shows no CI host; `plan` is clean afterwards.
-- [ ] Every repo's PR and master runs are green.
-- [ ] No IAM key remains for a deploy path.
+- [x] `describe-instances` shows no CI host; `plan` is clean afterwards.
+- [x] Every repo's PR and master runs are green.
+- [x] No IAM key remains for a deploy path.
+
+## DONE (2026-11-09)
+
+[cv-infra#60](https://github.com/erfeamor/cv-infra/pull/60) merged and applied by the user: 0 to add, 0 to change, 41 to destroy (the plan had no replacement of the app host, the data volume, the VPC origins or the `ci_artifacts` bucket). An independent security review found no blockers. The `ci_artifacts` bucket stays (the app host's provision script lives there) and moved to `storage.tf` with the same addresses. Providers null, local, archive and random left `providers.tf` and the lock file. `ci-deploy.tf` and `github-oidc.tf` are untouched.
+
+Verified afterwards (2026-11-09): the CI host `i-0ee24b3d917501c4d` is `terminated`; the only instance is the app host; the CI host's 20 GB volume is gone; no Elastic IP; the IAM users are `erfeamor` and `terraform-admin` (`cv-project-drone-deploy` gone); the only Lambda is the unrelated `health-app-backend`; SSM holds only the app host's eight parameters; no `ci.erfeamor.com` record; log groups `/cv-project/cv-bff-node` and `/cv-project/cv-domain-service` only; no webhooks on any of the nine repos (cv-admin-react's two were deleted 2026-11-09); `terraform plan` from master reports no changes and the lock file is clean. The user revoked the Jenkins and `github_hooks_token` PATs, removed the Drone OAuth app and cleaned the `terraform.tfvars` lines. The doorbell and reaper log data went with the log groups.
+
+Open, not part of this task: the detached old data volume `vol-092113db466c84bc1` (8 GB, the T-066 rollback) still bills until deleted, which T-069 does after 2026-11-14. The `Name`-less 8 GB `vol-0bbabf768498a2ad8` is the app host's root disk. The meta repo's `CLAUDE.md`, README and `docs/architecture.md` still describe Jenkins and Drone and need a docs pass (with the T-069 cost refresh).
