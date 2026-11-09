@@ -5,7 +5,7 @@
 # 📘 Project: Interactive Résumé — Full-Stack Technology Demo
 
 This project is a **comprehensive technology demo** designed to showcase mastery of multiple technologies, architectures, patterns, and modern development practices.
-The system is composed of several independent layers, each living in its own repository and deployed via distinct pipelines (Jenkins, GitHub Actions, and DroneCI).
+The system is composed of several independent layers, each living in its own repository and deployed through its own pipeline (GitHub Actions everywhere, plus Vercel for the Next.js site).
 
 ---
 
@@ -158,21 +158,21 @@ Every repository implements TDD from the start:
 
 ---
 
-## 🚀 CI/CD — Jenkins, GitHub Actions, and DroneCI
+## 🚀 CI/CD — GitHub Actions (and Vercel)
 
-Each repository uses a different pipeline to demonstrate mastery of multiple tools:
+Every repository runs its checks on GitHub Actions, except the Next.js site, which builds on Vercel. (Jenkins and Drone ran on a dedicated CI host until 2026-11-09; they were retired to cut cost.)
 
 | Repository | CI | Deploy (from `master`) |
 |-------------|----------|----------|
-| cv-domain-service | Jenkins | GitHub Actions (`deploy.yml`): once Jenkins is green, multi-arch image → ECR → SSM `cv-redeploy-domain-service` |
+| cv-domain-service | GitHub Actions | GitHub Actions (`deploy.yml`): once the shared test gate is green, multi-arch image → ECR → SSM `cv-redeploy-domain-service` |
 | cv-bff-node | GitHub Actions | the same workflow: multi-arch image → ECR → SSM `cv-redeploy-bff-node` |
-| cv-admin-react | DroneCI | Drone: build → S3 `admin/` → CloudFront invalidation |
+| cv-admin-react | GitHub Actions | the same workflow (OIDC): build → S3 `admin/` → CloudFront invalidation |
 | cv-public-vanilla | GitHub Actions | the same workflow (OIDC): build → S3 root → CloudFront invalidation |
 | cv-public-react | Vercel | Vercel (ISR from the deployed BFF) |
-| cv-database | Jenkins | GitHub Actions (`migrate.yml`), only when a push changes `sql/migrations/**`: once Jenkins is green, SSM `cv-redeploy-migrate` runs Flyway in production |
+| cv-database | GitHub Actions | GitHub Actions (`migrate.yml`), only when a push changes `sql/migrations/**`: once the migration gate (Flyway against a MySQL 8.4 service container) is green, SSM `cv-redeploy-migrate` runs Flyway in production |
 | cv-observability | GitHub Actions | — (local dev stack only) |
 
-The CI column runs lint, tests (TDD) and the build; cv-observability's only validates its compose file and Prometheus config. The GitHub Actions deploys assume master-only OIDC roles and hold no stored credential. The admin's Drone deploy is the exception: it uses a static IAM access key kept in Drone on the CI host.
+The CI column runs lint, tests (TDD) and the build; cv-observability's only validates its compose file and Prometheus config. The deploys assume master-only OIDC roles and hold no stored credential; none is kept anywhere.
 
 ---
 
@@ -182,7 +182,7 @@ Deployed with Terraform. The account is on AWS's Paid plan since 2026-09-29, pai
 
 ### Services used
 - **EC2 `t4g.micro` (Graviton) app host**
-  Runs the domain service (Java) and the BFF (Node) as containers. A separate `t3.small` CI host runs Jenkins and Drone and is started only for builds.
+  Runs the domain service (Java) and the BFF (Node) as containers.
 - **Self-hosted MySQL 8.4 (container on the domain-service EC2)**
   Main database — runs alongside the app instead of RDS, which avoids the RDS instance cost and the MySQL 8.0 Extended Support charge.
 - **S3 + CloudFront**
@@ -190,7 +190,7 @@ Deployed with Terraform. The account is on AWS's Paid plan since 2026-09-29, pai
 - **AWS Cognito**
   Authentication.
 - **CloudWatch Logs**
-  The domain service's and the BFF's container logs (since T-054), plus the CI host's doorbell and reaper Lambdas. MongoDB Atlas is a design option, not deployed. Prometheus/Grafana run only in the local dev stack, by design (T-052).
+  The domain service's and the BFF's container logs (since T-054). MongoDB Atlas is a design option, not deployed. Prometheus/Grafana run only in the local dev stack, by design (T-052).
 - **SSM Parameter Store**
   Secrets management.
 
@@ -256,8 +256,8 @@ Each product repo also ships its own `.devcontainer/devcontainer.json` for worki
 - [x] Create the Vanilla Landing page (full CV; deployed at the CloudFront root)
 - [x] Create the Next.js optimized public site (full CV; ISR from the deployed BFF; on Vercel)
 - [x] Configure observability (app logs to CloudWatch in production; metrics in the local dev stack only, by design: T-052/T-054)
-- [x] Deploy AWS infrastructure — Terraform applied in eu-west-3 (an EC2 app host running the domain service and the BFF beside a self-hosted MySQL 8.4 container, S3+CloudFront for the admin and the vanilla site, Cognito, ECR, an on-demand CI host for Jenkins and Drone)
-- [x] Configure CI/CD pipelines (Jenkins ×2, GitHub Actions ×5, DroneCI ×1, Vercel ×1); the domain service and the BFF deploy themselves on a master push, cv-database migrates production when a migration lands on master, the admin deploys from Drone and the vanilla site from GitHub Actions
+- [x] Deploy AWS infrastructure — Terraform applied in eu-west-3 (an EC2 app host running the domain service and the BFF beside a self-hosted MySQL 8.4 container, S3+CloudFront for the admin and the vanilla site, Cognito, ECR)
+- [x] Configure CI/CD pipelines (GitHub Actions ×6, Vercel ×1); the domain service and the BFF deploy themselves on a master push, cv-database migrates production when a migration lands on master, and the admin and the vanilla site deploy from GitHub Actions
 - [x] Final documentation and architecture diagram ([docs/architecture.md](docs/architecture.md))
 
 The finished roadmap is tagged **`M2`** in all nine repos. [`releases/M2.json`](releases/M2.json) pins each repo's commit, and the tags can't be moved or deleted. To reproduce it: `git checkout M2 && scripts/release-checkout.sh M2 && scripts/release-verify.sh M2`.
