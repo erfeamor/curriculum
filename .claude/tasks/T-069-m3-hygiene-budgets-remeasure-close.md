@@ -2,8 +2,8 @@
 id: T-069
 title: "M3 close: hygiene, budgets, re-measure, docs, tag M3"
 repo: cv-infra + cv-project (meta)
-status: todo
-owner: 
+status: in_progress
+owner: infrastructure-engineer
 branch: chore/m3-close
 pr:
 depends_on: [T-064, T-066, T-068]
