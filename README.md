@@ -178,7 +178,7 @@ The CI column runs lint, tests (TDD) and the build; cv-observability's only vali
 
 ## ☁️ Cloud Infrastructure (AWS, eu-west-3)
 
-Deployed with Terraform. The account is on AWS's Paid plan since 2026-09-29, paid from credits first (cost model in `cv-infra`). Verified against the account on 2026-10-07:
+Deployed with Terraform. The account is on AWS's Paid plan since 2026-09-29, paid from credits first (cost model in `cv-infra`). Verified against the account on 2026-10-07 and updated through M3 (2026-11-15):
 
 ### Services used
 - **EC2 `t4g.micro` (Graviton) app host**

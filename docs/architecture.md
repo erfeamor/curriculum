@@ -139,4 +139,4 @@ Decided at [T-052](../.claude/tasks/T-052-observability-scope-decision.md) (2026
 
 ## Infra and cost
 
-Everything in AWS is Terraform in `cv-infra` (one root module, remote state in S3 with a DynamoDB lock). The account is on AWS's Paid plan; remaining credits pay first, then the card. Current figures live in one place each, and are not repeated here so they can't go stale: the meta repo's [CLAUDE.md](../CLAUDE.md) (cost bullet) and `cv-infra/CLAUDE.md` (cost model), measured by T-051. The endgame decision is T-012.
+Everything in AWS is Terraform in `cv-infra` (one root module, remote state in S3 with a DynamoDB lock). The account is on AWS's Paid plan; remaining credits pay first, then the card. Current figures live in one place each, and are not repeated here so they can't go stale: the meta repo's [CLAUDE.md](../CLAUDE.md) (cost bullet) and `cv-infra/CLAUDE.md` (cost model), re-measured by T-069 on 2026-11-15. The endgame decision is T-012.
