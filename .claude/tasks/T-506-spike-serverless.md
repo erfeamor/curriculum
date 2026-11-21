@@ -5,7 +5,7 @@ repo: cross-repo
 status: in_review
 owner: tech-product-owner
 branch: spike/serverless
-pr:
+pr: https://github.com/erfeamor/curriculum/pull/145
 depends_on: [T-069]
 risk: normal
 security_review: false
