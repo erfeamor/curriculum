@@ -7,6 +7,7 @@ Decided 2026-11-21. Prices are from the AWS Price List API for **eu-west-3 (Pari
 1. **Do not migrate the CV to serverless.** It would save at most about $7.60/month, and only after the credits expire on 2027-07-12. Before then the saving is zero, because ~$39 of credits expire unused anyway. The cost is a rewrite of the data layer. No follow-up task.
 2. **Build budgetPlanner serverless, outside the app host.** Estimated +$1.30/month. The host has no room for a second app, and growing it to `t4g.small` adds $6.86/month on its own.
 3. **The CV and budgetPlanner stay independent.** The Lambda and DynamoDB pieces for budgetPlanner are cheap to prove, and if serverless later proves good there, the CV question can be reopened with real experience.
+4. **Reopen the CV question in May 2027** (credits end 2027-07-12), with budgetPlanner's measured usage and its Aurora DSQL experience as the input. If DSQL went smoothly the CV move gets cheaper; if not, keep the host.
 
 ## Facts that drive the numbers
 
