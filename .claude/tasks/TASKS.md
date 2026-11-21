@@ -82,7 +82,7 @@ Recent close-outs: 2026-11-07 **T-212** (the BFF deploy smoke test runs against 
 | [T-071](T-071-database-publishes-sql-to-s3.md) | cv-database publishes sql/ to S3 before the redeploy | cv-database | done | claude | T-070 | [cv-database#9](https://github.com/erfeamor/cv-database/pull/9), [#10](https://github.com/erfeamor/cv-database/pull/10) |
 | [T-068](T-068-app-host-vpc-origin-no-eip.md) | App host behind a CloudFront VPC origin; release the EIP | cv-infra | done | claude | T-067, T-070, T-071 | [cv-infra#55](https://github.com/erfeamor/cv-infra/pull/55) |
 | [T-069](T-069-m3-hygiene-budgets-remeasure-close.md) | M3 close: hygiene, budgets, re-measure, docs, tag M3 | cv-infra + cv-project (meta) | done | infrastructure-engineer | T-064, T-066, T-068 | [cv-infra#62](https://github.com/erfeamor/cv-infra/pull/62) |
-| [T-506](T-506-spike-serverless.md) | Spike: serverless (Lambda + a database off MySQL) priced against the trimmed host | cross-repo | todo |  | T-069 | |
+| [T-506](T-506-spike-serverless.md) | Spike: serverless (Lambda + a database off MySQL) priced against the trimmed host | cross-repo | in_review | tech-product-owner | T-069 | PR |
 
 ## M2 — Complete the domain model end-to-end
 

@@ -2,8 +2,8 @@
 id: T-506
 title: "Spike: serverless (Lambda + a database off MySQL) priced against the trimmed host"
 repo: cross-repo
-status: todo
-owner: 
+status: in_review
+owner: tech-product-owner
 branch: spike/serverless
 pr:
 depends_on: [T-069]
@@ -31,4 +31,12 @@ The human chose to trim the EC2 now and price serverless later.
 
 ## Acceptance criteria
 
-- [ ] A decision document with a recommendation, and a follow-up task only if the saving justifies it.
+- [x] A decision document with a recommendation, and a follow-up task only if the saving justifies it.
+
+## DONE
+
+Decision document: [docs/spike-serverless.md](../../docs/spike-serverless.md), 2026-11-21.
+
+- **Verdict: no-go on moving the CV.** It saves ~$6.90/month, only after 2027-07-12 (credits cover the bill until then), and costs a data-layer rewrite (JPA on Aurora DSQL, no foreign keys, Flyway). No follow-up task.
+- **Serverless pays off for a new app.** The `budgetPlanner` estimate on Lambda is +$1.30/month ($30 of credits still expire unused); on the app host it would need `t4g.small` (+$6.86/month) and the credits would run out on 2027-05-28.
+- Run rate re-measured at $0.25/day (last 5 full days).
